@@ -4,8 +4,8 @@
         "properties": {
             "name": "Vancouver",
             "units": "mm",
-            "amount": 1189.0,
-            "comment": "Source: Environment Canada"
+            "amount": 900
+            "comment": "Fake data"
         },
         "geometry": {
             "type": "Polygon",
@@ -23,8 +23,8 @@
         "properties": {
             "name": "Ottawa",
             "units": "mm",
-            "amount": 919.5,
-            "comment": "Source: Environment Canada"
+            "amount": 1100,
+            "comment": "Fake data"
         },
         "geometry": {
             "type": "Polygon",

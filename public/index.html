@@ -1,5 +1,7 @@
 <html>
     <head>
+        <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.6.0/dist/leaflet.css"
         integrity="sha512-xwE/Az9zrjBIphAcBb3F6JVqxf46+CDLwfLMHloNu6KEQCAWi6HcDUbeOfBIptF7tcCzusKFjFw2yuvEpDL9wQ=="
         crossorigin=""/>
@@ -13,5 +15,21 @@
     <body>
         <h1>Climate Map</h1>
         <div id="climate-map"></div>
+        <div id="filters">
+            <div id="date-range-filter">
+                Date range:
+                <select id="date-range">
+                    <option value="1980-2010">1980-2010</option>
+                    <option value="2010-2040">2010-2040</option>
+                </select>
+            </div>
+            <div id="measurement-filter">
+                Measurement:
+                <select id="measurement">
+                    <option value="temperature">Temperature (&#176;C)</option>
+                    <option value="precipitation">Precipitation (mm)</option>
+                </select>
+            </div>
+        </div>
     </body>
 </html>

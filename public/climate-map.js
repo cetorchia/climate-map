@@ -2,42 +2,128 @@
  * Main climate map javascript.
  */
 
-function styleClimateFeatures(feature) {
-    const amount = feature.properties.amount;
-
-    switch (feature.properties.units) {
-        case 'degC':
-            if (amount > 20) {
-                return {color: "#ff4444"};
-            } else if (amount > 10) {
-                return {color: "#ff8888"};
-            } else if (amount > 0) {
-                return {color: "#ffcccc"};
-            } else if (amount < -20) {
-                return {color: "#4444ff"};
-            } else if (amount < -10) {
-                return {color: "#8888ff"};
-            } else {
-                return {color: "#ccccff"};
-            }
-
-        case 'mm':
-            if (amount > 2000) {
-                return {color: "#44ff44"};
-            } else if (amount > 1000) {
-                return {color: "#88ff88"};
-            } else if (amount > 500) {
-                return {color: "#ccffcc"};
-            } else if (amount < 100) {
-                return {color: "#ffff44"};
-            } else if (amount < 250) {
-                return {color: "#ffff88"};
-            } else {
-                return {color: "#ffffcc"};
-            }
+/**
+ * Returns the colour for the specified degrees Celsius.
+ */
+function degreesCelsiusColour(amount) {
+    if (amount > 20) {
+        return "#ff4444";
+    } else if (amount > 10) {
+        return "#ff8888";
+    } else if (amount > 0) {
+        return "#ffcccc";
+    } else if (amount < -20) {
+        return "#4444ff";
+    } else if (amount < -10) {
+        return "#8888ff";
+    } else {
+        return "#ccccff";
     }
 }
 
+/**
+ * Returns the colour for the specified mm of precipitation.
+ */
+function precipitationMillimetresColour(amount) {
+    if (amount > 2000) {
+        return "#44ff44";
+    } else if (amount > 1000) {
+        return "#88ff88";
+    } else if (amount > 500) {
+        return "#ccffcc";
+    } else if (amount < 100) {
+        return "#ffff44";
+    } else if (amount < 250) {
+        return "#ffff88";
+    } else {
+        return "#ffffcc";
+    }
+}
+
+/**
+ * Returns the style for the specified climate geoJSON.
+ */
+function styleClimateFeatures(feature) {
+    const amount = feature.properties.amount;
+    const units = feature.properties.units;
+
+    switch (units) {
+        case 'degC':
+            return {
+                "color": degreesCelsiusColour(amount)
+            };
+
+        case 'mm':
+            return {
+                "color": precipitationMillimetresColour(amount)
+            };
+    }
+}
+
+/**
+ * Returns human-friendly text for the specified measurement units.
+ */
+function unitText(units) {
+    switch (units) {
+        case 'degC':
+            return '&#176;C';
+
+        default:
+            return units;
+    }
+}
+
+/**
+ * This function executes for each climate geoJSON.
+ */
+function onEachClimateFeature(feature, layer) {
+    const amount = feature.properties.amount;
+    const units = feature.properties.units;
+    const comment = feature.properties.comment;
+    const popupText = amount + ' ' + unitText(units) + ' <br> ' + comment;
+
+    layer.bindPopup(popupText);
+}
+
+/**
+ * Returns the geoJSON for the specified climate filters.
+ */
+async function fetchClimateData(date_range, measurement) {
+    const response = await fetch('data/' + date_range + '/' + measurement + '.json');
+    const geojson = await response.json();
+
+    return geojson;
+}
+
+/**
+ * Updates the climate layer for the specified climate filters.
+ */
+async function updateClimateLayerWith(climate_layer, date_range, measurement) {
+    try {
+        const geojson = await fetchClimateData(date_range, measurement);
+        climate_layer.clearLayers();
+        climate_layer.addData(geojson);
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+/**
+ * Updates the climate layer for the climate filters in the document.
+ */
+async function updateClimateLayer(climate_layer) {
+    const date_range_select = document.getElementById('date-range');
+    const measurement_select = document.getElementById('measurement');
+
+    const date_range = date_range_select.value;
+    const measurement = measurement_select.value;
+
+    updateClimateLayerWith(climate_layer, date_range, measurement);
+}
+
+/**
+ * Loads the climate map.
+ */
 window.onload = async function() {
     /* Fetch GeoJSON */
     var climate_map = L.map('climate-map').setView([49.767, -97.827], 3);
@@ -47,15 +133,20 @@ window.onload = async function() {
     }).addTo(climate_map);
 
     const climate_layer = L.geoJSON([], {
-        style: styleClimateFeatures
+        style: styleClimateFeatures,
+        onEachFeature: onEachClimateFeature
     }).addTo(climate_map);
 
-    try {
-        const response = await fetch('data/1980-2010/temperature.json');
-        const geojson = await response.json();
+    updateClimateLayer(climate_layer);
 
-        climate_layer.addData(geojson);
-    } catch (error) {
-        console.error(error);
-    }
+    const date_range_select = document.getElementById('date-range');
+    const measurement_select = document.getElementById('measurement');
+
+    date_range_select.onchange = async function () {
+        updateClimateLayer(climate_layer);
+    };
+
+    measurement_select.onchange = async function () {
+        updateClimateLayer(climate_layer);
+    };
 };

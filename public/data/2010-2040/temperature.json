@@ -6,8 +6,8 @@
             "properties": {
                 "name": "Vancouver",
                 "units": "degC",
-                "amount": 10.4,
-                "comment": "Source: Environment Canada"
+                "amount": 12,
+                "comment": "Fake data"
             },
             "geometry": {
                 "type": "Polygon",
@@ -25,8 +25,8 @@
             "properties": {
                 "name": "Ottawa",
                 "units": "degC",
-                "amount": 6.6,
-                "comment": "Source: Environment Canada"
+                "amount": 9,
+                "comment": "Fake data"
             },
             "geometry": {
                 "type": "Polygon",

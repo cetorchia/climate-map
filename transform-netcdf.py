@@ -8,23 +8,29 @@ import sys
 from datetime import timedelta
 from datetime import datetime
 import numpy as np
+import json
 
 def get_args(arguments):
     '''
     Determines command line arguments
     '''
-    if len(arguments) != 7:
-        print('Usage: ' + arguments[0] + ' <netcdf4-filename> <geojson-filename> <var> <start-year> <end-year> <month>', file=sys.stderr)
+    num_arguments = len(arguments)
+    if num_arguments not in [6, 7]:
+        print('Usage: ' + arguments[0] + ' <netcdf4-filename> <geojson-filename> <var> <start-year> <end-year> [month]', file=sys.stderr)
 
     nc_file = arguments[1]
     geojson_file = arguments[2]
     variable_name = arguments[3]
     start_year = int(arguments[4])
     end_year = int(arguments[5])
-    month = int(arguments[6])
-
-    start_time = datetime(start_year, month, 1)
-    end_time = datetime(end_year, month + 1, 1) - timedelta(seconds=1)
+    if num_arguments == 7:
+        month = int(arguments[6])
+        start_time = datetime(start_year, month, 1)
+        end_time = datetime(end_year, month + 1, 1) - timedelta(seconds=1)
+    else:
+        month = 0
+        start_time = datetime(start_year, 1, 1)
+        end_time = datetime(end_year + 1, 1, 1) - timedelta(seconds=1)
 
     return (nc_file, geojson_file, variable_name, month, start_time, end_time)
 
@@ -38,54 +44,104 @@ def main(args):
     lon_var = dataset.variables['lon']
     value_var = dataset.variables[variable_name]
 
+    normals = calculate_normals(time_var, lat_var, lon_var, value_var, start_time, end_time, month)
+    geo_data = get_geo_data(lat_var, lon_var, value_var, normals, month)
+
+    with open(geojson_file, 'w') as f:
+        json.dump(geo_data, f, sort_keys=True, indent=4)
+
+    return 0
+
+def calculate_normals(time_var, lat_var, lon_var, value_var, start_time, end_time, month):
+    '''
+    Calculates the means (or totals) through the given time period.
+    '''
+    # Filter down the variables
     oldest_time = datetime.strptime(time_var.units, 'hours since %Y-%m-%d %H:%M:%S')
     start_delta = start_time - oldest_time
     end_delta = end_time - oldest_time
-
     start_hours = start_delta.days * 24
     end_hours = end_delta.days * 24
 
-    new_arr = analyze_dataset(time_var, lat_var, lon_var, value_var, start_hours, end_hours, month, oldest_time)
-
-def analyze_dataset(time_var, lat_var, lon_var, value_var, start_hours, end_hours, month, oldest_time):
-    '''
-    Loop through data
-    '''
-    # Filter down the variables
+    # Determine the time indexes that correspond for this range and month
     time_arr = time_var[:]
-    filtered_time = np.where((time_arr >= start_hours) & (time_arr <= end_hours))[0]
+    time_indexes_range = np.where((time_arr >= start_hours) & (time_arr <= end_hours))[0]
 
-    new_arr = np.ma.array(np.ndarray((lat_var.size, lon_var.size)))
+    if month:
+        filtered_time_indexes = []
+        for time_i in time_indexes_range:
+            time_value = time_var[time_i]
+            time = oldest_time + timedelta(hours=time_value)
+            if time.month == month:
+                filtered_time_indexes.append(time_i)
+    else:
+        filtered_time_indexes = time_indexes_range
 
-    for lat_i in range(lat_var.size):
-        lat_value = lat_var[lat_i]
-        for lon_i in range(lon_var.size):
-            lon_value = lon_var[lon_i]
-            if value_var[0][lat_i][lon_i] != np.ma.core.MaskedConstant:
-                value_sum = 0.0
-                value_num = 0
+    # Filter the data by the time indexes
+    values = value_var[:]
+    filtered_values = values[filtered_time_indexes, :, :]
 
-                for time_i in filtered_time:
-                    time_value = time_var[time_i]
-                    time = oldest_time + timedelta(hours=time_value)
-                    if time.month == month:
-                        value = value_var[time_i][lat_i][lon_i]
+    # Compute the means (or totals) of each coordinate through time axis
+    if (value_var.name == 'precip' and not month):
+        totals = filtered_values.sum(axis = 0) / ((end_time - start_time).days / 365)
+        return totals
+    else:
+        means = filtered_values.mean(axis = 0)
+        return means
 
-                        if value != np.ma.core.MaskedConstant:
-                            value_num += 1
-                            value_sum += value
+def get_geo_data(lat_var, lon_var, value_var, data_arr, month):
+    '''
+    Gives the geoJSON for the specified data.
+    For now, this gives one polygon per latitude. Plan is to create
+    a polygon for each isometric set of contiguous coordinates.
+    '''
+    geo_data = []
+    units = value_var.units
+    for lat_i, data_for_lat in enumerate(data_arr):
+        lat_value = lat_var[lat_i].item()
+        for lon_i, value in enumerate(data_for_lat):
+            lon_value = lon_var[lon_i].item()
 
-                if (value_num > 0):
-                    mean_value = value_sum / value_num
-                    new_arr[lat_i][lon_i] = mean_value
-
-                    print('Latitude:', lat_value)
-                    print('Longitude:', lon_value)
-                    print(value_var.long_name + ':', mean_value)
-                    print('---')
+            if not np.ma.is_masked(value):
+                value = value.item()
+                # Convert to standard units
+                if units == 'degK':
+                    new_value = value - 273.15
+                    new_units = 'degC'
+                elif units == 'cm':
+                    new_value = value * 10.0
+                    new_units = 'mm'
                 else:
-                    new_arr[lat_i][lon_i] = np.ma.masked
+                    new_value = value
+                    new_units = units
 
-    return new_arr
+                if lon_value > 180:
+                    lon_value -= 360
 
-main(sys.argv)
+                feature = {
+                    'type': 'Feature',
+                    'properties': {
+                        'name': '?',
+                        'units': new_units,
+                        'amount': round(new_value, 1),
+                        'month': month,
+                        'comment': '',
+                        'coordinates': [lon_value, lat_value]
+                    },
+                    'geometry': {
+                        'type': 'Polygon',
+                        'coordinates': [[
+                            [lon_value - 0.25, lat_value + 0.25],
+                            [lon_value - 0.25, lat_value - 0.25],
+                            [lon_value + 0.25, lat_value - 0.25],
+                            [lon_value + 0.25, lat_value + 0.25],
+                            [lon_value - 0.25, lat_value + 0.25]
+                        ]]
+                    }
+                }
+                geo_data.append(feature)
+
+    return geo_data
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv))

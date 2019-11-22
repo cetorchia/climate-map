@@ -2,6 +2,8 @@
 #
 # Transforms NetCDF4 files to geoJSON files.
 #
+# Copyright (c) 2019 Carlos Torchia
+#
 
 import netCDF4
 import sys
@@ -123,7 +125,7 @@ def get_geo_data(lat_var, lon_var, value_var, data_arr, month):
                     'properties': {
                         'name': '?',
                         'units': new_units,
-                        'amount': round(new_value, 1),
+                        'amount': round(new_value),
                         'month': month,
                         'comment': '',
                         'coordinates': [lon_value, lat_value]

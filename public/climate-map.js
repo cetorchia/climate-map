@@ -1,5 +1,7 @@
 /**
  * Main climate map javascript.
+ *
+ * Copyright (c) 2019 Carlos Torchia
  */
 
 /**

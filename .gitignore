@@ -2,3 +2,5 @@ public/data/*
 node_modules/
 public/bundle.js
 npm-debug.log
+.*.swp
+__pycache__/

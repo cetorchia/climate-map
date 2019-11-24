@@ -4,10 +4,15 @@
  * Copyright (c) 2019 Carlos Torchia
  */
 
+import L from 'leaflet';
+import './style.css';
+import 'leaflet/dist/leaflet.css';
+
 /**
  * Returns the colour for the specified degrees Celsius.
  */
-function degreesCelsiusColour(amount, month) {
+function degreesCelsiusColour(amount, month)
+{
     if (!month) {
         amount = amount - 10;
     }
@@ -49,7 +54,8 @@ function degreesCelsiusColour(amount, month) {
 /**
  * Returns the colour for the specified mm of precipitation.
  */
-function precipitationMillimetresColour(amount, month) {
+function precipitationMillimetresColour(amount, month)
+{
     if (month) {
         amount = amount * 12;
     }
@@ -69,34 +75,39 @@ function precipitationMillimetresColour(amount, month) {
 }
 
 /**
- * Returns the style for the specified climate geoJSON.
+ * Returns the colour for the specified geoJSON feature.
  */
-function styleClimateFeature(feature) {
+function colourForClimateFeature(feature)
+{
     const amount = feature.properties.amount;
     const units = feature.properties.units;
-    var colour;
 
     switch (units) {
         case 'degC':
-            colour = degreesCelsiusColour(amount, feature.properties.month);
-            break;
+            return degreesCelsiusColour(amount, feature.properties.month);
 
         case 'mm':
-            colour = precipitationMillimetresColour(amount, feature.properties.month);
-            break;
+            return precipitationMillimetresColour(amount, feature.properties.month);
     }
+}
 
+/**
+ * Returns the style for the specified climate geoJSON.
+ */
+function styleClimateFeature(feature)
+{
     return {
         'stroke': feature.geometry.type != 'Polygon',
         'fillOpacity': 0.5,
-        'color': colour
+        'color': colourForClimateFeature(feature)
     };
 }
 
 /**
  * Returns human-friendly text for the specified measurement units.
  */
-function unitText(units) {
+function unitText(units)
+{
     switch (units) {
         case 'degC':
             return '&#176;C';
@@ -109,7 +120,8 @@ function unitText(units) {
 /**
  * This function executes for each climate geoJSON.
  */
-function onEachClimateFeature(feature, layer) {
+function onEachClimateFeature(feature, layer)
+{
     const amount = feature.properties.amount;
     const units = feature.properties.units;
     const comment = feature.properties.comment;
@@ -121,7 +133,8 @@ function onEachClimateFeature(feature, layer) {
 /**
  * Returns the geoJSON for the specified climate filters.
  */
-async function fetchClimateData(date_range, measurement, month) {
+async function fetchClimateData(date_range, measurement, month)
+{
     var url;
 
     if (month) {
@@ -139,7 +152,8 @@ async function fetchClimateData(date_range, measurement, month) {
 /**
  * Updates the climate layer for the specified climate filters.
  */
-async function updateClimateLayerWith(climate_layer, date_range, measurement, month) {
+async function updateClimateLayerWith(climate_layer, date_range, measurement, month)
+{
     try {
         const geojson = await fetchClimateData(date_range, measurement, month);
         climate_layer.clearLayers();
@@ -152,7 +166,8 @@ async function updateClimateLayerWith(climate_layer, date_range, measurement, mo
 /**
  * Updates the climate layer for the climate filters in the document.
  */
-async function updateClimateLayer(climate_layer) {
+async function updateClimateLayer(climate_layer)
+{
     const date_range_select = document.getElementById('date-range');
     const measurement_select = document.getElementById('measurement');
     const month_select = document.getElementById('month');
@@ -168,6 +183,7 @@ async function updateClimateLayer(climate_layer) {
  * Loads the climate map.
  */
 window.onload = async function() {
+    console.log('here1');
     /* Fetch GeoJSON */
     var climate_map = L.map('climate-map').setView([49.767, -97.827], 3);
 
@@ -197,4 +213,5 @@ window.onload = async function() {
     month_select.onchange = async function () {
         updateClimateLayer(climate_layer);
     };
+    console.log('here3');
 };

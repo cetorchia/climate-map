@@ -2,15 +2,7 @@
     <head>
         <meta http-equiv="content-type" content="text/html; charset=UTF-8">
 
-        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.6.0/dist/leaflet.css"
-        integrity="sha512-xwE/Az9zrjBIphAcBb3F6JVqxf46+CDLwfLMHloNu6KEQCAWi6HcDUbeOfBIptF7tcCzusKFjFw2yuvEpDL9wQ=="
-        crossorigin=""/>
-        <link rel="stylesheet" href="style.css" />
-
-        <script src="https://unpkg.com/leaflet@1.6.0/dist/leaflet.js"
-        integrity="sha512-gZwIG9x3wUXg2hdXF6+rVkLF/0Vi9U8D2Ntg4Ga5I5BZpVkVxlJWbSQtXPSiUTtC0TjtGOmxa1AJPuV0CPthew=="
-        crossorigin=""></script>
-        <script type="text/javascript" src="climate-map.js"></script>
+        <script type="text/javascript" src="bundle.js"></script>
     </head>
     <body>
         <div id="climate-map"></div>
@@ -48,6 +40,16 @@
                     <option value="12">December</option>
                 </select>
             </div>
+        </div>
+        <div id="about">
+            <p>
+                This map shows climate normals, such as average temperature and
+                average precipitation, as colours on the map.
+            </p>
+            <p>
+                Climate is not weather. If you think of weather like a person's mood,
+                you could say the climate is like their personality.
+            </p>
         </div>
     </body>
 </html>

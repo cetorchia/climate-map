@@ -1,3 +1,11 @@
+# Installation
+
+Use npm to build the javascript output.
+
+```
+npm run build
+```
+
 # Data source(s)
 
 * [ESRL : PSD : All Gridded Datasets](https://www.esrl.noaa.gov/psd/data/gridded/)

@@ -15,6 +15,7 @@ from datetime import timedelta
 from datetime import datetime
 import json
 import climatetransform
+import png
 
 def get_args(arguments):
     '''
@@ -33,7 +34,8 @@ def get_args(arguments):
     if num_arguments == 7:
         month = int(arguments[6])
         start_time = datetime(start_year, month, 1)
-        end_time = datetime(end_year, month + 1, 1) - timedelta(seconds=1)
+        # Credit to https://stackoverflow.com/a/4131114 for the div/mod by 12
+        end_time = datetime(end_year + month // 12, month % 12 + 1, 1) - timedelta(seconds=1)
     else:
         month = 0
         start_time = datetime(start_year, 1, 1)
@@ -64,8 +66,11 @@ def main(args):
             json.dump(geojson_data, f, sort_keys=True, indent=4)
 
     elif output_fmt == 'png':
-        png_data = climatetransform.get_png_data(lat_var, lon_var, value_var, normals)
-        png.from_array(png_data).save(output_file)
+        pixels = climatetransform.get_pixels(lat_var, lon_var, value_var, normals, month)
+        png.from_array(pixels, 'RGB', info={
+            'transparent': (0, 0, 0),
+            'compression': 0,
+        }).save(output_file)
 
     return 0
 

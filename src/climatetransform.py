@@ -63,11 +63,12 @@ def to_standard_units(value, units):
 
     return new_value, new_units
 
-def get_geojson_data(lat_var, lon_var, value_var, data_arr, month):
+def get_json_data(lat_var, lon_var, value_var, data_arr, month):
     '''
-    Gives the geoJSON for the specified data.
+    Gives the JSON for the specified data.
+    This data is indexed by latitude and longitude.
     '''
-    geojson_data = []
+    data = {}
     units = value_var.units
     for lat_i, data_for_lat in enumerate(data_arr):
         lat_value = lat_var[lat_i].item()
@@ -81,24 +82,15 @@ def get_geojson_data(lat_var, lon_var, value_var, data_arr, month):
                 if lon_value > 180:
                     lon_value -= 360
 
-                feature = {
-                    'type': 'Feature',
-                    'properties': {
-                        'name': '?',
-                        'units': new_units,
-                        'amount': round(new_value),
-                        'month': month,
-                        'comment': '',
-                        'coordinates': [lon_value, lat_value]
-                    },
-                    'geometry': {
-                        'type': 'Point',
-                        'coordinates': [lon_value, lat_value]
-                    }
-                }
-                geojson_data.append(feature)
+                if data.get(lat_value) is None:
+                    data[lat_value] = {}
 
-    return geojson_data
+                data[lat_value][lon_value] = [
+                    round(new_value),
+                    new_units,
+                ]
+
+    return data
 
 def get_pixels(lat_var, lon_var, value_var, data_arr, month):
     '''
@@ -142,7 +134,7 @@ def get_pixels(lat_var, lon_var, value_var, data_arr, month):
 
 def colour_for_amount(amount, units, month):
     '''
-    Returns the colour for the specified geoJSON feature.
+    Returns the colour for the specified amount, units, and month.
     '''
     if units == 'degC':
         return degrees_celsius_colour(amount, month)

@@ -60,10 +60,10 @@ def main(args):
     normals = climatetransform.calculate_normals(time_var, lat_var, lon_var, value_var, start_time, end_time, month)
 
     if output_fmt == 'json':
-        geojson_data = climatetransform.get_geojson_data(lat_var, lon_var, value_var, normals, month)
+        data = climatetransform.get_json_data(lat_var, lon_var, value_var, normals, month)
 
         with open(output_file, 'w') as f:
-            json.dump(geojson_data, f, sort_keys=True, indent=4)
+            json.dump(data, f)
 
     elif output_fmt == 'png':
         pixels = climatetransform.get_pixels(lat_var, lon_var, value_var, normals, month)

@@ -12,3 +12,10 @@
     height: 512px;
     position: fixed;
 }
+
+#about {
+    width: 900px;
+    height: 200px;
+    margin-right: 20px;
+    display: inline-block;
+}

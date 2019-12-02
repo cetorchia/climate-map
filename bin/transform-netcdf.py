@@ -41,8 +41,12 @@ def get_args(arguments):
         start_time = datetime(start_year, 1, 1)
         end_time = datetime(end_year + 1, 1, 1) - timedelta(seconds=1)
 
-    output_fmt = output_file.split('.')[-1]
-    if output_fmt not in ('json', 'png'):
+    if output_file.endswith('/'):
+        output_fmt = 'folder'
+    else:
+        output_fmt = output_file.split('.')[-1]
+
+    if output_fmt not in ('json', 'png', 'folder'):
         raise Exception('Unknown output format ' + output_fmt)
 
     return (nc_file, output_file, output_fmt, variable_name, month, start_time, end_time)
@@ -72,7 +76,47 @@ def main(args):
             'compression': 0,
         }).save(output_file)
 
+    elif output_fmt == 'folder':
+        data = climatetransform.get_json_data(lat_var, lon_var, value_var, normals, month)
+
+        save_folder_data(data, output_file, variable_name, month)
+
     return 0
+
+def save_folder_data(data, output_folder, variable_name, month):
+    '''
+    Saves data in coordinate folders for quick lookup of stats.
+    Augments existing data.
+    '''
+    for lat_value in data:
+        lat_index = str(round(lat_value) // 10 * 10)
+        lat_folder = os.path.join(output_folder, 'coords', lat_index)
+        os.makedirs(lat_folder, exist_ok=True)
+
+        for lon_value in data[lat_value]:
+            lon_index = str(round(lon_value) // 10 * 10)
+            lon_folder = os.path.join(lat_folder, lon_index)
+            if not os.path.exists(lon_folder):
+                os.mkdir(lon_folder)
+
+            coord = str(lat_value) + '_' + str(lon_value)
+            coord_file = os.path.join(lon_folder, coord + '.json')
+
+            datum = data[lat_value][lon_value]
+
+            if not os.path.exists(coord_file):
+                existing_datum = {}
+            else:
+                with open(coord_file, 'r') as f:
+                    existing_datum = json.load(f)
+
+            if existing_datum.get(variable_name) is None:
+                existing_datum[variable_name] = {}
+
+            existing_datum[variable_name][month] = datum
+
+            with open(coord_file, 'w') as f:
+                json.dump(existing_datum, f)
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv))

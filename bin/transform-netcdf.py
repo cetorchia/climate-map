@@ -10,6 +10,7 @@ import sys
 dir_path = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), 'src')
 sys.path.append(dir_path)
 
+import math
 import netCDF4
 from datetime import timedelta
 from datetime import datetime
@@ -89,12 +90,12 @@ def save_folder_data(data, output_folder, variable_name, month):
     Augments existing data.
     '''
     for lat_value in data:
-        lat_index = str(round(lat_value) // 10 * 10)
+        lat_index = str(math.floor(lat_value) // 10 * 10)
         lat_folder = os.path.join(output_folder, 'coords', lat_index)
         os.makedirs(lat_folder, exist_ok=True)
 
         for lon_value in data[lat_value]:
-            lon_index = str(round(lon_value) // 10 * 10)
+            lon_index = str(math.floor(lon_value) // 10 * 10)
             lon_folder = os.path.join(lat_folder, lon_index)
             if not os.path.exists(lon_folder):
                 os.mkdir(lon_folder)

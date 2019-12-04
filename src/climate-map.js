@@ -5,6 +5,7 @@
  */
 
 import L from 'leaflet';
+import Chart from 'chart.js';
 import './style.css';
 import 'leaflet/dist/leaflet.css';
 
@@ -64,6 +65,9 @@ function climateDataUrlForCoords(date_range, lat, lon)
     return 'data/' + date_range + '/coords/' + lat_grp + '/' + lon_grp + '/' + coords + '.json';
 }
 
+/**
+ * Fetches data for the specified coordinates and date range.
+ */
 async function fetchClimateDataForCoords(date_range, lat, lon)
 {
     const url = climateDataUrlForCoords(date_range, lat, lon);
@@ -94,7 +98,8 @@ async function updateClimateLayer(climate_layer)
 }
 
 /**
- * Create the climate layer.
+ * Create the climate layer. This shows the differences between
+ * different regions' climates in a visual way.
  *
  * @return map layer
  */
@@ -118,6 +123,93 @@ function createClimateLayer()
 }
 
 /**
+ * Shows a climate chart with the specified data.
+ *
+ * @return Chart
+ */
+function createClimateChart(data)
+{
+    const ctx = document.getElementById('location-climate-chart').getContext('2d');
+
+    /* Collect temperature means for each month in a linear fashion. */
+    let temps = [];
+    const air_data = data['air'];
+    for (let i = 1; i <= 12; i++) {
+        if (air_data[i][1] != 'degC') {
+            throw new Error('Expected air temp in degC, got ' + air_data[i][1]);
+        }
+        temps.push(air_data[i][0]);
+    }
+
+    /* Collect precipitation totals for each month in a linear fashion. */
+    let precips = [];
+    const precip_data = data['precip'];
+    for (let i = 1; i <= 12; i++) {
+        if (precip_data[i][1] != 'mm') {
+            throw new Error('Expected precip in mm, got ' + precip_data[i][1]);
+        }
+        precips.push(precip_data[i][0]);
+    }
+
+    /* Create the chart. */
+    const chart = new Chart(ctx, {
+        'type': 'bar',
+        'data': {
+            'labels': [
+                'January',
+                'February',
+                'March',
+                'April',
+                'May',
+                'June',
+                'July',
+                'August',
+                'September',
+                'October',
+                'November',
+                'December',
+            ],
+            'datasets': [
+                {
+                    'label': 'Temperature (°C)',
+                    'data': temps,
+                    'order': 2,
+                    'backgroundColor': '#e22',
+                    'yAxisId': 'y-axis-left',
+                },
+                {
+                    'label': 'Precipitation (mm)',
+                    'data': precips,
+                    'type': 'line',
+                    'order': 1,
+                    'backgroundColor': '#22e',
+                    'fill': false,
+                    'yAxisId': 'y-axis-right',
+                }
+            ],
+            'scales': {
+                'yAxes': [
+                    {
+                        'type': 'linear',
+                        'display': true,
+                        'position': 'left',
+                        'id': 'y-axis-left',
+                    },
+                    {
+                        'type': 'linear',
+                        'display': true,
+                        'position': 'right',
+                        'id': 'y-axis-right',
+                    },
+                ],
+            },
+        },
+    });
+
+    return chart;
+}
+
+/**
  * Loads the climate map.
  */
 window.onload = async function() {
@@ -131,6 +223,9 @@ window.onload = async function() {
     const climate_layer = createClimateLayer().addTo(climate_map);
     const location_marker = L.marker([0, 0]);
 
+    /**
+     * Handle changes to the filters. We will update the map's colours.
+     */
     const date_range_select = document.getElementById('date-range');
     const measurement_select = document.getElementById('measurement');
     const month_select = document.getElementById('month');
@@ -147,9 +242,13 @@ window.onload = async function() {
         updateClimateLayer(climate_layer);
     };
 
-    climate_map.on('click', function(e) {
-        location_marker.setLatLng(e.latlng).addTo(climate_map);
+    /**
+     * Handle clicks on the climate map. We will show a bunch of information
+     * about that particular location's climate.
+     */
+    var climate_chart;
 
+    climate_map.on('click', function(e) {
         const lat = e.latlng.lat;
         const lon = e.latlng.lng;
 
@@ -157,8 +256,22 @@ window.onload = async function() {
         const date_range = date_range_select.value;
 
         const promise = fetchClimateDataForCoords(date_range, lat, lon);
+
         promise.then(function(data) {
-            console.log(data);
+            location_marker.setLatLng(e.latlng).addTo(climate_map);
+
+            if (climate_chart !== undefined) {
+                climate_chart.destroy();
+            }
+            climate_chart = createClimateChart(data);
+
+            /* Show the location climate div. */
+            document.getElementById('location-climate').style.display = 'block';
         });
     });
+
+    document.getElementById('close-location-climate').onclick = function() {
+        /* Hide the location climate div. */
+        document.getElementById('location-climate').style.display = 'none';
+    };
 };

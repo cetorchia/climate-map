@@ -77,6 +77,14 @@ bin/transform-netcdf.py precip.mon.total.v501.nc public/data/1980-2010/ precip 1
 bin/transform-netcdf.py precip.mon.total.v501.nc public/data/1980-2010/ precip 1980 2010 12
 ```
 
+The following script does each month in one command for convenience.
+
+```
+bin/transform-all-months.sh ~/Documents/Climate/air.mon.mean.v501.nc 1970 2000
+bin/transform-all-months.sh ~/Documents/Climate/air.mon.mean.v501.nc 1980 2010
+...
+```
+
 ## Transforming to bulk JSON files
 
 These files individually contain data for all coordinates, and as such the files

@@ -52,6 +52,16 @@ bin/transform-netcdf.py precip.mon.total.v501.nc public/data/1980-2010/precipita
 bin/transform-netcdf.py precip.mon.total.v501.nc public/data/1980-2010/precipitation-12.png precip 1980 2010 12
 ```
 
+The following script does each month in one command for convenience.
+
+```
+bin/transform-all-months-png.sh air.mon.mean.v501.nc 1970 2000
+bin/transform-all-months-png.sh air.mon.mean.v501.nc 1980 2010
+bin/transform-all-months-png.sh precip.mon.mean.v501.nc 1970 2000
+bin/transform-all-months-png.sh precip.mon.mean.v501.nc 1980 2010
+...
+```
+
 ## Transforming to indexed JSON files
 
 These files contain data for individual coordinates. They are stored in folders
@@ -80,8 +90,10 @@ bin/transform-netcdf.py precip.mon.total.v501.nc public/data/1980-2010/ precip 1
 The following script does each month in one command for convenience.
 
 ```
-bin/transform-all-months.sh ~/Documents/Climate/air.mon.mean.v501.nc 1970 2000
-bin/transform-all-months.sh ~/Documents/Climate/air.mon.mean.v501.nc 1980 2010
+bin/transform-all-months.sh air.mon.mean.v501.nc 1970 2000
+bin/transform-all-months.sh air.mon.mean.v501.nc 1980 2010
+bin/transform-all-months.sh precip.mon.mean.v501.nc 1970 2000
+bin/transform-all-months.sh precip.mon.mean.v501.nc 1980 2010
 ...
 ```
 

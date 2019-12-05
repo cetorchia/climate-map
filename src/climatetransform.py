@@ -218,7 +218,7 @@ def pixels_for_latitude(lat, size):
     y_north = lat2y(lat_north)
     y_south = lat2y(lat_south)
 
-    return round((y_north - y_south) * 10)
+    return round((y_north - y_south) * 9.75)
 
 def lat2y(lat):
     '''

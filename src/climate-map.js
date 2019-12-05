@@ -127,28 +127,17 @@ function createClimateLayer()
  *
  * @return Chart
  */
-function createClimateChart(data)
+function createClimateChart(data, units, label, colour, canvas_id)
 {
-    const ctx = document.getElementById('location-climate-chart').getContext('2d');
+    const ctx = document.getElementById(canvas_id).getContext('2d');
 
     /* Collect temperature means for each month in a linear fashion. */
-    let temps = [];
-    const air_data = data['air'];
+    let values = [];
     for (let i = 1; i <= 12; i++) {
-        if (air_data[i][1] != 'degC') {
-            throw new Error('Expected air temp in degC, got ' + air_data[i][1]);
+        if (data[i][1] !== units) {
+            throw new Error('Expected ' + units + ', got ' + data[i][1]);
         }
-        temps.push(air_data[i][0]);
-    }
-
-    /* Collect precipitation totals for each month in a linear fashion. */
-    let precips = [];
-    const precip_data = data['precip'];
-    for (let i = 1; i <= 12; i++) {
-        if (precip_data[i][1] != 'mm') {
-            throw new Error('Expected precip in mm, got ' + precip_data[i][1]);
-        }
-        precips.push(precip_data[i][0]);
+        values.push(data[i][0]);
     }
 
     /* Create the chart. */
@@ -171,38 +160,11 @@ function createClimateChart(data)
             ],
             'datasets': [
                 {
-                    'label': 'Temperature (°C)',
-                    'data': temps,
-                    'order': 2,
-                    'backgroundColor': '#e22',
-                    'yAxisId': 'y-axis-left',
-                },
-                {
-                    'label': 'Precipitation (mm)',
-                    'data': precips,
-                    'type': 'line',
-                    'order': 1,
-                    'backgroundColor': '#22e',
-                    'fill': false,
-                    'yAxisId': 'y-axis-right',
+                    'label': label,
+                    'data': values,
+                    'backgroundColor': colour,
                 }
             ],
-            'scales': {
-                'yAxes': [
-                    {
-                        'type': 'linear',
-                        'display': true,
-                        'position': 'left',
-                        'id': 'y-axis-left',
-                    },
-                    {
-                        'type': 'linear',
-                        'display': true,
-                        'position': 'right',
-                        'id': 'y-axis-right',
-                    },
-                ],
-            },
         },
     });
 
@@ -246,11 +208,14 @@ window.onload = async function() {
      * Handle clicks on the climate map. We will show a bunch of information
      * about that particular location's climate.
      */
-    var climate_chart;
+    var temp_chart;
+    var precip_chart;
 
     climate_map.on('click', function(e) {
         const lat = e.latlng.lat;
         const lon = e.latlng.lng;
+
+        console.log('[' + lat + ', ' + lon + ']');
 
         const date_range_select = document.getElementById('date-range');
         const date_range = date_range_select.value;
@@ -260,10 +225,30 @@ window.onload = async function() {
         promise.then(function(data) {
             location_marker.setLatLng(e.latlng).addTo(climate_map);
 
-            if (climate_chart !== undefined) {
-                climate_chart.destroy();
+            document.getElementById('average-temperature').textContent = data['air'][0][0];
+            document.getElementById('total-precipitation').textContent = data['precip'][0][0];
+
+            if (temp_chart !== undefined) {
+                temp_chart.destroy();
             }
-            climate_chart = createClimateChart(data);
+            temp_chart = createClimateChart(
+                data['air'],
+                'degC',
+                'Temperature (°C)',
+                '#e22',
+                'location-temperature-chart'
+            );
+
+            if (precip_chart !== undefined) {
+                precip_chart.destroy();
+            }
+            precip_chart = createClimateChart(
+                data['precip'],
+                'mm',
+                'Precipitation (mm)',
+                '#2e2',
+                'location-precipitation-chart'
+            );
 
             /* Show the location climate div. */
             document.getElementById('location-climate').style.display = 'block';

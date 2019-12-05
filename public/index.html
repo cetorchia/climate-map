@@ -62,8 +62,15 @@
             </script>
         </div>
         <div id="location-climate">
-            <canvas id="location-climate-chart" width="400" height="400"></canvas>
             <button id="close-location-climate" type="button">Close</button>
+            <p>
+                Average Temperature (&#176;C): <span id="average-temperature"></span>
+            </p>
+            <p>
+                Total Precipitation (mm): <span id="total-precipitation"></span>
+            </p>
+            <canvas id="location-temperature-chart" width="400" height="200"></canvas>
+            <canvas id="location-precipitation-chart" width="400" height="200"></canvas>
         </div>
     </body>
 </html>

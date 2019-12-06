@@ -172,7 +172,7 @@ function coloursForMonthData(values, units)
                     green = 255;
                     blue = red;
                 } else {
-                    red = 230 - value / 2;
+                    red = 230 - value / 3;
                     green = 230;
                     blue = 4.4 * value;
                 }
@@ -363,6 +363,5 @@ window.onload = async function() {
 
     document.getElementById('close-location-climate').onclick = function() {
         hideLocationClimate();
-        clicked_lat = clicked_lon = null;
     };
 };

@@ -27,13 +27,13 @@
     top: 25px;
     left: 100px;
     width: 640px;
-    height: 512px;
     background: #eeeeee;
     border: 1px solid #333;
     border-radius: 10px;
     padding: 20px;
     z-index: 1000; /* Has to go over the map. */
-    overflow-y: scroll;
+    /*height: 400px;*/
+    /*overflow-y: scroll;*/
 }
 
 #about {

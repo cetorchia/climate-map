@@ -13,6 +13,14 @@
     position: fixed;
 }
 
+#close-location-climate-container {
+    position: absolute;
+    top: 30px;
+    z-index: 1001;
+    left: 105px;
+    display: none;
+}
+
 #location-climate {
     display: none;
     position: absolute;

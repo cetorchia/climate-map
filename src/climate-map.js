@@ -123,11 +123,75 @@ function createClimateLayer()
 }
 
 /**
+ * Returns the colours for each month based on the value
+ * and units. This gives a visual sense of the temperature
+ * or precipitation amount.
+ */
+function coloursForMonthData(values, units)
+{
+    let colours = [];
+    switch (units) {
+        case 'degC':
+            for (let i = 0; i <= values.length - 1; i++) {
+                const value = values[i];
+                let red, green, blue;
+
+                if (value >= 40) {
+                    red = 255;
+                    green = 0;
+                    blue = 0;
+                } else if (value >= 0) {
+                    red = 255;
+                    green = 240 - 6 * value;
+                    blue = green;
+                } else if (value <= -40) {
+                    red = 0;
+                    green = 0;
+                    blue = 255;
+                } else {
+                    red = 240 + 6 * value;
+                    green = red;
+                    blue = 255;
+                }
+
+                colours.push('rgb(' + red + ',' + green + ',' + blue + ')');
+            }
+            return colours;
+
+        case 'mm':
+            for (let i = 0; i <= values.length - 1; i++) {
+                const value = values[i];
+                let red, green, blue;
+
+                if (value >= 100) {
+                    red = 0;
+                    green = 255;
+                    blue = 0;
+                } else if (value >= 50) {
+                    red = 240 - 4.7 * (value - 50);
+                    green = 255;
+                    blue = red;
+                } else {
+                    red = 230 - value / 2;
+                    green = 230;
+                    blue = 4.4 * value;
+                }
+
+                colours.push('rgb(' + red + ',' + green + ',' + blue + ')');
+            }
+            return colours;
+
+        default:
+            return '#22b';
+    }
+}
+
+/**
  * Shows a climate chart with the specified data.
  *
  * @return Chart
  */
-function createClimateChart(data, units, label, colour, canvas_id)
+function createClimateChart(data, units, label, canvas_id)
 {
     const ctx = document.getElementById(canvas_id).getContext('2d');
 
@@ -142,8 +206,8 @@ function createClimateChart(data, units, label, colour, canvas_id)
 
     /* Create the chart. */
     const chart = new Chart(ctx, {
-        'type': 'bar',
-        'data': {
+        type: 'bar',
+        data: {
             'labels': [
                 'January',
                 'February',
@@ -158,17 +222,75 @@ function createClimateChart(data, units, label, colour, canvas_id)
                 'November',
                 'December',
             ],
-            'datasets': [
+            datasets: [
                 {
-                    'label': label,
-                    'data': values,
-                    'backgroundColor': colour,
+                    label: label,
+                    data: values,
+                    backgroundColor: coloursForMonthData(values, units),
                 }
             ],
+        },
+        options: {
+            scales: {
+                yAxes: [{
+                    ticks: {
+                        beginAtZero: true
+                    }
+                }]
+            }
         },
     });
 
     return chart;
+}
+
+/**
+ * Updates the climate chart.
+ */
+function updateClimateChart(data, temp_chart, precip_chart)
+{
+    document.getElementById('average-temperature').textContent = data['air'][0][0];
+    document.getElementById('total-precipitation').textContent = data['precip'][0][0];
+
+    if (temp_chart !== undefined) {
+        temp_chart.destroy();
+    }
+    temp_chart = createClimateChart(
+        data['air'],
+        'degC',
+        'Temperature (°C)',
+        'location-temperature-chart'
+    );
+
+    if (precip_chart !== undefined) {
+        precip_chart.destroy();
+    }
+    precip_chart = createClimateChart(
+        data['precip'],
+        'mm',
+        'Precipitation (mm)',
+        'location-precipitation-chart'
+    );
+
+    return [temp_chart, precip_chart];
+}
+
+/**
+ * Shows the location climate container.
+ */
+function showLocationClimate()
+{
+    document.getElementById('location-climate').style.display = 'block';
+    document.getElementById('close-location-climate-container').style.display = 'block';
+}
+
+/**
+ * Hides the location climate container.
+ */
+function hideLocationClimate()
+{
+    document.getElementById('location-climate').style.display = 'none';
+    document.getElementById('close-location-climate-container').style.display = 'none';
 }
 
 /**
@@ -185,6 +307,9 @@ window.onload = async function() {
     const climate_layer = createClimateLayer().addTo(climate_map);
     const location_marker = L.marker([0, 0]);
 
+    var temp_chart, precip_chart;
+    var clicked_lat, clicked_lon;
+
     /**
      * Handle changes to the filters. We will update the map's colours.
      */
@@ -194,6 +319,15 @@ window.onload = async function() {
 
     date_range_select.onchange = function () {
         updateClimateLayer(climate_layer);
+
+        if (clicked_lat && clicked_lon) {
+            const date_range_select = document.getElementById('date-range');
+            const date_range = date_range_select.value;
+
+            fetchClimateDataForCoords(date_range, clicked_lat, clicked_lon).then(function(data) {
+                [temp_chart, precip_chart] = updateClimateChart(data, temp_chart, precip_chart);
+            });
+        }
     };
 
     measurement_select.onchange = function () {
@@ -208,55 +342,27 @@ window.onload = async function() {
      * Handle clicks on the climate map. We will show a bunch of information
      * about that particular location's climate.
      */
-    var temp_chart;
-    var precip_chart;
 
     climate_map.on('click', function(e) {
-        const lat = e.latlng.lat;
-        const lon = e.latlng.lng;
+        clicked_lat = e.latlng.lat;
+        clicked_lon = e.latlng.lng;
 
-        console.log('[' + lat + ', ' + lon + ']');
+        console.log('[' + clicked_lat + ', ' + clicked_lon + ']');
 
         const date_range_select = document.getElementById('date-range');
         const date_range = date_range_select.value;
 
-        const promise = fetchClimateDataForCoords(date_range, lat, lon);
+        fetchClimateDataForCoords(date_range, clicked_lat, clicked_lon).then(function(data) {
+            location_marker.setLatLng(e.latlng).addTo(climate_map).on('click', showLocationClimate);
 
-        promise.then(function(data) {
-            location_marker.setLatLng(e.latlng).addTo(climate_map);
+            [temp_chart, precip_chart] = updateClimateChart(data, temp_chart, precip_chart);
 
-            document.getElementById('average-temperature').textContent = data['air'][0][0];
-            document.getElementById('total-precipitation').textContent = data['precip'][0][0];
-
-            if (temp_chart !== undefined) {
-                temp_chart.destroy();
-            }
-            temp_chart = createClimateChart(
-                data['air'],
-                'degC',
-                'Temperature (°C)',
-                '#e22',
-                'location-temperature-chart'
-            );
-
-            if (precip_chart !== undefined) {
-                precip_chart.destroy();
-            }
-            precip_chart = createClimateChart(
-                data['precip'],
-                'mm',
-                'Precipitation (mm)',
-                '#2e2',
-                'location-precipitation-chart'
-            );
-
-            /* Show the location climate div. */
-            document.getElementById('location-climate').style.display = 'block';
+            showLocationClimate();
         });
     });
 
     document.getElementById('close-location-climate').onclick = function() {
-        /* Hide the location climate div. */
-        document.getElementById('location-climate').style.display = 'none';
+        hideLocationClimate();
+        clicked_lat = clicked_lon = null;
     };
 };

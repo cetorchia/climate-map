@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 #
-# Transforms NetCDF4 files to various data formats for use
-# as climate data.
+# Transforms datasets to various data formats for use
+# as climate data by application.
 #
 # Copyright (c) 2019 Carlos Torchia
 #
@@ -9,8 +9,74 @@ from datetime import timedelta
 from datetime import datetime
 import numpy as np
 import math
+import netCDF4
+from osgeo import gdal
 
-def calculate_normals(time_var, lat_var, lon_var, value_var, start_time, end_time, month):
+def normals_from_geotiff(input_file):
+    '''
+    Extracts climate normals from a GeoTIFF file.
+    Returns a masked numpy array.
+    '''
+    dataset = gdal.Open(input_file)
+
+    if (dataset.RasterCount != 1):
+        raise Exception('Expected 1 raster band, got ' + dataset.RasterCount)
+
+    # We do not calculate the normals. Because the shape is two-dimensional, the
+    # values can be assumed to be normals already.
+    band = dataset.GetRasterBand(1)
+    band_arr = band.ReadAsArray()
+    mask_band = band.GetMaskBand()
+    mask_arr = mask_band.ReadAsArray()
+    normals = np.ma.masked_array(band_arr, mask_arr)
+
+    if len(normals.shape) != 2:
+        raise Exception('Expected two dimensional raster band, got ' + len(normals.shape))
+
+    # Generate latitude and longitude arrays
+    lon_start, lon_inc, x_skew, lat_start, y_skew, lat_inc = dataset.GetGeoTransform()
+    if x_skew != 0:
+        raise Exception('Expected Euclidean geometry, skew for longitude is ' + x_skew)
+    if y_skew != 0:
+        raise Exception('Expected Euclidean geometry, skew for latitude is ' + y_skew)
+
+    lat_arr = np.empty((normals.shape[0]))
+    lat_arr[0] = lat_start
+    for lat_i in range(1, lat_arr.size):
+        lat_arr[lat_i] = lat_arr[lat_i - 1] + lat_inc
+
+    lon_arr = np.empty((normals.shape[1]))
+    lon_arr[0] = lon_start
+    for lon_i in range(1, lon_arr.size):
+        lon_arr[lon_i] = lon_arr[lon_i - 1] + lon_inc
+
+    if input_file.find('tmax') != -1 or input_file.find('tmin') != -1 or input_file.find('tavg') != -1:
+        units = 'degC'
+    elif input_file.find('prec') != -1:
+        units = 'mm'
+    else:
+        raise Exception('Do not know the measurement units of ' + input_file)
+
+    return (lat_arr, lon_arr, units, normals)
+
+def normals_from_netcdf4(input_file, variable_name, start_time, end_time, month):
+    '''
+    Extracts climate normals from a NetCDF4 file.
+    Returns a masked numpy array.
+    '''
+    dataset = netCDF4.Dataset(input_file)
+
+    time_var = dataset.variables['time']
+    lat_arr = dataset.variables['lat'][:]
+    lon_arr = dataset.variables['lon'][:]
+    value_var = dataset.variables[variable_name]
+    units = value_var.units
+
+    normals = calculate_normals(time_var, value_var, variable_name, start_time, end_time, month)
+
+    return (lat_arr, lon_arr, units, normals)
+
+def calculate_normals(time_var, value_var, variable_name, start_time, end_time, month):
     '''
     Calculates the means (or totals) through the given time period.
     '''
@@ -40,7 +106,7 @@ def calculate_normals(time_var, lat_var, lon_var, value_var, start_time, end_tim
     filtered_values = values[filtered_time_indexes, :, :]
 
     # Compute the means (or totals) of each coordinate through time axis
-    if (value_var.name == 'precip' and not month):
+    if (variable_name == 'precip' and not month):
         totals = filtered_values.sum(axis = 0) / ((end_time - start_time).days / 365)
         return totals
     else:
@@ -63,17 +129,16 @@ def to_standard_units(value, units):
 
     return new_value, new_units
 
-def get_json_data(lat_var, lon_var, value_var, data_arr, month):
+def get_data(lat_arr, lon_arr, units, data_arr, month):
     '''
     Gives the JSON for the specified data.
     This data is indexed by latitude and longitude.
     '''
     data = {}
-    units = value_var.units
     for lat_i, data_for_lat in enumerate(data_arr):
-        lat_value = lat_var[lat_i].item()
+        lat_value = lat_arr[lat_i].item()
         for lon_i, value in enumerate(data_for_lat):
-            lon_value = lon_var[lon_i].item()
+            lon_value = lon_arr[lon_i].item()
 
             if not np.ma.is_masked(value):
                 value = value.item()
@@ -92,23 +157,22 @@ def get_json_data(lat_var, lon_var, value_var, data_arr, month):
 
     return data
 
-def get_pixels(lat_var, lon_var, value_var, data_arr, month):
+def get_pixels(lat_arr, lon_arr, units, data_arr, month):
     '''
     Gives the PNG representation of the specified data.
     '''
-    units = value_var.units
     pixels = []
     y_pixels = 0
 
     for lat_i, data_for_lat in enumerate(data_arr):
-        lat_value = lat_var[lat_i].item()
+        lat_value = lat_arr[lat_i].item()
 
         if lat_value >= -85 and lat_value <= 85:
             begin_pixels = []
             end_pixels = []
 
             for lon_i, value in enumerate(data_for_lat):
-                lon_value = lon_var[lon_i].item()
+                lon_value = lon_arr[lon_i].item()
 
                 if lon_value > 180:
                     row_pixels = begin_pixels
@@ -231,3 +295,38 @@ def lat2y(lat):
         return 0
 
     return 180/math.pi*math.log(math.tan(math.pi/4.0+lat*(math.pi/180)/2.0))
+
+def save_folder_data(data, output_folder, variable_name, month):
+    '''
+    Saves data in coordinate folders for quick lookup of stats.
+    Augments existing data.
+    '''
+    for lat_value in data:
+        lat_index = str(math.floor(lat_value) // 10 * 10)
+        lat_folder = os.path.join(output_folder, 'coords', lat_index)
+        os.makedirs(lat_folder, exist_ok=True)
+
+        for lon_value in data[lat_value]:
+            lon_index = str(math.floor(lon_value) // 10 * 10)
+            lon_folder = os.path.join(lat_folder, lon_index)
+            if not os.path.exists(lon_folder):
+                os.mkdir(lon_folder)
+
+            coord = str(lat_value) + '_' + str(lon_value)
+            coord_file = os.path.join(lon_folder, coord + '.json')
+
+            datum = data[lat_value][lon_value]
+
+            if not os.path.exists(coord_file):
+                existing_datum = {}
+            else:
+                with open(coord_file, 'r') as f:
+                    existing_datum = json.load(f)
+
+            if existing_datum.get(variable_name) is None:
+                existing_datum[variable_name] = {}
+
+            existing_datum[variable_name][month] = datum
+
+            with open(coord_file, 'w') as f:
+                json.dump(existing_datum, f)

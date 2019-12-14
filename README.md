@@ -18,7 +18,8 @@ which is which in every case.
 
 # Data transformation
 
-You can transform the data from the NOAA using `transform-netcdf.py`.
+You can transform the data from the NOAA (assuming permission allows) using
+`transform-dataset.py`.
 This data transformation script is used to process the netCDF4 files into
 various formats so that the web application can read the climate data from
 the server.
@@ -38,18 +39,18 @@ or precipitation much quicker than plotting polygons for data it would have to l
 
 ```
 # Generate temperature datasets
-bin/transform-netcdf.py air.mon.mean.v501.nc public/data/1980-2010/temperature.png air 1980 2010
-bin/transform-netcdf.py air.mon.mean.v501.nc public/data/1980-2010/temperature-01.png air 1980 2010 1
-bin/transform-netcdf.py air.mon.mean.v501.nc public/data/1980-2010/temperature-02.png air 1980 2010 1
+bin/transform-dataset.py air.mon.mean.v501.nc public/data/1980-2010/temperature.png air 1980 2010
+bin/transform-dataset.py air.mon.mean.v501.nc public/data/1980-2010/temperature-01.png air 1980 2010 1
+bin/transform-dataset.py air.mon.mean.v501.nc public/data/1980-2010/temperature-02.png air 1980 2010 1
 ...
-bin/transform-netcdf.py air.mon.mean.v501.nc public/data/1980-2010/temperature-12.png air 1980 2010 12
+bin/transform-dataset.py air.mon.mean.v501.nc public/data/1980-2010/temperature-12.png air 1980 2010 12
 
 # Generate precipitation datasets
-bin/transform-netcdf.py precip.mon.total.v501.nc public/data/1980-2010/precipitation.png precip 1980 2010
-bin/transform-netcdf.py precip.mon.total.v501.nc public/data/1980-2010/precipitation-01.png precip 1980 2010 1
-bin/transform-netcdf.py precip.mon.total.v501.nc public/data/1980-2010/precipitation-02.png precip 1980 2010 2
+bin/transform-dataset.py precip.mon.total.v501.nc public/data/1980-2010/precipitation.png precip 1980 2010
+bin/transform-dataset.py precip.mon.total.v501.nc public/data/1980-2010/precipitation-01.png precip 1980 2010 1
+bin/transform-dataset.py precip.mon.total.v501.nc public/data/1980-2010/precipitation-02.png precip 1980 2010 2
 ...
-bin/transform-netcdf.py precip.mon.total.v501.nc public/data/1980-2010/precipitation-12.png precip 1980 2010 12
+bin/transform-dataset.py precip.mon.total.v501.nc public/data/1980-2010/precipitation-12.png precip 1980 2010 12
 ```
 
 The following script does each month in one command for convenience.
@@ -73,18 +74,18 @@ Future plan is to use a database server.
 
 ```
 # Generate temperature datasets
-bin/transform-netcdf.py air.mon.mean.v501.nc public/data/1980-2010/ air 1980 2010
-bin/transform-netcdf.py air.mon.mean.v501.nc public/data/1980-2010/ air 1980 2010 1
-bin/transform-netcdf.py air.mon.mean.v501.nc public/data/1980-2010/ air 1980 2010 2
+bin/transform-dataset.py air.mon.mean.v501.nc public/data/1980-2010/ air 1980 2010
+bin/transform-dataset.py air.mon.mean.v501.nc public/data/1980-2010/ air 1980 2010 1
+bin/transform-dataset.py air.mon.mean.v501.nc public/data/1980-2010/ air 1980 2010 2
 ...
-bin/transform-netcdf.py air.mon.mean.v501.nc public/data/1980-2010/ air 1980 2010 12
+bin/transform-dataset.py air.mon.mean.v501.nc public/data/1980-2010/ air 1980 2010 12
 
 # Generate precipitation datasets
-bin/transform-netcdf.py precip.mon.total.v501.nc public/data/1980-2010/ precip 1980 2010
-bin/transform-netcdf.py precip.mon.total.v501.nc public/data/1980-2010/ precip 1980 2010 1
-bin/transform-netcdf.py precip.mon.total.v501.nc public/data/1980-2010/ precip 1980 2010 2
+bin/transform-dataset.py precip.mon.total.v501.nc public/data/1980-2010/ precip 1980 2010
+bin/transform-dataset.py precip.mon.total.v501.nc public/data/1980-2010/ precip 1980 2010 1
+bin/transform-dataset.py precip.mon.total.v501.nc public/data/1980-2010/ precip 1980 2010 2
 ...
-bin/transform-netcdf.py precip.mon.total.v501.nc public/data/1980-2010/ precip 1980 2010 12
+bin/transform-dataset.py precip.mon.total.v501.nc public/data/1980-2010/ precip 1980 2010 12
 ```
 
 The following script does each month in one command for convenience.
@@ -104,14 +105,14 @@ can be very large and inefficient for the web application to load.
 
 ```
 # Generate temperature datasets
-bin/transform-netcdf.py air.mon.mean.v501.nc public/data/1980-2010/temperature.json air 1980 2010
-bin/transform-netcdf.py air.mon.mean.v501.nc public/data/1980-2010/temperature-01.json air 1980 2010 1
-bin/transform-netcdf.py air.mon.mean.v501.nc public/data/1980-2010/temperature-02.json air 1980 2010 2
+bin/transform-dataset.py air.mon.mean.v501.nc public/data/1980-2010/temperature.json air 1980 2010
+bin/transform-dataset.py air.mon.mean.v501.nc public/data/1980-2010/temperature-01.json air 1980 2010 1
+bin/transform-dataset.py air.mon.mean.v501.nc public/data/1980-2010/temperature-02.json air 1980 2010 2
 ...
 
 # Generate precipitation datasets
-bin/transform-netcdf.py precip.mon.total.v501.nc public/data/1980-2010/precipitation.json precip 1980 2010
-bin/transform-netcdf.py precip.mon.total.v501.nc public/data/1980-2010/precipitation-01.json precip 1980 2010 1
-bin/transform-netcdf.py precip.mon.total.v501.nc public/data/1980-2010/precipitation-02.json precip 1980 2010 2
+bin/transform-dataset.py precip.mon.total.v501.nc public/data/1980-2010/precipitation.json precip 1980 2010
+bin/transform-dataset.py precip.mon.total.v501.nc public/data/1980-2010/precipitation-01.json precip 1980 2010 1
+bin/transform-dataset.py precip.mon.total.v501.nc public/data/1980-2010/precipitation-02.json precip 1980 2010 2
 ...
 ```

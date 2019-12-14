@@ -4,7 +4,7 @@
 #
 
 ROOT_FOLDER=$(dirname $0)/..
-SCRIPT=$(dirname $0)/transform-netcdf.py
+SCRIPT=$(dirname $0)/transform-dataset.py
 
 if [ -z "$3" ]; then
     echo "Usage: $(basename $0) <netCDF4-filename> <start-year> <end-year>"

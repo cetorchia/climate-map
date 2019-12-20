@@ -9,7 +9,7 @@ npm run build
 # Important notes
 
 * Coordinates in OSM and geoJSON are `[longitude, latitude]`, but coordinates
-in netCDF4 and the transformation code are `[latitude, longitude]`. Make sure
+in the datasets and the transformation code are `[latitude, longitude]`. Make sure
 which is which in every case.
 
 # Data source(s)
@@ -18,7 +18,7 @@ which is which in every case.
 
 # Data transformation
 
-You can transform the data from the NOAA (assuming permission allows) using
+You can transform the data from the NOAA or WorldClim (assuming permission allows) using
 `transform-dataset.py`.
 This data transformation script is used to process the netCDF4 files into
 various formats so that the web application can read the climate data from
@@ -31,6 +31,9 @@ University of Delaware gridded temperature and precipitation data can be used
 for this purpose, but other datasets may be used as well if they are in
 netCDF4 format and are grouped by month.
 
+Also WorldClim geotiff data that is 2-dimensional and already aggregated by month can also
+be used.
+
 ## Transforming to PNG files
 
 These files are used to overlay a PNG representation of the climate data
@@ -39,11 +42,11 @@ or precipitation much quicker than plotting polygons for data it would have to l
 
 ```
 # Generate temperature datasets
-bin/transform-dataset.py air.mon.mean.v501.nc public/data/1980-2010/temperature.png air 1980 2010
-bin/transform-dataset.py air.mon.mean.v501.nc public/data/1980-2010/temperature-01.png air 1980 2010 1
-bin/transform-dataset.py air.mon.mean.v501.nc public/data/1980-2010/temperature-02.png air 1980 2010 1
+bin/transform-dataset.py air.mon.mean.v501.nc public/data/1980-2010/temperature-avg.png air 1980 2010
+bin/transform-dataset.py air.mon.mean.v501.nc public/data/1980-2010/temperature-avg-01.png air 1980 2010 1
+bin/transform-dataset.py air.mon.mean.v501.nc public/data/1980-2010/temperature-avg-02.png air 1980 2010 1
 ...
-bin/transform-dataset.py air.mon.mean.v501.nc public/data/1980-2010/temperature-12.png air 1980 2010 12
+bin/transform-dataset.py air.mon.mean.v501.nc public/data/1980-2010/temperature-avg-12.png air 1980 2010 12
 
 # Generate precipitation datasets
 bin/transform-dataset.py precip.mon.total.v501.nc public/data/1980-2010/precipitation.png precip 1980 2010
@@ -56,10 +59,10 @@ bin/transform-dataset.py precip.mon.total.v501.nc public/data/1980-2010/precipit
 The following script does each month in one command for convenience.
 
 ```
-bin/transform-all-months-png.sh air.mon.mean.v501.nc 1970 2000
-bin/transform-all-months-png.sh air.mon.mean.v501.nc 1980 2010
-bin/transform-all-months-png.sh precip.mon.mean.v501.nc 1970 2000
-bin/transform-all-months-png.sh precip.mon.mean.v501.nc 1980 2010
+bin/transform-all-months-png.sh air.mon.mean.v501.nc air 1970 2000
+bin/transform-all-months-png.sh air.mon.mean.v501.nc air 1980 2010
+bin/transform-all-months-png.sh precip.mon.mean.v501.nc precip 1970 2000
+bin/transform-all-months-png.sh precip.mon.mean.v501.nc precip 1980 2010
 ...
 ```
 
@@ -91,10 +94,10 @@ bin/transform-dataset.py precip.mon.total.v501.nc public/data/1980-2010/ precip 
 The following script does each month in one command for convenience.
 
 ```
-bin/transform-all-months.sh air.mon.mean.v501.nc 1970 2000
-bin/transform-all-months.sh air.mon.mean.v501.nc 1980 2010
-bin/transform-all-months.sh precip.mon.mean.v501.nc 1970 2000
-bin/transform-all-months.sh precip.mon.mean.v501.nc 1980 2010
+bin/transform-all-months.sh air.mon.mean.v501.nc air 1970 2000
+bin/transform-all-months.sh air.mon.mean.v501.nc air 1980 2010
+bin/transform-all-months.sh precip.mon.mean.v501.nc precip 1970 2000
+bin/transform-all-months.sh precip.mon.mean.v501.nc precip 1980 2010
 ...
 ```
 
@@ -105,9 +108,9 @@ can be very large and inefficient for the web application to load.
 
 ```
 # Generate temperature datasets
-bin/transform-dataset.py air.mon.mean.v501.nc public/data/1980-2010/temperature.json air 1980 2010
-bin/transform-dataset.py air.mon.mean.v501.nc public/data/1980-2010/temperature-01.json air 1980 2010 1
-bin/transform-dataset.py air.mon.mean.v501.nc public/data/1980-2010/temperature-02.json air 1980 2010 2
+bin/transform-dataset.py air.mon.mean.v501.nc public/data/1980-2010/temperature-avg.json air 1980 2010
+bin/transform-dataset.py air.mon.mean.v501.nc public/data/1980-2010/temperature-avg-01.json air 1980 2010 1
+bin/transform-dataset.py air.mon.mean.v501.nc public/data/1980-2010/temperature-avg-02.json air 1980 2010 2
 ...
 
 # Generate precipitation datasets

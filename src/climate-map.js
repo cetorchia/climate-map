@@ -36,17 +36,19 @@ function climateDataUrl(date_range, measurement, month, fmt)
 }
 
 /**
- * Rounds a number to the nearest 0.25 or 0.75
+ * Rounds a number to the nearest resolution in degrees.
+ *
+ * If offset is not zero, the number will be rounded to the
+ * nearest resolution plus the offset. If you set offset to 0.25,
+ * this would allow you to round to the nearest 0.25 or 0.75 in
+ * the case of the gridded NOAA data.
  */
-function roundCoordinate(coord)
+function roundCoordinateToResolution(coord)
 {
-    if (coord >= 0) {
-        const decimal = coord % 1;
-        return Math.floor(coord) + (decimal >= 0.5 ? 0.75 : 0.25);
-    } else {
-        const decimal = -coord % 1;
-        return Math.floor(coord) + 1 - (decimal >= 0.5 ? 0.75 : 0.25);
-    }
+    const res = 1/12;
+    const offset = 0;
+
+    return Math.round((coord - offset) / res) * res + offset;
 }
 
 /**
@@ -54,15 +56,16 @@ function roundCoordinate(coord)
  */
 function climateDataUrlForCoords(date_range, lat, lon)
 {
-    const lat_grp = Math.floor(lat / 10) * 10;
-    const lon_grp = Math.floor(lon / 10) * 10;
+    const lat_index = Math.floor(lat);
+    const lon_index = Math.floor(lon);
 
-    const rounded_lat = roundCoordinate(lat);
-    const rounded_lon = roundCoordinate(lon);
+    /* Round the coordinate again because it can be infinitie digits. */
+    const rounded_lat = roundCoordinateToResolution(lat).toFixed(2);
+    const rounded_lon = roundCoordinateToResolution(lon).toFixed(2);
 
-    const coords = rounded_lat + '_' + rounded_lon;
+    const coord_index = rounded_lat + '_' + rounded_lon;
 
-    return 'data/' + date_range + '/coords/' + lat_grp + '/' + lon_grp + '/' + coords + '.json';
+    return 'data/' + date_range + '/coords/' + lat_index + '/' + lon_index + '/' + coord_index + '.json';
 }
 
 /**
@@ -115,7 +118,7 @@ function createClimateLayer()
 
     return L.imageOverlay(
         climateDataUrl(date_range, measurement, month, 'png'),
-        [[85, -180], [-85, 180]],
+        [[85, -180], [-85 - 1/12, 180]],
         {
             'opacity': 0.8
         }
@@ -208,7 +211,7 @@ function createClimateChart(data, units, label, canvas_id)
     const chart = new Chart(ctx, {
         type: 'bar',
         data: {
-            'labels': [
+            labels: [
                 'January',
                 'February',
                 'March',
@@ -245,18 +248,55 @@ function createClimateChart(data, units, label, canvas_id)
 }
 
 /**
+ * Returns the average of all the temperatures in the specified object.
+ */
+function getAverageTemperature(temperatures)
+{
+    let sum = 0;
+
+    for (let i = 1; i <= 12; i++) {
+        sum += temperatures[i][0];
+    }
+
+    return sum / 12;
+}
+
+/**
+ * Returns the total of all the precipitations in the specified object.
+ */
+function getTotalPrecipitation(precipitations)
+{
+    let sum = 0;
+
+    for (let i = 1; i <= 12; i++) {
+        sum += precipitations[i][0];
+    }
+
+    return sum;
+}
+
+/**
  * Updates the climate chart.
  */
 function updateClimateChart(data, temp_chart, precip_chart)
 {
-    document.getElementById('average-temperature').textContent = data['air'][0][0];
+    /* The WorldClim data doesn't have the annual measurements but NOAA does. */
+    if (data['tavg'][0] === undefined) {
+        data['tavg'][0] = getAverageTemperature(data['tavg']);
+    }
+
+    if (data['precip'][0] === undefined) {
+        data['precip'][0] = getTotalPrecipitation(data['precip']);
+    }
+
+    document.getElementById('average-temperature').textContent = data['tavg'][0][0];
     document.getElementById('total-precipitation').textContent = data['precip'][0][0];
 
     if (temp_chart !== undefined) {
         temp_chart.destroy();
     }
     temp_chart = createClimateChart(
-        data['air'],
+        data['tavg'],
         'degC',
         'Temperature (°C)',
         'location-temperature-chart'
@@ -298,10 +338,10 @@ function hideLocationClimate()
  */
 window.onload = async function() {
     /* Fetch GeoJSON */
-    var climate_map = L.map('climate-map').setView([49.767, -97.827], 3);
+    var climate_map = L.map('climate-map').setView([0, 0], 3);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: 'Map tiles &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors | Climate data &copy; <a href="https://www.esrl.noaa.gov/psd/data/gridded/">NOAA/OAR/ESRL PSD</a>'
+        attribution: 'Map tiles &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors | Climate data &copy; <a href="http://worldclim.org">WorldClim</a>'
     }).addTo(climate_map);
 
     const climate_layer = createClimateLayer().addTo(climate_map);

@@ -5,12 +5,14 @@
 #
 # Copyright (c) 2019 Carlos Torchia
 #
+import os
 from datetime import timedelta
 from datetime import datetime
 import numpy as np
 import math
 import netCDF4
 from osgeo import gdal
+import json
 
 def normals_from_geotiff(input_file):
     '''
@@ -26,9 +28,7 @@ def normals_from_geotiff(input_file):
     # values can be assumed to be normals already.
     band = dataset.GetRasterBand(1)
     band_arr = band.ReadAsArray()
-    mask_band = band.GetMaskBand()
-    mask_arr = mask_band.ReadAsArray()
-    normals = np.ma.masked_array(band_arr, mask_arr)
+    normals = np.ma.masked_values(band_arr, band.GetNoDataValue())
 
     if len(normals.shape) != 2:
         raise Exception('Expected two dimensional raster band, got ' + len(normals.shape))
@@ -163,17 +163,23 @@ def get_pixels(lat_arr, lon_arr, units, data_arr, month):
     '''
     pixels = []
     y_pixels = 0
+    max_lat = 85 # Max latitude in OpenStreetMap
+    y_total = data_arr.shape[0] # Total number of latitudes
+    y_size = abs(lat_arr[1] - lat_arr[0])
 
     for lat_i, data_for_lat in enumerate(data_arr):
         lat_value = lat_arr[lat_i].item()
 
-        if lat_value >= -85 and lat_value <= 85:
+        if lat_value >= -max_lat and lat_value <= max_lat:
             begin_pixels = []
             end_pixels = []
 
             for lon_i, value in enumerate(data_for_lat):
                 lon_value = lon_arr[lon_i].item()
 
+                # Some data goes from 0 to 360 longitude, so we have to put
+                # the 180 to 360 (equivalent to -180 to 0) at the beginning
+                # as the map will start at -180.
                 if lon_value > 180:
                     row_pixels = begin_pixels
                 else:
@@ -189,10 +195,11 @@ def get_pixels(lat_arr, lon_arr, units, data_arr, month):
                 else:
                     row_pixels.append([0, 0, 0])
 
-            height = pixels_for_latitude(lat_value, 0.5)
+            height = pixels_for_latitude(lat_value, y_size, y_pixels, max_lat, y_total)
             row = begin_pixels + end_pixels
             rows = [row] * height
             pixels += rows
+            y_pixels += height
 
     return pixels
 
@@ -269,20 +276,29 @@ def precipitation_millimetres_colour(amount, month):
     else:
         return 255, 255, 204
 
-def pixels_for_latitude(lat, size):
+def pixels_for_latitude(lat, size, y_pixels, max_lat, y_total):
     '''
     Returns the number of pixels the latitude should take up based
     on the spherical Mercator projection. Size is the size of each
     point, in other words the distance between each latitude in the
     data.
     '''
-    lat_north = lat + size / 2
-    lat_south = lat - size / 2
+    # For completeness we include the north latitude, but we are
+    # basing the calculation on a running count of pixels so the
+    # round off error balances out.
+    lat_north = lat + size / 2 if lat < max_lat else max_lat
+    lat_south = lat - size / 2 if lat > -max_lat else -max_lat
 
-    y_north = lat2y(lat_north)
-    y_south = lat2y(lat_south)
+    # Scale to have enough pixels going top to bottom.
+    # Scale the existing total pixels by the increase from the projection.
+    y_max = lat2y(max_lat)
+    new_total = (y_max / max_lat + 5) * y_total
+    factor = new_total / y_max / 2
 
-    return round((y_north - y_south) * 9.75)
+    y_north = y_max * factor - y_pixels
+    y_south = lat2y(lat_south) * factor
+
+    return round(y_north - y_south + 5)
 
 def lat2y(lat):
     '''
@@ -301,19 +317,22 @@ def save_folder_data(data, output_folder, variable_name, month):
     Saves data in coordinate folders for quick lookup of stats.
     Augments existing data.
     '''
+    if variable_name == 'air':
+        variable_name = 'tavg'
+
     for lat_value in data:
-        lat_index = str(math.floor(lat_value) // 10 * 10)
+        lat_index = str(math.floor(lat_value))
         lat_folder = os.path.join(output_folder, 'coords', lat_index)
         os.makedirs(lat_folder, exist_ok=True)
 
         for lon_value in data[lat_value]:
-            lon_index = str(math.floor(lon_value) // 10 * 10)
+            lon_index = str(math.floor(lon_value))
             lon_folder = os.path.join(lat_folder, lon_index)
             if not os.path.exists(lon_folder):
                 os.mkdir(lon_folder)
 
-            coord = str(lat_value) + '_' + str(lon_value)
-            coord_file = os.path.join(lon_folder, coord + '.json')
+            coord_index = str(round(lat_value, 2)) + '_' + str(round(lon_value, 2))
+            coord_file = os.path.join(lon_folder, coord_index + '.json')
 
             datum = data[lat_value][lon_value]
 

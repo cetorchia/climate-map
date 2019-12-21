@@ -13,6 +13,45 @@ import math
 import netCDF4
 from osgeo import gdal
 import json
+import stat
+
+def normals_from_folder(input_folder, variable_name, month=0):
+    '''
+    Extracts climate normals from a folder. Usually, this will contain
+    a series of GeoTIFF files, one for each month. The one with the month
+    we want will be used only, or all will be aggregated if month is 0.
+    '''
+    normals = None
+
+    for filename in os.listdir(input_folder):
+        input_file = os.path.join(input_folder, filename)
+        mode = os.stat(input_file).st_mode
+
+        if stat.S_ISREG(mode) and input_file.endswith('.tif'):
+
+            if month == 0:
+                # Annual average/total, add up the normals.
+                lat_arr, lon_arr, units, normals_for_file = normals_from_geotiff(input_file)
+
+                if normals is None:
+                    normals = normals_for_file
+                else:
+                    normals += normals_for_file
+
+            else:
+                # Specific month, is it the month?
+                suffix = '_%02d.tif' % month
+
+                if input_file.endswith(suffix):
+                    return normals_from_geotiff(input_file)
+
+    if normals is None:
+        raise Exception('Could not find data for month %d in %s' % (month, input_folder))
+
+    if variable_name != 'precip':
+        normals /= 12
+
+    return (lat_arr, lon_arr, units, normals)
 
 def normals_from_geotiff(input_file):
     '''
@@ -310,6 +349,7 @@ def lat2y(lat):
     elif lat == 0:
         return 0
 
+    # Source: https://wiki.openstreetmap.org/wiki/Mercator#Python_implementation
     return 180/math.pi*math.log(math.tan(math.pi/4.0+lat*(math.pi/180)/2.0))
 
 def save_folder_data(data, output_folder, variable_name, month):
@@ -319,6 +359,9 @@ def save_folder_data(data, output_folder, variable_name, month):
     '''
     if variable_name == 'air':
         variable_name = 'tavg'
+
+    if variable_name == 'prec':
+        variable_name = 'precip'
 
     for lat_value in data:
         lat_index = str(math.floor(lat_value))

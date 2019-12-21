@@ -23,6 +23,7 @@ def get_args(arguments):
     num_arguments = len(arguments)
     if num_arguments not in [6, 7]:
         print('Usage: ' + arguments[0] + ' <dataset-filename> <output-filename> <var> <start-year> <end-year> [month]', file=sys.stderr)
+        sys.exit(1)
 
     input_file = arguments[1]
     output_file = arguments[2]
@@ -42,9 +43,12 @@ def get_args(arguments):
         start_time = datetime(start_year, 1, 1)
         end_time = datetime(end_year + 1, 1, 1) - timedelta(seconds=1)
 
-    input_fmt = input_file.split('.')[-1]
+    if input_file.endswith('/'):
+        input_fmt = 'folder'
+    else:
+        input_fmt = input_file.split('.')[-1]
 
-    if input_fmt not in ('nc', 'tif'):
+    if input_fmt not in ('nc', 'tif', 'folder'):
         raise Exception('Unknown input format ' + input_fmt)
 
     if output_file.endswith('/'):
@@ -75,6 +79,9 @@ def main(args):
 
     elif input_fmt == 'tif':
         lat_arr, lon_arr, units, normals = climatetransform.normals_from_geotiff(input_file)
+
+    elif input_fmt == 'folder':
+        lat_arr, lon_arr, units, normals = climatetransform.normals_from_folder(input_file, variable_name, month)
 
     # Load normals to storage in the output format
     if output_fmt == 'json':

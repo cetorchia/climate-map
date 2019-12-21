@@ -66,6 +66,20 @@ bin/transform-all-months-png.sh precip.mon.mean.v501.nc precip 1980 2010
 ...
 ```
 
+## WorldClim transformations
+
+**N.B.**: For WorldClim data, pass the entire folder as the first argument, but use
+"tavg" as the variable name instead of "air". This applies to the other usages below.
+The "precip" variable name for precipitation must still be used with WorldClim.
+
+```
+bin/transform-all-months-png.sh wc2.0_5m_tavg tavg 1970 2000
+bin/transform-all-months.sh wc2.0_5m_tavg tavg 1970 2000
+
+bin/transform-all-months-png.sh wc2.0_5m_prec precip 1970 2000
+bin/transform-all-months.sh wc2.0_5m_prec precip 1970 2000
+```
+
 ## Transforming to indexed JSON files
 
 These files contain data for individual coordinates. They are stored in folders

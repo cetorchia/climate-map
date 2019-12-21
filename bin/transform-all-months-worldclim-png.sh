@@ -3,7 +3,7 @@
 # Runs transformation for all months for a date range.
 #
 # The folder must be a standard WorldClim folder as the
-# folder name will be used to determine all filenames.
+# filenames will be used to determine each month.
 #
 
 ROOT_FOLDER=$(dirname $0)/..
@@ -38,12 +38,15 @@ case $VARIABLE_NAME in
         OUTPUT_NAME=$VARIABLE_NAME
 esac
 
+# Annual normals
+echo $VARIABLE_NAME $START_YEAR $END_YEAR
+OUTPUT_FILE=$OUTPUT_FOLDER/$OUTPUT_NAME.png
+$SCRIPT $INPUT_FOLDER $OUTPUT_FILE $VARIABLE_NAME $START_YEAR $END_YEAR || exit 1
+
 # Monthly normals
 for MONTH in $(seq 1 12); do
     echo $VARIABLE_NAME $START_YEAR $END_YEAR $MONTH
-    INPUT_MONTH=$(printf '%02d' $MONTH)
-    INPUT_FILENAME="$INPUT_FOLDER/${INPUT_PREFIX}_$INPUT_MONTH.tif"
-    OUTPUT_MONTH=$INPUT_MONTH
+    OUTPUT_MONTH=$(printf '%02d' $MONTH)
     OUTPUT_FILE=$OUTPUT_FOLDER/$OUTPUT_NAME-$OUTPUT_MONTH.png
-    $SCRIPT $INPUT_FILENAME $OUTPUT_FILE $VARIABLE_NAME $START_YEAR $END_YEAR $MONTH || exit 1
+    $SCRIPT $INPUT_FOLDER $OUTPUT_FILE $VARIABLE_NAME $START_YEAR $END_YEAR $MONTH || exit 1
 done

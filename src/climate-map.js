@@ -56,12 +56,18 @@ function roundCoordinateToResolution(coord)
  */
 function climateDataUrlForCoords(date_range, lat, lon)
 {
-    const lat_index = Math.floor(lat);
-    const lon_index = Math.floor(lon);
+    /* Round the coordinate again because it can be infinitie digits.
+     * We times and divide by 100 to round to the nearest hundredth. */
+    let rounded_lat = Math.round(roundCoordinateToResolution(lat) * 100) / 100;
+    let rounded_lon = Math.round(roundCoordinateToResolution(lon) * 100) / 100;
 
-    /* Round the coordinate again because it can be infinitie digits. */
-    const rounded_lat = roundCoordinateToResolution(lat).toFixed(2);
-    const rounded_lon = roundCoordinateToResolution(lon).toFixed(2);
+    const lat_index = Math.floor(rounded_lat);
+    const lon_index = Math.floor(rounded_lon);
+
+    /* Whole-number coordinates need to end with ".0". Python outputs them like that
+     * and JavaScript outputs them as integers without decimal. */
+    rounded_lat = (rounded_lat * 10 % 10 == 0) ? rounded_lat.toFixed(1) : rounded_lat;
+    rounded_lon = (rounded_lon * 10 % 10 == 0) ? rounded_lon.toFixed(1) : rounded_lon;
 
     const coord_index = rounded_lat + '_' + rounded_lon;
 
@@ -78,6 +84,15 @@ async function fetchClimateDataForCoords(date_range, lat, lon)
 
     const response = await fetch(url);
     const data = await response.json();
+
+    /* The WorldClim data doesn't have the annual measurements but NOAA does. */
+    if (data['tavg'][0] === undefined) {
+        data['tavg'][0] = getAverageTemperature(data['tavg']);
+    }
+
+    if (data['precip'][0] === undefined) {
+        data['precip'][0] = getTotalPrecipitation(data['precip']);
+    }
 
     return data
 }
@@ -200,11 +215,15 @@ function createClimateChart(data, units, label, canvas_id)
 
     /* Collect temperature means for each month in a linear fashion. */
     let values = [];
-    for (let i = 1; i <= 12; i++) {
-        if (data[i][1] !== units) {
-            throw new Error('Expected ' + units + ', got ' + data[i][1]);
+    for (let month = 1; month <= 12; month++) {
+        if (data[month] !== undefined) {
+            if (data[month][1] !== units) {
+                throw new Error('Expected ' + units + ', got ' + data[month][1]);
+            }
+            values.push(data[month][0]);
+        } else {
+            console.warn('Missing month ' + month + ' in ' + label);
         }
-        values.push(data[i][0]);
     }
 
     /* Create the chart. */
@@ -249,30 +268,52 @@ function createClimateChart(data, units, label, canvas_id)
 
 /**
  * Returns the average of all the temperatures in the specified object.
+ *
+ * @return Array [average, units]
  */
 function getAverageTemperature(temperatures)
 {
     let sum = 0;
+    let num = 0;
+    let units = undefined;
 
-    for (let i = 1; i <= 12; i++) {
-        sum += temperatures[i][0];
+    for (let month = 1; month <= 12; month++) {
+        if (temperatures[month] !== undefined) {
+            sum += temperatures[month][0];
+            units = temperatures[month][1];
+            num++;
+        } else {
+            console.warn('Missing month ' + month + ' in temperature');
+        }
     }
 
-    return sum / 12;
+    let average = num > 0 ? sum / num : undefined;
+    return [average, units];
 }
 
 /**
  * Returns the total of all the precipitations in the specified object.
+ *
+ * @return Array [total, units]
  */
 function getTotalPrecipitation(precipitations)
 {
     let sum = 0;
+    let num = 0;
+    let units = undefined;
 
-    for (let i = 1; i <= 12; i++) {
-        sum += precipitations[i][0];
+    for (let month = 1; month <= 12; month++) {
+        if (precipitations[month] !== undefined) {
+            sum += precipitations[month][0];
+            units = precipitations[month][1];
+            num++;
+        } else {
+            console.warn('Missing month ' + month + ' in precipitation');
+        }
     }
 
-    return sum;
+    let total = num > 0 ? sum : undefined;
+    return [total, units];
 }
 
 /**
@@ -280,17 +321,10 @@ function getTotalPrecipitation(precipitations)
  */
 function updateClimateChart(data, temp_chart, precip_chart)
 {
-    /* The WorldClim data doesn't have the annual measurements but NOAA does. */
-    if (data['tavg'][0] === undefined) {
-        data['tavg'][0] = getAverageTemperature(data['tavg']);
-    }
-
-    if (data['precip'][0] === undefined) {
-        data['precip'][0] = getTotalPrecipitation(data['precip']);
-    }
-
-    document.getElementById('average-temperature').textContent = data['tavg'][0][0];
-    document.getElementById('total-precipitation').textContent = data['precip'][0][0];
+    const average_temperature = Math.round(data['tavg'][0][0] * 10) / 10;
+    const total_precipitation = Math.round(data['precip'][0][0] * 10) / 10;
+    document.getElementById('average-temperature').textContent = average_temperature;
+    document.getElementById('total-precipitation').textContent = total_precipitation;
 
     if (temp_chart !== undefined) {
         temp_chart.destroy();

@@ -3,7 +3,7 @@
 # Runs transformation for all months for a date range.
 #
 # The folder must be a standard WorldClim folder as the
-# folder name will be used to determine all filenames.
+# filenames will be used to determine each month.
 #
 
 ROOT_FOLDER=$(dirname $0)/..

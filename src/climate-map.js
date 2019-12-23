@@ -133,7 +133,7 @@ function createClimateLayer()
 
     return L.imageOverlay(
         climateDataUrl(date_range, measurement, month, 'png'),
-        [[85, -180], [-85 - 1/12, 180]],
+        [[85, -180], [-85 - 3/12/8, 180 - 1/12]],
         {
             'opacity': 0.8
         }

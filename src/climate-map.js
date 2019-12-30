@@ -90,6 +90,14 @@ async function fetchClimateDataForCoords(date_range, lat, lon)
         data['tavg'][0] = getAverageTemperature(data['tavg']);
     }
 
+    if (data['tmin'][0] === undefined) {
+        data['tmin'][0] = getAverageTemperature(data['tmin']);
+    }
+
+    if (data['tmax'][0] === undefined) {
+        data['tmax'][0] = getAverageTemperature(data['tmax']);
+    }
+
     if (data['precip'][0] === undefined) {
         data['precip'][0] = getTotalPrecipitation(data['precip']);
     }
@@ -141,62 +149,51 @@ function createClimateLayer()
 }
 
 /**
- * Returns the colours for each month based on the value
- * and units. This gives a visual sense of the temperature
- * or precipitation amount.
+ * Returns the colour for the specified value with units.
  */
-function coloursForMonthData(values, units)
+function colourForValueAndUnits(value, units)
 {
-    let colours = [];
+    let red, green, blue;
+
     switch (units) {
         case 'degC':
-            for (let i = 0; i <= values.length - 1; i++) {
-                const value = values[i];
-                let red, green, blue;
 
-                if (value >= 40) {
-                    red = 255;
-                    green = 0;
-                    blue = 0;
-                } else if (value >= 0) {
-                    red = 255;
-                    green = 240 - 6 * value;
-                    blue = green;
-                } else if (value <= -40) {
-                    red = 0;
-                    green = 0;
-                    blue = 255;
-                } else {
-                    red = 240 + 6 * value;
-                    green = red;
-                    blue = 255;
-                }
-
-                colours.push('rgb(' + red + ',' + green + ',' + blue + ')');
+            if (value >= 40) {
+                red = 255;
+                green = 0;
+                blue = 0;
+            } else if (value >= 0) {
+                red = 255;
+                green = 240 - 6 * value;
+                blue = green;
+            } else if (value <= -40) {
+                red = 0;
+                green = 0;
+                blue = 255;
+            } else {
+                red = 240 + 6 * value;
+                green = red;
+                blue = 255;
             }
-            return colours;
+
+            return 'rgb(' + red + ',' + green + ',' + blue + ')';
 
         case 'mm':
-            for (let i = 0; i <= values.length - 1; i++) {
-                const value = values[i];
-                let red, green, blue;
-
-                if (value >= 100) {
-                    red = 0;
-                    green = 255;
-                    blue = 0;
-                } else if (value >= 50) {
-                    red = 240 - 4.7 * (value - 50);
-                    green = 255;
-                    blue = red;
-                } else {
-                    red = 230 - value / 3;
-                    green = 230;
-                    blue = 4.4 * value;
-                }
-
-                colours.push('rgb(' + red + ',' + green + ',' + blue + ')');
+            if (value >= 100) {
+                red = 0;
+                green = 255;
+                blue = 0;
+            } else if (value >= 50) {
+                red = 240 - 4.7 * (value - 50);
+                green = 255;
+                blue = red;
+            } else {
+                red = 230 - value / 3;
+                green = 230;
+                blue = 4.4 * value;
             }
+
+            return 'rgb(' + red + ',' + green + ',' + blue + ')';
             return colours;
 
         default:
@@ -205,30 +202,74 @@ function coloursForMonthData(values, units)
 }
 
 /**
+ * Returns the colours for each month based on the value
+ * and units. This gives a visual sense of the temperature
+ * or precipitation amount.
+ */
+function coloursForMonthData(values, units)
+{
+    let colours = [];
+
+    for (let i = 0; i <= values.length - 1; i++) {
+        const value = values[i];
+        const colour = colourForValueAndUnits(value, units);
+        colours.push(colour);
+    }
+
+    return colours;
+}
+
+/**
  * Shows a climate chart with the specified data.
+ * The datasets must all have the same units.
  *
  * @return Chart
  */
-function createClimateChart(data, units, label, canvas_id)
+function createClimateChart(datasets, units, labels, type, canvas_id)
 {
     const ctx = document.getElementById(canvas_id).getContext('2d');
 
     /* Collect temperature means for each month in a linear fashion. */
-    let values = [];
-    for (let month = 1; month <= 12; month++) {
-        if (data[month] !== undefined) {
-            if (data[month][1] !== units) {
-                throw new Error('Expected ' + units + ', got ' + data[month][1]);
+    let chart_datasets = [];
+
+    for (let i = 0; i <= datasets.length - 1; i++) {
+        let values = [];
+        const data = datasets[i];
+        const label = labels[i];
+
+        for (let month = 1; month <= 12; month++) {
+            if (data[month] !== undefined) {
+                if (data[month][1] !== units) {
+                    throw new Error('Expected ' + units + ', got ' + data[month][1]);
+                }
+                values.push(data[month][0]);
+            } else {
+                /* If data is undefined put fake data for now. */
+                values.push(null);
+
+                console.warn('Missing month ' + month + ' in ' + label);
             }
-            values.push(data[month][0]);
-        } else {
-            console.warn('Missing month ' + month + ' in ' + label);
         }
+
+        /* Chart.js will not do a multi-coloured area chart. */
+        const colours = coloursForMonthData(values, units);
+        const avg_colour = colourForValueAndUnits(data[0][0], data[0][1]);
+        chart_datasets.push(
+            {
+                label: label,
+                data: values,
+                backgroundColor: avg_colour,
+                borderColor: avg_colour,
+                fill: 0,
+                lineTension: 0.2,
+            }
+        );
     }
 
     /* Create the chart. */
+    //const stacked = (type == 'line' && datasets.length > 1);
     const chart = new Chart(ctx, {
-        type: 'bar',
+        type: type,
         data: {
             labels: [
                 'January',
@@ -244,20 +285,15 @@ function createClimateChart(data, units, label, canvas_id)
                 'November',
                 'December',
             ],
-            datasets: [
-                {
-                    label: label,
-                    data: values,
-                    backgroundColor: coloursForMonthData(values, units),
-                }
-            ],
+            datasets: chart_datasets,
         },
         options: {
             scales: {
                 yAxes: [{
                     ticks: {
                         beginAtZero: true
-                    }
+                    },
+                    //stacked: stacked,
                 }]
             }
         },
@@ -330,9 +366,18 @@ function updateClimateChart(data, temp_chart, precip_chart)
         temp_chart.destroy();
     }
     temp_chart = createClimateChart(
-        data['tavg'],
+        [
+            data['tavg'],
+            ('tmin' in data ? data['tmin'] : {}),
+            ('tmax' in data ? data['tmax'] : {}),
+        ],
         'degC',
-        'Temperature (°C)',
+        [
+            'Mean Temperature (°C)',
+            'Min Temperature (°C)',
+            'Max Temperature (°C)',
+        ],
+        'line',
         'location-temperature-chart'
     );
 
@@ -340,9 +385,10 @@ function updateClimateChart(data, temp_chart, precip_chart)
         precip_chart.destroy();
     }
     precip_chart = createClimateChart(
-        data['precip'],
+        [data['precip']],
         'mm',
-        'Precipitation (mm)',
+        ['Precipitation (mm)'],
+        'bar',
         'location-precipitation-chart'
     );
 
@@ -420,8 +466,6 @@ window.onload = async function() {
     climate_map.on('click', function(e) {
         clicked_lat = e.latlng.lat;
         clicked_lon = e.latlng.lng;
-
-        console.log('[' + clicked_lat + ', ' + clicked_lon + ']');
 
         const date_range_select = document.getElementById('date-range');
         const date_range = date_range_select.value;

@@ -251,19 +251,34 @@ function createClimateChart(datasets, units, labels, type, canvas_id)
             }
         }
 
-        /* Chart.js will not do a multi-coloured area chart. */
         const colours = coloursForMonthData(values, units);
         const avg_colour = colourForValueAndUnits(data[0][0], data[0][1]);
-        chart_datasets.push(
-            {
-                label: label,
-                data: values,
-                backgroundColor: avg_colour,
-                borderColor: avg_colour,
-                fill: 0,
-                lineTension: 0.2,
-            }
-        );
+
+        if (type == 'line') {
+            /**
+             * Do an area line chart.
+             * Chart.js will not do a multi-coloured area chart, otherwise
+             * we could have a gradient to show the change.
+             */
+            chart_datasets.push(
+                {
+                    label: label,
+                    data: values,
+                    backgroundColor: avg_colour,
+                    borderColor: avg_colour,
+                    fill: 0,
+                    lineTension: 0.4,
+                }
+            );
+        } else {
+            chart_datasets.push(
+                {
+                    label: label,
+                    data: values,
+                    backgroundColor: colours,
+                }
+            );
+        }
     }
 
     /* Create the chart. */

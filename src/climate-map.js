@@ -83,7 +83,9 @@ async function fetchClimateDataForCoords(date_range, lat, lon)
     console.log(url);
 
     const response = await fetch(url);
-    const data = await response.json();
+    let data = await response.json();
+
+    data = populateMissingTemperatureData(data);
 
     /* The WorldClim data doesn't have the annual measurements but NOAA does. */
     if (data['tavg'][0] === undefined) {
@@ -232,52 +234,116 @@ function createClimateChart(datasets, units, labels, type, canvas_id)
     /* Collect temperature means for each month in a linear fashion. */
     let chart_datasets = [];
 
-    for (let i = 0; i <= datasets.length - 1; i++) {
+    if (type == 'bar' && datasets.length == 3 && units == 'degC') {
+        /**
+         * Assume datasets are the mean, min, and max temperatures. Create a floating bar
+         * chart with the bottom of the bars being minimum and the top being maximum.
+         */
         let values = [];
-        const data = datasets[i];
-        const label = labels[i];
+        let mean_values = [];
+        const mean_data = datasets[0];
+        const min_data = datasets[1];
+        const max_data = datasets[2];
+        const label = labels[1] + ' and ' + labels[2];
 
         for (let month = 1; month <= 12; month++) {
-            if (data[month] !== undefined) {
-                if (data[month][1] !== units) {
-                    throw new Error('Expected ' + units + ', got ' + data[month][1]);
-                }
-                values.push(data[month][0]);
-            } else {
-                /* If data is undefined put fake data for now. */
-                values.push(null);
+            let min_value, max_value;
 
-                console.warn('Missing month ' + month + ' in ' + label);
+            if (mean_data[month] !== undefined) {
+                if (mean_data[month][1] !== units) {
+                    throw new Error('Expected ' + units + ', got ' + mean_data[month][1]);
+                }
+                mean_values.push(mean_data[month][0]);
+            } else {
+                mean_values.push(null);
+
+                console.error('Missing month ' + month + ' in ' + labels[0]);
             }
+
+            if (min_data[month] !== undefined) {
+                if (min_data[month][1] !== units) {
+                    throw new Error('Expected ' + units + ', got ' + min_data[month][1]);
+                }
+                min_value = min_data[month][0];
+            } else {
+                min_value = null;
+
+                console.error('Missing month ' + month + ' in ' + labels[1]);
+            }
+
+            if (max_data[month] !== undefined) {
+                if (max_data[month][1] !== units) {
+                    throw new Error('Expected ' + units + ', got ' + max_data[month][1]);
+                }
+                max_value = max_data[month][0];
+            } else {
+                max_value = null;
+
+                console.error('Missing month ' + month + ' in ' + labels[2]);
+            }
+
+            values.push([min_value, max_value]);
         }
 
-        const colours = coloursForMonthData(values, units);
-        const avg_colour = colourForValueAndUnits(data[0][0], data[0][1]);
+        const colours = coloursForMonthData(mean_values, units);
+        chart_datasets.push(
+            {
+                label: label,
+                data: values,
+                backgroundColor: colours,
+            }
+        );
+    } else {
+        /**
+         * Put each dataset as separate charts on the same axes.
+         */
+        for (let i = 0; i <= datasets.length - 1; i++) {
+            let values = [];
+            const data = datasets[i];
+            const label = labels[i];
 
-        if (type == 'line') {
-            /**
-             * Do an area line chart.
-             * Chart.js will not do a multi-coloured area chart, otherwise
-             * we could have a gradient to show the change.
-             */
-            chart_datasets.push(
-                {
-                    label: label,
-                    data: values,
-                    backgroundColor: avg_colour,
-                    borderColor: avg_colour,
-                    fill: 0,
-                    lineTension: 0.4,
+            for (let month = 1; month <= 12; month++) {
+                if (data[month] !== undefined) {
+                    if (data[month][1] !== units) {
+                        throw new Error('Expected ' + units + ', got ' + data[month][1]);
+                    }
+                    values.push(data[month][0]);
+                } else {
+                    /* If data is undefined put fake data for now. */
+                    values.push(null);
+
+                    console.warn('Missing month ' + month + ' in ' + label);
                 }
-            );
-        } else {
-            chart_datasets.push(
-                {
-                    label: label,
-                    data: values,
-                    backgroundColor: colours,
-                }
-            );
+            }
+
+            const colours = coloursForMonthData(values, units);
+            const avg_colour = colourForValueAndUnits(data[0][0], data[0][1]);
+
+            if (type == 'line') {
+                /**
+                 * Do an area line chart.
+                 * Chart.js will not do a multi-coloured area chart, otherwise
+                 * we could have a gradient to show the change.
+                 */
+                chart_datasets.push(
+                    {
+                        label: label,
+                        data: values,
+                        backgroundColor: avg_colour,
+                        borderColor: avg_colour,
+                        fill: 0,
+                        cubicInterpolationMode: 'monotone',
+                    }
+                );
+            } else {
+                chart_datasets.push(
+                    {
+                        label: label,
+                        data: values,
+                        backgroundColor: colours,
+                    }
+                );
+            }
         }
     }
 
@@ -315,6 +381,49 @@ function createClimateChart(datasets, units, labels, type, canvas_id)
     });
 
     return chart;
+}
+
+/**
+ * Populates missing mean, minimum, or maximum data.
+ * This allows us to not have to store all data which will save
+ * us time.
+ */
+function populateMissingTemperatureData(data)
+{
+    if (data['tavg'] === undefined) {
+        data['tavg'] = {};
+    }
+
+    if (data['tmin'] === undefined) {
+        data['tmin'] = {};
+    }
+
+    if (data['tmax'] === undefined) {
+        data['tmax'] = {};
+    }
+
+    for (let month = 1; month <= 12; month++) {
+        let tavg = data['tavg'][month] !== undefined ? data['tavg'][month][0] : null;
+        let tmin = data['tmin'][month] !== undefined ? data['tmin'][month][0] : null;
+        let tmax = data['tmax'][month] !== undefined ? data['tmax'][month][0] : null;
+
+        if (tavg === null && tmin !== null && tmax !== null) {
+            let units = data['tmin'][month][1];
+            data['tavg'][month] = [(tmin + tmax) / 2, units];
+        }
+
+        if (tmin === null && tavg !== null && tmax !== null) {
+            let units = data['tavg'][month][1];
+            data['tmin'][month] = [2 * tavg - tmax, units];
+        }
+
+        if (tmax === null && tavg !== null && tmin !== null) {
+            let units = data['tavg'][month][1];
+            data['tmax'][month] = [2 * tavg - tmin, units];
+        }
+    }
+
+    return data;
 }
 
 /**
@@ -392,7 +501,7 @@ function updateClimateChart(data, temp_chart, precip_chart)
             'Min Temperature (°C)',
             'Max Temperature (°C)',
         ],
-        'line',
+        'bar',
         'location-temperature-chart'
     );
 

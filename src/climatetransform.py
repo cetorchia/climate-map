@@ -222,7 +222,6 @@ def pad_data(lat_arr, lon_arr, data_arr):
     aug_size = desired_lat_size - lat_arr.size
     if aug_size < 0:
         raise Exception('Expected no more than %d latitudes, found %d' % (desired_lat_size, lat_arr.size))
-    print('Padding %d empty values onto latitudes' % aug_size)
 
     data_aug = np.full((aug_size, data_arr.shape[1]), data_arr.fill_value)
     new_data_unmasked = np.append(data_arr, data_aug, axis=0)
@@ -230,7 +229,6 @@ def pad_data(lat_arr, lon_arr, data_arr):
 
     last_lat = lat_arr[lat_arr.size - 1]
     lat_aug = np.linspace(last_lat + lat_delta, last_lat + lat_delta * aug_size, aug_size)
-    #lat_aug = np.arange(initial_lat + lat_delta, initial_lat + aug_size * lat_delta + lat_delta, lat_delta)
     new_lat_arr = np.append(lat_arr, lat_aug)
 
     return (new_lat_arr, lon_arr, new_data_arr)
@@ -413,14 +411,15 @@ def pixels_for_latitude(lat, size, y_pixels, max_lat, y_total):
 
     # Scale to have enough pixels going top to bottom.
     # Scale the existing total pixels by the increase from the projection.
+    addition = 5
     y_max = lat2y(max_lat)
-    new_total = (y_max / max_lat + 5) * y_total
+    new_total = (y_max / max_lat + addition) * y_total
     factor = new_total / y_max / 2
 
     y_north = y_max * factor - y_pixels
     y_south = lat2y(lat_south) * factor
 
-    return round(y_north - y_south + 5)
+    return round(y_north - y_south + addition)
 
 def lat2y(lat):
     '''

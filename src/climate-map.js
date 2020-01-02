@@ -141,6 +141,8 @@ function createClimateLayer()
     const measurement = measurement_select.value;
     const month = month_select.value;
 
+    /* The -3/18/8 and -1/12 are fudge factors because I really have
+     * no idea why the map won't line up. */
     return L.imageOverlay(
         climateDataUrl(date_range, measurement, month, 'png'),
         [[85, -180], [-85 - 3/12/8, 180 - 1/12]],

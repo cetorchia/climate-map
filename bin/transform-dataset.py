@@ -48,7 +48,7 @@ def get_args(arguments):
     else:
         input_fmt = input_file.split('.')[-1]
 
-    if input_fmt not in ('nc', 'tif', 'folder'):
+    if input_fmt not in ('nc', 'tif', 'bil', 'folder'):
         raise Exception('Unknown input format ' + input_fmt)
 
     if output_file.endswith('/'):
@@ -77,11 +77,13 @@ def main(args):
             month
         )
 
-    elif input_fmt == 'tif':
-        lat_arr, lon_arr, units, normals = climatetransform.normals_from_geotiff(input_file)
+    elif input_fmt in ('tif', 'bil'):
+        lat_arr, lon_arr, units, normals = climatetransform.normals_from_geotiff(input_file, input_fmt)
 
     elif input_fmt == 'folder':
         lat_arr, lon_arr, units, normals = climatetransform.normals_from_folder(input_file, variable_name, month)
+
+    lat_arr, lon_arr, normals = climatetransform.pad_data(lat_arr, lon_arr, normals)
 
     # Load normals to storage in the output format
     if output_fmt == 'json':

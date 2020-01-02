@@ -6,6 +6,7 @@
 # Copyright (c) 2019 Carlos Torchia
 #
 import os
+import sys
 from datetime import timedelta
 from datetime import datetime
 import numpy as np
@@ -14,51 +15,104 @@ import netCDF4
 from osgeo import gdal
 import json
 import stat
+import re
+
+ALLOWED_GDAL_EXTENSIONS = ('tif', 'bil')
+
+def to_standard_variable_name(variable_name):
+    '''
+    Determines the standard variable name from the given variable name.
+    This is useful when datasets use different variable names like "tmean" or "air"
+    as we want to store everything under one variable name "tavg".
+    '''
+    if variable_name in ('air', 'tmean'):
+        return 'tavg'
+
+    elif variable_name == 'prec':
+        return 'precip'
+
+    else:
+        return variable_name
+
+def units_from_filename(input_file):
+    '''
+    Determines the units of measurement for the specified filename.
+    This is useful when the dataset does not contain the units, and we
+    have to guess based on information in the filename.
+    '''
+    if re.search('tmax|tmin|tavg|tmean', input_file):
+        return 'degC'
+    elif input_file.find('prec') != -1:
+        return 'mm'
+    else:
+        raise Exception('Do not know the measurement units of ' + input_file)
 
 def normals_from_folder(input_folder, variable_name, month=0):
     '''
     Extracts climate normals from a folder. Usually, this will contain
-    a series of GeoTIFF files, one for each month. The one with the month
-    we want will be used only, or all will be aggregated if month is 0.
+    a series of GeoTIFF files, one for each month. Only the one with the month
+    we want will be used, or all will be aggregated if month is 0.
     '''
     normals = None
+    file_pattern = re.compile('([a-z]+)_?(\d+)\.(' + '|'.join(ALLOWED_GDAL_EXTENSIONS) + ')$')
+    num_months = 0
 
     for filename in os.listdir(input_folder):
         input_file = os.path.join(input_folder, filename)
         mode = os.stat(input_file).st_mode
 
-        if stat.S_ISREG(mode) and input_file.endswith('.tif'):
+        if stat.S_ISREG(mode):
+            match = file_pattern.search(input_file)
 
-            if month == 0:
-                # Annual average/total, add up the normals.
-                lat_arr, lon_arr, units, normals_for_file = normals_from_geotiff(input_file)
+            if match:
+                input_fmt = match.group(3)
+                file_variable_name = to_standard_variable_name(match.group(1))
 
-                if normals is None:
-                    normals = normals_for_file
-                else:
-                    normals += normals_for_file
+                if file_variable_name == to_standard_variable_name(variable_name):
+                    if month == 0:
+                        # Annual average/total, add up the normals.
+                        lat_arr, lon_arr, units, normals_for_file = normals_from_geotiff(input_file, input_fmt)
 
-            else:
-                # Specific month, is it the month?
-                suffix = '_%02d.tif' % month
+                        if normals is None:
+                            normals = normals_for_file
+                        else:
+                            # Add the arrays of all months together.
+                            normals += normals_for_file
 
-                if input_file.endswith(suffix):
-                    return normals_from_geotiff(input_file)
+                        num_months += 1
 
-    if normals is None:
+                    else:
+                        # Specific month, is it the month?
+                        file_month = int(match.group(2))
+
+                        if file_month == month:
+                            return normals_from_geotiff(input_file, input_fmt)
+
+    if normals is None and month:
         raise Exception('Could not find data for month %d in %s' % (month, input_folder))
+    elif month == 0 and num_months < 12:
+        raise Exception('Could not find data for all months in %s' % input_folder)
 
     if variable_name != 'precip':
         normals /= 12
 
     return (lat_arr, lon_arr, units, normals)
 
-def normals_from_geotiff(input_file):
+def normals_from_geotiff(input_file, input_fmt):
     '''
     Extracts climate normals from a GeoTIFF file.
     Returns a masked numpy array.
     '''
+    if input_fmt not in ALLOWED_GDAL_EXTENSIONS:
+        raise ValueError('Expected GeoTIFF file to end with "' + '" or "'.join(ALLOWED_GDAL_EXTENSIONS) + '"')
+
     dataset = gdal.Open(input_file)
+
+    units = units_from_filename(input_file)
+
+    # The WorldClim v1 data multiplies temperatures by 10, because
+    # the values are stored as integers and so they cannot have decimals.
+    factor = 10 if input_fmt == 'bil' and units == 'degC' else 1
 
     if (dataset.RasterCount != 1):
         raise Exception('Expected 1 raster band, got ' + dataset.RasterCount)
@@ -67,7 +121,7 @@ def normals_from_geotiff(input_file):
     # values can be assumed to be normals already.
     band = dataset.GetRasterBand(1)
     band_arr = band.ReadAsArray()
-    normals = np.ma.masked_values(band_arr, band.GetNoDataValue())
+    normals = np.ma.masked_values(band_arr / factor, band.GetNoDataValue() / factor)
 
     if len(normals.shape) != 2:
         raise Exception('Expected two dimensional raster band, got ' + len(normals.shape))
@@ -88,13 +142,6 @@ def normals_from_geotiff(input_file):
     lon_arr[0] = lon_start
     for lon_i in range(1, lon_arr.size):
         lon_arr[lon_i] = lon_arr[lon_i - 1] + lon_inc
-
-    if input_file.find('tmax') != -1 or input_file.find('tmin') != -1 or input_file.find('tavg') != -1:
-        units = 'degC'
-    elif input_file.find('prec') != -1:
-        units = 'mm'
-    else:
-        raise Exception('Do not know the measurement units of ' + input_file)
 
     return (lat_arr, lon_arr, units, normals)
 
@@ -152,6 +199,42 @@ def calculate_normals(time_var, value_var, variable_name, start_time, end_time, 
         means = filtered_values.mean(axis = 0)
         return means
 
+def pad_data(lat_arr, lon_arr, data_arr):
+    '''
+    Augments the arrays with empty masked values in order to make
+    the array big enough to fit in the 90 to -90 latitudes.
+    This is particularly useful when the dataset does not include
+    Antarctica, we still want the image to fit the bounds.
+    '''
+    # Don't pad the longitudes, but enforce it being 360
+    lon_delta = lon_arr[1] - lon_arr[0]
+    expected_lon_size = int(round((180 - (-180)) / abs(lon_delta)))
+    if lon_arr.size < expected_lon_size:
+        raise Exception(
+            'There should be %f longitudes if they have a delta of %g, found %d' % (
+                expected_lon_size, lon_delta, lon_arr.size))
+
+    # Just pad it on the bottom, not on the side.
+    lat_delta = lat_arr[1] - lat_arr[0]
+    if abs(lat_arr[0]) != 90:
+        raise Exception('Expected first latitude to be 90')
+    desired_lat_size = int(round((90 - (-90)) / abs(lat_delta)))
+    aug_size = desired_lat_size - lat_arr.size
+    if aug_size < 0:
+        raise Exception('Expected no more than %d latitudes, found %d' % (desired_lat_size, lat_arr.size))
+    print('Padding %d empty values onto latitudes' % aug_size)
+
+    data_aug = np.full((aug_size, data_arr.shape[1]), data_arr.fill_value)
+    new_data_unmasked = np.append(data_arr, data_aug, axis=0)
+    new_data_arr = np.ma.masked_values(new_data_unmasked, data_arr.fill_value)
+
+    last_lat = lat_arr[lat_arr.size - 1]
+    lat_aug = np.linspace(last_lat + lat_delta, last_lat + lat_delta * aug_size, aug_size)
+    #lat_aug = np.arange(initial_lat + lat_delta, initial_lat + aug_size * lat_delta + lat_delta, lat_delta)
+    new_lat_arr = np.append(lat_arr, lat_aug)
+
+    return (new_lat_arr, lon_arr, new_data_arr)
+
 def to_standard_units(value, units):
     '''
     Gives the value in standard units
@@ -190,7 +273,7 @@ def get_data(lat_arr, lon_arr, units, data_arr, month):
                     data[lat_value] = {}
 
                 data[lat_value][lon_value] = [
-                    round(new_value),
+                    round(new_value, 1),
                     new_units,
                 ]
 
@@ -357,11 +440,7 @@ def save_folder_data(data, output_folder, variable_name, month):
     Saves data in coordinate folders for quick lookup of stats.
     Augments existing data.
     '''
-    if variable_name == 'air':
-        variable_name = 'tavg'
-
-    if variable_name == 'prec':
-        variable_name = 'precip'
+    variable_name = to_standard_variable_name(variable_name)
 
     for lat_value in data:
         lat_index = str(math.floor(lat_value))

@@ -6,6 +6,13 @@ Use npm to build the javascript output.
 npm run build
 ```
 
+Install the following Ubuntu packages, or equivalent:
+
+* python3-numpy
+* python3-netcdf4
+* python3-gdal
+* python3-png
+
 # Important notes
 
 * Coordinates in OSM and geoJSON are `[longitude, latitude]`, but coordinates

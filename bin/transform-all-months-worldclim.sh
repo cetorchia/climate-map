@@ -10,7 +10,7 @@ ROOT_FOLDER=$(dirname $0)/..
 SCRIPT=$(dirname $0)/transform-dataset.py
 
 if [ -z "$4" ]; then
-    echo "Usage: $(basename $0) <dataset-folder> <variable_name> <start-year> <end-year>"
+    echo "Usage: $(basename $0) <dataset-folder> <variable-name> <start-year> <end-year>"
 fi
 
 INPUT_FOLDER="$1"
@@ -19,12 +19,10 @@ START_YEAR="$3"
 END_YEAR="$4"
 
 OUTPUT_FOLDER="$ROOT_FOLDER/public/data/$START_YEAR-$END_YEAR/"
-INPUT_PREFIX=$(basename $INPUT_FOLDER)
 
 # Monthly normals
 for MONTH in $(seq 1 12); do
     echo $VARIABLE_NAME $START_YEAR $END_YEAR $MONTH
     INPUT_MONTH=$(printf '%02d' $MONTH)
-    INPUT_FILENAME="$INPUT_FOLDER/${INPUT_PREFIX}_$INPUT_MONTH.tif"
-    $SCRIPT $INPUT_FILENAME $OUTPUT_FOLDER $VARIABLE_NAME $START_YEAR $END_YEAR $MONTH || exit 1
+    $SCRIPT $INPUT_FOLDER $OUTPUT_FOLDER $VARIABLE_NAME $START_YEAR $END_YEAR $MONTH || exit 1
 done

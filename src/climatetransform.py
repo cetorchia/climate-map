@@ -297,7 +297,7 @@ def get_pixels(lat_arr, lon_arr, units, data_arr, month):
             for lon_i, value in enumerate(data_for_lat):
                 lon_value = lon_arr[lon_i].item()
 
-                # Some data goes from 0 to 360 longitude, so we have to put
+                # Some data (NOAA) goes from 0 to 360 longitude, so we have to put
                 # the 180 to 360 (equivalent to -180 to 0) at the beginning
                 # as the map will start at -180.
                 if lon_value > 180:
@@ -396,18 +396,18 @@ def precipitation_millimetres_colour(amount, month):
     else:
         return 255, 255, 204
 
-def pixels_for_latitude(lat, size, y_pixels, max_lat, y_total):
+def pixels_for_latitude(lat, delta, y_pixels, max_lat, y_total):
     '''
     Returns the number of pixels the latitude should take up based
-    on the spherical Mercator projection. Size is the size of each
+    on the spherical Mercator projection. "Delta" is the size of each
     point, in other words the distance between each latitude in the
     data.
     '''
     # For completeness we include the north latitude, but we are
     # basing the calculation on a running count of pixels so the
     # round off error balances out.
-    lat_north = lat + size / 2 if lat < max_lat else max_lat
-    lat_south = lat - size / 2 if lat > -max_lat else -max_lat
+    lat_north = lat + delta / 2 if lat < max_lat else max_lat
+    lat_south = lat - delta / 2 if lat > -max_lat else -max_lat
 
     # Scale to have enough pixels going top to bottom.
     # Scale the existing total pixels by the increase from the projection.
@@ -466,6 +466,7 @@ def save_folder_data(data, output_folder, variable_name, month):
             if existing_datum.get(variable_name) is None:
                 existing_datum[variable_name] = {}
 
+            datum[0] = round(datum[0], 1)
             existing_datum[variable_name][month] = datum
 
             with open(coord_file, 'w') as f:

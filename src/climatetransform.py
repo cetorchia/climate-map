@@ -18,6 +18,7 @@ import stat
 import re
 
 ALLOWED_GDAL_EXTENSIONS = ('tif', 'bil')
+MAX_LAT = 85 # Max latitude in OpenStreetMap
 
 def to_standard_variable_name(variable_name):
     '''
@@ -133,15 +134,8 @@ def normals_from_geotiff(input_file, input_fmt):
     if y_skew != 0:
         raise Exception('Expected Euclidean geometry, skew for latitude is ' + y_skew)
 
-    lat_arr = np.empty((normals.shape[0]))
-    lat_arr[0] = lat_start
-    for lat_i in range(1, lat_arr.size):
-        lat_arr[lat_i] = lat_arr[lat_i - 1] + lat_inc
-
-    lon_arr = np.empty((normals.shape[1]))
-    lon_arr[0] = lon_start
-    for lon_i in range(1, lon_arr.size):
-        lon_arr[lon_i] = lon_arr[lon_i - 1] + lon_inc
+    lat_arr = np.linspace(lat_start, lat_start + (normals.shape[0] - 1) * lat_inc, normals.shape[0])
+    lon_arr = np.linspace(lon_start, lon_start + (normals.shape[1] - 1) * lon_inc, normals.shape[1])
 
     return (lat_arr, lon_arr, units, normals)
 
@@ -211,7 +205,7 @@ def pad_data(lat_arr, lon_arr, data_arr):
     expected_lon_size = int(round((180 - (-180)) / abs(lon_delta)))
     if lon_arr.size < expected_lon_size:
         raise Exception(
-            'There should be %f longitudes if they have a delta of %g, found %d' % (
+            'There should be %d longitudes if they have a delta of %g, found %d' % (
                 expected_lon_size, lon_delta, lon_arr.size))
 
     # Just pad it on the bottom, not on the side.
@@ -231,7 +225,80 @@ def pad_data(lat_arr, lon_arr, data_arr):
     lat_aug = np.linspace(last_lat + lat_delta, last_lat + lat_delta * aug_size, aug_size)
     new_lat_arr = np.append(lat_arr, lat_aug)
 
-    return (new_lat_arr, lon_arr, new_data_arr)
+    return new_lat_arr, lon_arr, new_data_arr
+
+def normalize_longitudes(lon_arr, data_arr):
+    '''
+    Ensures that the longitudes start at -180. If they start at 0, for
+    example, the longitudes starting at 180 will be moved to start at -180.
+    Assumes axis 1 in the data array contains the longitudes.
+    '''
+    # Must be strictly increasing.
+    # See https://stackoverflow.com/a/4983359
+    if not all(x<y for x, y in zip(lon_arr, lon_arr[1:])):
+        raise Exception('Longitudes are not strictly increasing')
+
+    gt180_idxs = np.where(lon_arr > 180)[0]
+
+    if len(gt180_idxs) > 0:
+        # Move the longitudes > 180 to the front, and then subtract 360
+        new_lon_arr = np.append(lon_arr[gt180_idxs] - 360, lon_arr[~gt180_idxs], axis=1)
+        new_data_arr = np.append(data_arr[:, gt180_idxs], data_arr[:, ~gt180_idxs], axis=1)
+
+        return new_lon_arr, new_data_arr
+    else:
+        return lon_arr, data_arr
+
+def project_data(lat_arr, data_arr):
+    '''
+    Projects an array of climate data onto a sphere using the Mercator
+    projection. This assumes the latitudes are along axis 0, i.e. data_arr[lat][lon].
+
+    To do this, we multiply each row by how much space the latitude would take up
+    on the projected map.
+
+    We also return a new latitude array with each latitude multiplied to
+    match the projected data.
+    '''
+    pixels_so_far = 0
+    num_latitudes = data_arr.shape[0] # Total number of latitudes
+    delta = abs(lat_arr[1] - lat_arr[0])
+    repeats = np.empty(num_latitudes, np.int64)
+
+    for lat_i in range(0, lat_arr.size):
+        lat_value = lat_arr[lat_i].item()
+
+        if lat_value >= -MAX_LAT and lat_value <= MAX_LAT:
+            height = pixels_for_latitude(lat_value, delta, pixels_so_far, num_latitudes)
+            repeats[lat_i] = height
+            pixels_so_far += height
+
+        else:
+            repeats[lat_i] = 0
+
+    projected_data_arr = np.repeat(data_arr, repeats, axis=0)
+    projected_lat_arr = np.repeat(lat_arr, repeats, axis=0)
+
+    return projected_lat_arr, projected_data_arr
+
+def data_to_standard_units(units, data_arr):
+    '''
+    Converts the data array to standard units and gives the new units.
+    '''
+    new_data_arr = np.full(data_arr.shape, data_arr.fill_value)
+
+    for lat_i in range(0, data_arr.shape[0]):
+        for lon_i in range(0, data_arr.shape[1]):
+            if not data_arr.mask[lat_i][lon_i]:
+                value = data_arr[lat_i][lon_i]
+
+                value = value.item()
+                new_value, new_units = to_standard_units(value, units)
+
+                new_data_arr[lat_i][lon_i] = new_value
+
+    new_masked_arr = np.ma.masked_values(new_data_arr, data_arr.fill_value)
+    return new_units, new_masked_arr
 
 def to_standard_units(value, units):
     '''
@@ -249,12 +316,13 @@ def to_standard_units(value, units):
 
     return new_value, new_units
 
-def get_data(lat_arr, lon_arr, units, data_arr, month):
+def get_data_dict(lat_arr, lon_arr, units, data_arr, month):
     '''
     Gives the JSON for the specified data.
     This data is indexed by latitude and longitude.
     '''
     data = {}
+
     for lat_i, data_for_lat in enumerate(data_arr):
         lat_value = lat_arr[lat_i].item()
         for lon_i, value in enumerate(data_for_lat):
@@ -262,17 +330,13 @@ def get_data(lat_arr, lon_arr, units, data_arr, month):
 
             if not np.ma.is_masked(value):
                 value = value.item()
-                new_value, new_units = to_standard_units(value, units)
-
-                if lon_value > 180:
-                    lon_value -= 360
 
                 if data.get(lat_value) is None:
                     data[lat_value] = {}
 
                 data[lat_value][lon_value] = [
-                    round(new_value, 1),
-                    new_units,
+                    round(value, 1),
+                    units,
                 ]
 
     return data
@@ -282,44 +346,23 @@ def get_pixels(lat_arr, lon_arr, units, data_arr, month):
     Gives the PNG representation of the specified data.
     '''
     pixels = []
-    y_pixels = 0
-    max_lat = 85 # Max latitude in OpenStreetMap
-    y_total = data_arr.shape[0] # Total number of latitudes
-    y_size = abs(lat_arr[1] - lat_arr[0])
 
     for lat_i, data_for_lat in enumerate(data_arr):
         lat_value = lat_arr[lat_i].item()
+        row = []
 
-        if lat_value >= -max_lat and lat_value <= max_lat:
-            begin_pixels = []
-            end_pixels = []
+        for lon_i, value in enumerate(data_for_lat):
+            lon_value = lon_arr[lon_i].item()
 
-            for lon_i, value in enumerate(data_for_lat):
-                lon_value = lon_arr[lon_i].item()
+            if not np.ma.is_masked(value):
+                red, green, blue = colour_for_amount(value, units, month)
 
-                # Some data (NOAA) goes from 0 to 360 longitude, so we have to put
-                # the 180 to 360 (equivalent to -180 to 0) at the beginning
-                # as the map will start at -180.
-                if lon_value > 180:
-                    row_pixels = begin_pixels
-                else:
-                    row_pixels = end_pixels
+                row.append([red, green, blue])
 
-                if not np.ma.is_masked(value):
-                    new_value, new_units = to_standard_units(value.item(), units)
+            else:
+                row.append([0, 0, 0])
 
-                    red, green, blue = colour_for_amount(new_value, new_units, month)
-
-                    row_pixels.append([red, green, blue])
-
-                else:
-                    row_pixels.append([0, 0, 0])
-
-            height = pixels_for_latitude(lat_value, y_size, y_pixels, max_lat, y_total)
-            row = begin_pixels + end_pixels
-            rows = [row] * height
-            pixels += rows
-            y_pixels += height
+        pixels.append(row)
 
     return pixels
 
@@ -396,7 +439,7 @@ def precipitation_millimetres_colour(amount, month):
     else:
         return 255, 255, 204
 
-def pixels_for_latitude(lat, delta, y_pixels, max_lat, y_total):
+def pixels_for_latitude(lat, delta, pixels_so_far, num_latitudes):
     '''
     Returns the number of pixels the latitude should take up based
     on the spherical Mercator projection. "Delta" is the size of each
@@ -406,17 +449,19 @@ def pixels_for_latitude(lat, delta, y_pixels, max_lat, y_total):
     # For completeness we include the north latitude, but we are
     # basing the calculation on a running count of pixels so the
     # round off error balances out.
-    lat_north = lat + delta / 2 if lat < max_lat else max_lat
-    lat_south = lat - delta / 2 if lat > -max_lat else -max_lat
+    lat_north = lat + delta / 2 if lat < MAX_LAT else MAX_LAT
+    lat_south = lat - delta / 2 if lat > -MAX_LAT else -MAX_LAT
 
     # Scale to have enough pixels going top to bottom.
     # Scale the existing total pixels by the increase from the projection.
+    # "Addition" gives the latitudes near the equator more pixels,
+    # as this somehow makes the map line up better.
     addition = 5
-    y_max = lat2y(max_lat)
-    new_total = (y_max / max_lat + addition) * y_total
+    y_max = lat2y(MAX_LAT)
+    new_total = (y_max / MAX_LAT + addition) * num_latitudes
     factor = new_total / y_max / 2
 
-    y_north = y_max * factor - y_pixels
+    y_north = y_max * factor - pixels_so_far
     y_south = lat2y(lat_south) * factor
 
     return round(y_north - y_south + addition)
@@ -434,40 +479,47 @@ def lat2y(lat):
     # Source: https://wiki.openstreetmap.org/wiki/Mercator#Python_implementation
     return 180/math.pi*math.log(math.tan(math.pi/4.0+lat*(math.pi/180)/2.0))
 
-def save_folder_data(data, output_folder, variable_name, month):
+def save_folder_data(lat_arr, lon_arr, units, data_arr, output_folder, variable_name, month):
     '''
     Saves data in coordinate folders for quick lookup of stats.
     Augments existing data.
     '''
     variable_name = to_standard_variable_name(variable_name)
 
-    for lat_value in data:
+    print('Storing data in folders: ', end='')
+    for lat_i, data_for_lat in enumerate(data_arr):
+        print('%02d%%' % ((lat_i + 1) / data_arr.shape[0]), end='')
+        lat_value = lat_arr[lat_i].item()
         lat_index = str(math.floor(lat_value))
         lat_folder = os.path.join(output_folder, 'coords', lat_index)
         os.makedirs(lat_folder, exist_ok=True)
 
-        for lon_value in data[lat_value]:
+        for lon_i, value in enumerate(data_for_lat):
+            lon_value = lon_arr[lon_i].item()
             lon_index = str(math.floor(lon_value))
             lon_folder = os.path.join(lat_folder, lon_index)
-            if not os.path.exists(lon_folder):
-                os.mkdir(lon_folder)
 
-            coord_index = str(round(lat_value, 2)) + '_' + str(round(lon_value, 2))
-            coord_file = os.path.join(lon_folder, coord_index + '.json')
+            if not np.ma.is_masked(value):
 
-            datum = data[lat_value][lon_value]
+                if not os.path.exists(lon_folder):
+                    os.mkdir(lon_folder)
 
-            if not os.path.exists(coord_file):
-                existing_datum = {}
-            else:
-                with open(coord_file, 'r') as f:
-                    existing_datum = json.load(f)
+                coord_index = str(round(lat_value, 2)) + '_' + str(round(lon_value, 2))
+                coord_file = os.path.join(lon_folder, coord_index + '.json')
 
-            if existing_datum.get(variable_name) is None:
-                existing_datum[variable_name] = {}
+                if not os.path.exists(coord_file):
+                    existing_datum = {}
+                else:
+                    with open(coord_file, 'r') as f:
+                        existing_datum = json.load(f)
 
-            datum[0] = round(datum[0], 1)
-            existing_datum[variable_name][month] = datum
+                if existing_datum.get(variable_name) is None:
+                    existing_datum[variable_name] = {}
 
-            with open(coord_file, 'w') as f:
-                json.dump(existing_datum, f)
+                existing_datum[variable_name][month] = [round(value.item(), 1), units]
+
+                with open(coord_file, 'w') as f:
+                    json.dump(existing_datum, f)
+        print('\b\b\b', end='')
+
+    print('100%')

@@ -84,15 +84,18 @@ def main(args):
         lat_arr, lon_arr, units, normals = climatetransform.normals_from_folder(input_file, variable_name, month)
 
     lat_arr, lon_arr, normals = climatetransform.pad_data(lat_arr, lon_arr, normals)
+    lon_arr, normals = climatetransform.normalize_longitudes(lon_arr, normals)
+    units, normals = climatetransform.data_to_standard_units(units, normals)
 
     # Load normals to storage in the output format
     if output_fmt == 'json':
-        data = climatetransform.get_data(lat_arr, lon_arr, units, normals, month)
+        data = climatetransform.get_data_dict(lat_arr, lon_arr, units, normals, month)
 
         with open(output_file, 'w') as f:
             json.dump(data, f)
 
     elif output_fmt == 'png':
+        lat_arr, normals = climatetransform.project_data(lat_arr, normals)
         pixels = climatetransform.get_pixels(lat_arr, lon_arr, units, normals, month)
         png.from_array(pixels, 'RGB', info={
             'transparent': (0, 0, 0),
@@ -100,8 +103,7 @@ def main(args):
         }).save(output_file)
 
     elif output_fmt == 'folder':
-        data = climatetransform.get_data(lat_arr, lon_arr, units, normals, month)
-        climatetransform.save_folder_data(data, output_file, variable_name, month)
+        climatetransform.save_folder_data(lat_arr, lon_arr, units, normals, output_file, variable_name, month)
 
     return 0
 

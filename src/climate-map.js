@@ -411,17 +411,26 @@ function populateMissingTemperatureData(data)
 
         if (tavg === null && tmin !== null && tmax !== null) {
             let units = data['tmin'][month][1];
-            data['tavg'][month] = [(tmin + tmax) / 2, units];
+            data['tavg'][month] = [
+                Math.round((tmin + tmax) / 2 * 10) / 10,
+                units,
+            ];
         }
 
         if (tmin === null && tavg !== null && tmax !== null) {
             let units = data['tavg'][month][1];
-            data['tmin'][month] = [2 * tavg - tmax, units];
+            data['tmin'][month] = [
+                Math.round((2 * tavg - tmax) * 10) / 10,
+                units,
+            ];
         }
 
         if (tmax === null && tavg !== null && tmin !== null) {
             let units = data['tavg'][month][1];
-            data['tmax'][month] = [2 * tavg - tmin, units];
+            data['tmax'][month] = [
+                Math.round((2 * tavg - tmin) * 10) / 10,
+                units,
+            ];
         }
     }
 

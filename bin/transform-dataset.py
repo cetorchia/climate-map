@@ -14,7 +14,7 @@ from datetime import timedelta
 from datetime import datetime
 import json
 import climatetransform
-import png
+import numpy as np
 
 def get_args(arguments):
     '''
@@ -83,6 +83,7 @@ def main(args):
     elif input_fmt == 'folder':
         lat_arr, lon_arr, units, normals = climatetransform.normals_from_folder(input_file, variable_name, month)
 
+    # Transform the climate normals to standard form.
     lat_arr, lon_arr, normals = climatetransform.pad_data(lat_arr, lon_arr, normals)
     lon_arr, normals = climatetransform.normalize_longitudes(lon_arr, normals)
     units, normals = climatetransform.data_to_standard_units(units, normals)
@@ -95,12 +96,8 @@ def main(args):
             json.dump(data, f)
 
     elif output_fmt == 'png':
-        lat_arr, normals = climatetransform.project_data(lat_arr, normals)
-        pixels = climatetransform.get_pixels(lat_arr, lon_arr, units, normals, month)
-        png.from_array(pixels, 'RGB', info={
-            'transparent': (0, 0, 0),
-            'compression': 9,
-        }).save(output_file)
+        projected_lat_arr, projected_normals = climatetransform.project_data(lat_arr, normals)
+        climatetransform.save_contours_png(projected_lat_arr, lon_arr, units, projected_normals, output_file, month)
 
     elif output_fmt == 'folder':
         climatetransform.save_folder_data(lat_arr, lon_arr, units, normals, output_file, variable_name, month)

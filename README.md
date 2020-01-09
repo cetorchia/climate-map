@@ -12,6 +12,7 @@ Install the following Ubuntu packages, or equivalent:
 * python3-netcdf4
 * python3-gdal
 * python3-png
+* python3-matplotlib
 
 # Important notes
 

@@ -16,6 +16,8 @@ from osgeo import gdal
 import json
 import stat
 import re
+import png
+import matplotlib.pyplot as plt
 
 ALLOWED_GDAL_EXTENSIONS = ('tif', 'bil')
 MAX_LAT = 85 # Max latitude in OpenStreetMap
@@ -366,6 +368,50 @@ def get_pixels(lat_arr, lon_arr, units, data_arr, month):
 
     return pixels
 
+def get_contour_levels(units):
+    '''
+    Returns a list of the contour levels for use with pyplot.contourf()
+    '''
+    if units == 'degC':
+        return [
+            -40,
+            -35,
+            -30,
+            -25,
+            -20,
+            -15,
+            -10,
+            -5,
+            0,
+            5,
+            10,
+            15,
+            20,
+            25,
+            30,
+            35,
+            40,
+        ]
+
+    elif units == 'mm':
+        return [
+            0,
+            100,
+            250,
+            500,
+            1000,
+            2000,
+        ]
+
+    else:
+        raise Exception('Unknown units: ' + units)
+
+def get_contour_colours(levels, units, month):
+    '''
+    Returns a list of the contour colours for use with pyplot.contourf()
+    '''
+    return ['#%02X%02X%02X' % tuple(colour_for_amount(amount, units, month)) for amount in levels]
+
 def colour_for_amount(amount, units, month):
     '''
     Returns the colour for the specified amount, units, and month.
@@ -386,21 +432,21 @@ def degrees_celsius_colour(amount, month):
     if not month:
         amount -= 10
 
-    if amount > 35:
+    if amount >= 35:
         return 255, 0, 0
-    elif amount > 30:
+    elif amount >= 30:
         return 255, 34, 34
-    elif amount > 25:
+    elif amount >= 25:
         return 255, 68, 68
-    elif amount > 20:
+    elif amount >= 20:
         return 255, 102, 102
-    elif amount > 15:
+    elif amount >= 15:
         return 255, 136, 136
-    elif amount > 10:
+    elif amount >= 10:
         return 255, 170, 170
-    elif amount > 5:
+    elif amount >= 5:
         return 255, 204, 204
-    elif amount > 0:
+    elif amount >= 0:
         return 255, 238, 238
     elif amount < -35:
         return 0, 0, 255
@@ -523,3 +569,45 @@ def save_folder_data(lat_arr, lon_arr, units, data_arr, output_folder, variable_
         print('\b\b\b', end='')
 
     print('100%')
+
+def save_contours_png(lat_arr, lon_arr, units, normals, output_file, month):
+    '''
+    Save contours in the data as a PNG file that is displayable over
+    the map.
+    '''
+    # Latitude array is projected and will contain duplicates.
+    # The Y axis must contain the projected number of distinct points or
+    # contour function will just "unproject" the image.
+    plot_lat_arr = np.linspace(lat_arr.size, 1, lat_arr.size)
+
+    # Use dpi to ensure the plot takes up the expected dimensions in pixels.
+    height = 1
+    dpi = lon_arr.size
+    #dpi = int(plot_lat_arr.size / height)
+    width = height
+
+    fig = plt.figure()
+    fig.set_size_inches(width, height)
+    ax = plt.Axes(fig, [0, 0, width, height])
+    ax.set_axis_off()
+    fig.add_axes(ax)
+
+    contour_levels = get_contour_levels(units)
+    contour_colours = get_contour_colours(contour_levels, units, month)
+
+    cs = ax.contourf(lon_arr, plot_lat_arr, normals, levels=contour_levels, colors=contour_colours, extend='both')
+    cs.cmap.set_over(contour_colours[-1])
+    cs.cmap.set_under(contour_colours[0])
+    cs.changed()
+    plt.savefig(output_file, dpi=dpi, transparent=True)
+
+def save_png(lat_arr, lon_arr, units, normals, output_file, month):
+    '''
+    Saves the data as a PNG image displayable over the map.
+    '''
+    lat_arr, normals = project_data(lat_arr, normals)
+    pixels = get_pixels(lat_arr, lon_arr, units, normals, month)
+    png.from_array(pixels, 'RGB', info={
+        'transparent': (0, 0, 0),
+        'compression': 9,
+    }).save(output_file)

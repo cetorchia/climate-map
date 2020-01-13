@@ -507,7 +507,7 @@ def pixels_for_latitude(lat, delta, pixels_so_far, num_latitudes):
     # Scale the existing total pixels by the increase from the projection.
     # "Addition" gives the latitudes near the equator more pixels,
     # as this somehow makes the map line up better.
-    addition = 5
+    addition = 1
     y_max = lat2y(MAX_LAT)
     new_total = (y_max / MAX_LAT + addition) * num_latitudes
     factor = new_total / y_max / 2
@@ -587,7 +587,7 @@ def save_contours_tiles(lat_arr, lon_arr, units, normals, output_folder, month):
     '''
     max_zoom_levels = max(int(math.log2(lon_arr.size)), MAX_ZOOM_LEVELS)
 
-    for zoom_level in range(0, max_zoom_levels + 1):
+    for zoom_level in range(0, max_zoom_levels):
         print('Zoom level %d: ' % zoom_level, end='', flush=True)
 
         num_tiles = 2**zoom_level
@@ -615,7 +615,7 @@ def save_contours_tiles(lat_arr, lon_arr, units, normals, output_folder, month):
                 os.makedirs(output_parent, exist_ok=True)
                 output_file = os.path.join(output_parent, str(y) + '.png')
 
-                if zoom_level <= 5:
+                if zoom_level <= max_zoom_levels:
                     save_contours_png(sub_lat_arr, sub_lon_arr, units, sub_normals, output_file, month, TILE_LENGTH)
                 else:
                     save_png(sub_lat_arr, sub_lon_arr, units, sub_normals, output_file, month, TILE_LENGTH)

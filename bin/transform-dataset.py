@@ -43,21 +43,25 @@ def get_args(arguments):
         start_time = datetime(start_year, 1, 1)
         end_time = datetime(end_year + 1, 1, 1) - timedelta(seconds=1)
 
-    if input_file.endswith('/'):
+    # Determine input format
+    if input_file.endswith(os.path.sep):
         input_fmt = 'folder'
     else:
         input_fmt = input_file.split('.')[-1]
 
-    if input_fmt not in ('nc', 'tif', 'bil', 'folder'):
-        raise Exception('Unknown input format ' + input_fmt)
+        if input_fmt not in ('nc', 'tif', 'bil'):
+            raise Exception('Unknown input format ' + input_fmt)
 
-    if output_file.endswith('/'):
+    # Determine output format
+    if output_file.find(os.path.sep + 'tiles' + os.path.sep) != - 1 or output_file.startswith('tiles' + os.path.sep):
+        output_fmt = 'tiles'
+    elif output_file.endswith(os.path.sep):
         output_fmt = 'folder'
     else:
         output_fmt = output_file.split('.')[-1]
 
-    if output_fmt not in ('json', 'png', 'folder'):
-        raise Exception('Unknown output format ' + output_fmt)
+        if output_fmt not in ('json', 'png'):
+            raise Exception('Unknown output format ' + output_fmt)
 
     return (input_file, input_fmt, output_file, output_fmt, variable_name, month, start_time, end_time)
 
@@ -98,6 +102,10 @@ def main(args):
     elif output_fmt == 'png':
         projected_lat_arr, projected_normals = climatetransform.project_data(lat_arr, normals)
         climatetransform.save_contours_png(projected_lat_arr, lon_arr, units, projected_normals, output_file, month)
+
+    elif output_fmt == 'tiles':
+        projected_lat_arr, projected_normals = climatetransform.project_data(lat_arr, normals)
+        climatetransform.save_contours_tiles(projected_lat_arr, lon_arr, units, projected_normals, output_file, month)
 
     elif output_fmt == 'folder':
         climatetransform.save_folder_data(lat_arr, lon_arr, units, normals, output_file, variable_name, month)

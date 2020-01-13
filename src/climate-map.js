@@ -28,10 +28,18 @@ L.Icon.Default.mergeOptions({
  */
 function climateDataUrl(date_range, measurement, month, fmt)
 {
-    if (month) {
-        return 'data/' + date_range + '/' + measurement + '-' + month + '.' + fmt;
+    if (fmt == 'tiles') {
+        if (month) {
+            return 'data/' + date_range + '/' + fmt + '/' + measurement + '-' + month + '/{z}/{x}/{y}.png';
+        } else {
+            return 'data/' + date_range + '/' + fmt + '/' + measurement + '/{z}/{x}/{y}.png';
+        }
     } else {
-        return 'data/' + date_range + '/' + measurement + '.' + fmt;
+        if (month) {
+            return 'data/' + date_range + '/' + measurement + '-' + month + '.' + fmt;
+        } else {
+            return 'data/' + date_range + '/' + measurement + '.' + fmt;
+        }
     }
 }
 
@@ -52,10 +60,26 @@ function roundCoordinateToResolution(coord)
 }
 
 /**
+ * Maps a coordinate to the range -180 to 180.
+ */
+function mapCoordinateWithin180(coord)
+{
+    if (coord >= -180) {
+        return (coord + 180) % 360 - 180;
+    } else {
+        return (coord + 180) % 360 + 180;
+    }
+}
+
+/**
  * Returns the URL for the specified climate data by latitude and longitude.
  */
 function climateDataUrlForCoords(date_range, lat, lon)
 {
+    /* Wrap around to allow the user to scroll past the whole map multiple times */
+    lat = mapCoordinateWithin180(lat);
+    lon = mapCoordinateWithin180(lon);
+
     /* Round the coordinate again because it can be infinitie digits.
      * We times and divide by 100 to round to the nearest hundredth. */
     let rounded_lat = Math.round(roundCoordinateToResolution(lat) * 100) / 100;
@@ -108,9 +132,9 @@ async function fetchClimateDataForCoords(date_range, lat, lon)
 }
 
 /**
- * Updates the climate layer for the climate filters in the document.
+ * Updates the tile layer for the climate filters in the document.
  */
-async function updateClimateLayer(climate_layer)
+async function updateTileLayer(tile_layer)
 {
     const date_range_select = document.getElementById('date-range');
     const measurement_select = document.getElementById('measurement');
@@ -120,18 +144,15 @@ async function updateClimateLayer(climate_layer)
     const measurement = measurement_select.value;
     const month = month_select.value;
 
-    climate_layer.setUrl(
-        climateDataUrl(date_range, measurement, month, 'png')
+    tile_layer.setUrl(
+        climateDataUrl(date_range, measurement, month, 'tiles')
     );
 }
 
 /**
- * Create the climate layer. This shows the differences between
- * different regions' climates in a visual way.
- *
- * @return map layer
+ * Updates the image layer for the climate filters in the document.
  */
-function createClimateLayer()
+async function updateImageLayer(image_layer)
 {
     const date_range_select = document.getElementById('date-range');
     const measurement_select = document.getElementById('measurement');
@@ -141,11 +162,55 @@ function createClimateLayer()
     const measurement = measurement_select.value;
     const month = month_select.value;
 
-    /* The -3/18/8 and -1/12 are fudge factors because I really have
-     * no idea why the map won't line up. */
+    image_layer.setUrl(
+        climateDataUrl(date_range, measurement, month, 'png'),
+    );
+}
+
+/**
+ * Creates an tile layer with climate data based on the inputs.
+ * This shows the differences between different regions' climates in a visual way.
+ *
+ * @return map layer
+ */
+function createTileLayer()
+{
+    const date_range_select = document.getElementById('date-range');
+    const measurement_select = document.getElementById('measurement');
+    const month_select = document.getElementById('month');
+
+    const date_range = date_range_select.value;
+    const measurement = measurement_select.value;
+    const month = month_select.value;
+
+    return L.tileLayer(
+        climateDataUrl(date_range, measurement, month, 'tiles'),
+        {
+            maxZoom: 10,
+            opacity: 0.8,
+        }
+    );
+}
+
+/**
+ * Creates an image layer with climate data based on the inputs.
+ * This shows the differences between different regions' climates in a visual way.
+ *
+ * @return map layer
+ */
+function createImageLayer()
+{
+    const date_range_select = document.getElementById('date-range');
+    const measurement_select = document.getElementById('measurement');
+    const month_select = document.getElementById('month');
+
+    const date_range = date_range_select.value;
+    const measurement = measurement_select.value;
+    const month = month_select.value;
+
     return L.imageOverlay(
         climateDataUrl(date_range, measurement, month, 'png'),
-        [[85, -180], [-85 - 3/12/8, 180 - 1/12]],
+        [[85.051129, -180], [-85.051129, 180 - 1/12]],
         {
             'opacity': 0.8
         }
@@ -559,7 +624,7 @@ window.onload = async function() {
         attribution: 'Map tiles &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors | Climate data &copy; <a href="http://worldclim.org">WorldClim</a>'
     }).addTo(climate_map);
 
-    const climate_layer = createClimateLayer().addTo(climate_map);
+    const climate_tile_layer = createTileLayer().addTo(climate_map);
     const location_marker = L.marker([0, 0]);
 
     var temp_chart, precip_chart;
@@ -573,7 +638,7 @@ window.onload = async function() {
     const month_select = document.getElementById('month');
 
     date_range_select.onchange = function () {
-        updateClimateLayer(climate_layer);
+        updateTileLayer(climate_tile_layer);
 
         if (clicked_lat && clicked_lon) {
             const date_range_select = document.getElementById('date-range');
@@ -586,11 +651,11 @@ window.onload = async function() {
     };
 
     measurement_select.onchange = function () {
-        updateClimateLayer(climate_layer);
+        updateTileLayer(climate_tile_layer);
     };
 
     month_select.onchange = function () {
-        updateClimateLayer(climate_layer);
+        updateTileLayer(climate_tile_layer);
     };
 
     /**

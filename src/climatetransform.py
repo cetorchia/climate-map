@@ -18,9 +18,16 @@ import stat
 import re
 import png
 import matplotlib.pyplot as plt
+import cv2
 
+# Constants
 ALLOWED_GDAL_EXTENSIONS = ('tif', 'bil')
-MAX_LAT = 85 # Max latitude in OpenStreetMap
+TILE_LENGTH = 256
+MAX_ZOOM_LEVELS = 10
+
+# Max latitude in OpenStreetMap, about 85.0511
+# https://en.wikipedia.org/wiki/Web_Mercator_projection#Formulas
+MAX_LAT = (2*math.atan(math.exp(math.pi)) - math.pi/2) * 180 / math.pi
 
 def to_standard_variable_name(variable_name):
     '''
@@ -343,18 +350,16 @@ def get_data_dict(lat_arr, lon_arr, units, data_arr, month):
 
     return data
 
-def get_pixels(lat_arr, lon_arr, units, data_arr, month):
+def get_pixels(units, data_arr, month):
     '''
     Gives the PNG representation of the specified data.
     '''
     pixels = []
 
-    for lat_i, data_for_lat in enumerate(data_arr):
-        lat_value = lat_arr[lat_i].item()
+    for data_for_lat in data_arr:
         row = []
 
-        for lon_i, value in enumerate(data_for_lat):
-            lon_value = lon_arr[lon_i].item()
+        for value in data_for_lat:
 
             if not np.ma.is_masked(value):
                 red, green, blue = colour_for_amount(value, units, month)
@@ -495,8 +500,8 @@ def pixels_for_latitude(lat, delta, pixels_so_far, num_latitudes):
     # For completeness we include the north latitude, but we are
     # basing the calculation on a running count of pixels so the
     # round off error balances out.
-    lat_north = lat + delta / 2 if lat < MAX_LAT else MAX_LAT
-    lat_south = lat - delta / 2 if lat > -MAX_LAT else -MAX_LAT
+    lat_north = min(lat + delta / 2, MAX_LAT) if lat < MAX_LAT else MAX_LAT
+    lat_south = max(lat - delta / 2, -MAX_LAT) if lat > -MAX_LAT else -MAX_LAT
 
     # Scale to have enough pixels going top to bottom.
     # Scale the existing total pixels by the increase from the projection.
@@ -532,9 +537,8 @@ def save_folder_data(lat_arr, lon_arr, units, data_arr, output_folder, variable_
     '''
     variable_name = to_standard_variable_name(variable_name)
 
-    print('Storing data in folders: ', end='')
+    print('Storing data in folders: ', end='', flush=True)
     for lat_i, data_for_lat in enumerate(data_arr):
-        print('%02d%%' % ((lat_i + 1) / data_arr.shape[0]), end='')
         lat_value = lat_arr[lat_i].item()
         lat_index = str(math.floor(lat_value))
         lat_folder = os.path.join(output_folder, 'coords', lat_index)
@@ -566,13 +570,64 @@ def save_folder_data(lat_arr, lon_arr, units, data_arr, output_folder, variable_
 
                 with open(coord_file, 'w') as f:
                     json.dump(existing_datum, f)
-        print('\b\b\b', end='')
 
-    print('100%')
+        if lat_i % math.ceil(data_arr.shape[0] / 100) == 0:
+            print('.', end='', flush=True)
 
-def save_contours_png(lat_arr, lon_arr, units, normals, output_file, month):
+    print()
+
+def save_contours_tiles(lat_arr, lon_arr, units, normals, output_folder, month):
     '''
-    Save contours in the data as a PNG file that is displayable over
+    Saves contours in the data as PNG map tiles that will be displayable over
+    the map. These tiles will use the same naming conventions/folder structure
+    used by OpenStreetMap to not have to load the whole image. They will be stored
+    as such in the specified output folder.
+
+    E.g. /tiles/temperature-avg-01/{z}/{x}/{y}.png
+    '''
+    max_zoom_levels = max(int(math.log2(lon_arr.size)), MAX_ZOOM_LEVELS)
+
+    for zoom_level in range(0, max_zoom_levels + 1):
+        print('Zoom level %d: ' % zoom_level, end='', flush=True)
+
+        num_tiles = 2**zoom_level
+        lat_size = lat_arr.size / num_tiles
+        lon_size = lon_arr.size / num_tiles
+
+        lon_ranges = [(int(x * lon_size), int((x + 1) * lon_size)) for x in range(0, num_tiles)]
+        sub_lon_arrs = [lon_arr[lon_i:lon_end] for lon_i, lon_end in lon_ranges]
+
+        for y in range(0, num_tiles):
+            lat_i = int(y * lat_size)
+            lat_end = int((y + 1) * lat_size) #if y < num_tiles - 1 else lat_arr.size - 1 # really lat_end + 1
+
+            sub_lat_arr = lat_arr[lat_i:lat_end]
+            normals_for_lat_range = normals[lat_i:lat_end]
+
+            for x in range(0, num_tiles):
+                lon_i, lon_end = lon_ranges[x]
+                #lon_end = lon_end if x < num_tiles - 1 else lon_arr.size - 1 # really lon_end + 1
+
+                sub_lon_arr = sub_lon_arrs[x]
+                sub_normals = normals_for_lat_range[:, lon_i:lon_end]
+
+                output_parent = os.path.join(output_folder, str(zoom_level), str(x))
+                os.makedirs(output_parent, exist_ok=True)
+                output_file = os.path.join(output_parent, str(y) + '.png')
+
+                if zoom_level <= 5:
+                    save_contours_png(sub_lat_arr, sub_lon_arr, units, sub_normals, output_file, month, TILE_LENGTH)
+                else:
+                    save_png(sub_lat_arr, sub_lon_arr, units, sub_normals, output_file, month, TILE_LENGTH)
+
+            if y % math.ceil(num_tiles/100) == 0:
+                print('.', end='', flush=True)
+
+        print()
+
+def save_contours_png(lat_arr, lon_arr, units, normals, output_file, month, length=None):
+    '''
+    Saves contours in the data as a PNG file that is displayable over
     the map.
     '''
     # Latitude array is projected and will contain duplicates.
@@ -582,7 +637,7 @@ def save_contours_png(lat_arr, lon_arr, units, normals, output_file, month):
 
     # Use dpi to ensure the plot takes up the expected dimensions in pixels.
     height = 1
-    dpi = lon_arr.size
+    dpi = lon_arr.size if length is None else length
     #dpi = int(plot_lat_arr.size / height)
     width = height
 
@@ -600,13 +655,20 @@ def save_contours_png(lat_arr, lon_arr, units, normals, output_file, month):
     cs.cmap.set_under(contour_colours[0])
     cs.changed()
     plt.savefig(output_file, dpi=dpi, transparent=True)
+    plt.close(fig)
 
-def save_png(lat_arr, lon_arr, units, normals, output_file, month):
+def save_png(lat_arr, lon_arr, units, normals, output_file, month, length=None):
     '''
     Saves the data as a PNG image displayable over the map.
     '''
-    lat_arr, normals = project_data(lat_arr, normals)
-    pixels = get_pixels(lat_arr, lon_arr, units, normals, month)
+    if length is not None:
+        # The resize does not honour the masked values, have to remask the array.
+        normals = np.ma.masked_values(
+            cv2.resize(normals, (length, length), interpolation=cv2.INTER_NEAREST),
+            normals.fill_value
+        )
+
+    pixels = get_pixels(units, normals, month)
     png.from_array(pixels, 'RGB', info={
         'transparent': (0, 0, 0),
         'compression': 9,

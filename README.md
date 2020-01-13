@@ -141,3 +141,44 @@ bin/transform-dataset.py precip.mon.total.v501.nc public/data/1980-2010/precipit
 bin/transform-dataset.py precip.mon.total.v501.nc public/data/1980-2010/precipitation-02.json precip 1980 2010 2
 ...
 ```
+
+# Tiling scheme
+
+## OSM tiling
+
+Given the lack of documentation surrounding the OSM tiling system, here
+is how the map tiles correspond to the division of the world map.
+If it's there, sorry, but I looked and looked.
+
+For each zoom level, the map is divided by 2 lengthwise and 2 widthwise.
+It starts at one tile for the entire world at zoom level 0, consisting
+of 256x256 pixels. Then at zoom level 1 there are 2x2 tiles, also being
+256x256 pixels each.
+
+For each increase in zoom level, the number of tiles widthwise and lengthwise
+doubles.
+
+To request a given tile for a part of the map, a request the ends with
+`/{z}/{x}/{y}.png` must be made, where `{z}` is the zoom level, and x and y are
+the tile indexes starting at `0`. For zoom level `z`, the maximum tile index
+for the zoom level is `2^z - 1`. For example, to request the one tile at zoom level
+0, make a request to `/0/0/0.png`. For zoom level 4, you can request tile
+`/4/15/15.png` but x and y cannot be greater than that.
+
+## Map tiling
+
+To improve efficiency, tiles can be generated that divide the map so that Leaflet
+does not have to load the entire contour map. We use the same map tiling system
+that OSM uses as Leaflet has built-in support for it. These are stored in a folder
+structure similar to the above, and can be created by transform script by
+specifying that the output folder ends with `/tiles/{full_variable_name}/`:
+
+```
+bin/transform-dataset.py air.mon.mean.v501.nc public/data/1980-2010/tiles/temperature-avg air 1980 2010
+bin/transform-dataset.py air.mon.mean.v501.nc public/data/1980-2010/tiles/temperature-avg-01 air 1980 2010 1
+...
+
+bin/transform-dataset.py precip.mon.total.v501.nc public/data/1980-2010/tiles/precipitation precip 1980 2010
+bin/transform-dataset.py precip.mon.total.v501.nc public/data/1980-2010/tiles/precipitation-01 precip 1980 2010 1
+...
+```

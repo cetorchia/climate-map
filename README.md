@@ -13,6 +13,7 @@ Install the following Ubuntu packages, or equivalent:
 * python3-gdal
 * python3-png
 * python3-matplotlib
+* python3-opencv
 
 # Important notes
 

@@ -21,7 +21,7 @@ def get_args(arguments):
     Determines command line arguments
     '''
     num_arguments = len(arguments)
-    if num_arguments not in [6, 7]:
+    if num_arguments not in [6, 7, 8]:
         print('Usage: ' + arguments[0] + ' <dataset-filename> <output-filename> <var> <start-year> <end-year> [month]', file=sys.stderr)
         sys.exit(1)
 
@@ -31,17 +31,23 @@ def get_args(arguments):
     start_year = int(arguments[4])
     end_year = int(arguments[5])
 
-    if num_arguments == 7:
+    if num_arguments >= 7:
         month = int(arguments[6])
         start_time = datetime(start_year, month, 1)
         # This will set the end time to the last second of the last day of the
         # specified month in the specified end year.
         # Credit to https://stackoverflow.com/a/4131114 for the div/mod by 12
         end_time = datetime(end_year + month // 12, month % 12 + 1, 1) - timedelta(seconds=1)
+
+        if num_arguments >= 8:
+            data_source = arguments[7]
+        else:
+            data_source = None
     else:
         month = 0
         start_time = datetime(start_year, 1, 1)
         end_time = datetime(end_year + 1, 1, 1) - timedelta(seconds=1)
+        data_source = None
 
     # Determine input format
     if input_file.endswith(os.path.sep):
@@ -57,19 +63,22 @@ def get_args(arguments):
         output_fmt = 'tiles'
     elif output_file.endswith(os.path.sep):
         output_fmt = 'folder'
+    elif output_file.find('://') != -1:
+        output_fmt = 'db'
     else:
         output_fmt = output_file.split('.')[-1]
 
         if output_fmt not in ('json', 'png'):
             raise Exception('Unknown output format ' + output_fmt)
 
-    return (input_file, input_fmt, output_file, output_fmt, variable_name, month, start_time, end_time)
+    return (input_file, input_fmt, output_file, output_fmt, variable_name, month, start_time, end_time, data_source)
 
 def main(args):
     '''
     The main function
     '''
-    input_file, input_fmt, output_file, output_fmt, variable_name, month, start_time, end_time = get_args(args)
+    input_file, input_fmt, output_file, output_fmt, variable_name, month, start_time, end_time, data_source = \
+        get_args(args)
 
     # Extract and transform normals from dataset
     if input_fmt == 'nc':
@@ -109,6 +118,20 @@ def main(args):
 
     elif output_fmt == 'folder':
         climatetransform.save_folder_data(lat_arr, lon_arr, units, normals, output_file, variable_name, month)
+
+    elif output_fmt == 'db':
+        climatetransform.save_db_data(
+            lat_arr,
+            lon_arr,
+            units,
+            normals,
+            output_file,
+            variable_name,
+            start_time,
+            end_time,
+            month,
+            data_source
+        )
 
     return 0
 

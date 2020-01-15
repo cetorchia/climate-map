@@ -14,12 +14,43 @@ Install the following Ubuntu packages, or equivalent:
 * python3-png
 * python3-matplotlib
 * python3-opencv
+* python3-flask
+* python3-psycopg2
+* postgresql-10
+* postgresql-10-postgis-2.4
+
+## Database set up
+
+The database is used to store climate data, and for the application
+to look up the climate data and display it to the user.
+
+Run the scripts in the `sql/` folder as the `postgres` user.
+Make sure you change the password of the `climate_map` user.
+
+```
+sudo -u postgres psql
+\i sql/create-db.sql
+\i sql/create-tables.sql
+\i sql/insert-meta-data.sql
+ALTER USER climate_map WITH PASSWORD 'a_mKWpF60)'; -- Change this!
+```
+
+You may need to change the `pg_hba.conf` file to allow the climate map user to
+connect with an md5-hashed password (i.e. not using peer authentication).
+
+```
+local   all             all                                     md5
+```
 
 # Important notes
 
 * Coordinates in OSM and geoJSON are `[longitude, latitude]`, but coordinates
 in the datasets and the transformation code are `[latitude, longitude]`. Make sure
 which is which in every case.
+
+* OpenStreetMap's coordinates go from latitude 85.051129 to -85.051129, so any images
+should map to those bounds, or they may not align with the OSM tiles. See
+[Web Mercator projection](https://en.wikipedia.org/wiki/Web_Mercator_projection#Formulas).
 
 # Data source(s)
 
@@ -30,8 +61,8 @@ which is which in every case.
 You can transform the data from the NOAA or WorldClim (assuming permission allows) using
 `transform-dataset.py`.
 This data transformation script is used to process the netCDF4 files into
-various formats so that the web application can read the climate data from
-the server.
+various formats (including inserting into the database) so that the web application can
+read the climate data from the server.
 
 The script takes input file and output file as arguments. The script will detect
 the desired format based on the output file extension.

@@ -24,6 +24,12 @@ L.Icon.Default.mergeOptions({
 });
 
 /**
+ * Climate data resolution. Offset is used in case each data point does not
+ * start at some multiple of the delta.
+ */
+const DELTA = 1/12, DELTA_OFFSET = 0;
+
+/**
  * Returns the URL for the specified climate data.
  */
 function climateDataUrl(date_range, measurement, month, fmt)
@@ -53,10 +59,7 @@ function climateDataUrl(date_range, measurement, month, fmt)
  */
 function roundCoordinateToResolution(coord)
 {
-    const res = 1/12;
-    const offset = 0;
-
-    return Math.round((coord - offset) / res) * res + offset;
+    return Math.round((coord - DELTA_OFFSET) / DELTA) * DELTA + DELTA_OFFSET;
 }
 
 /**
@@ -188,7 +191,8 @@ function createTileLayer()
         {
             maxZoom: 12,
             maxNativeZoom: 7,
-            opacity: 0.8,
+            opacity: 0.6,
+            bounds: [[85.051129, -180], [-85.051129 + DELTA/2, 180 - DELTA/2]],
         }
     );
 }
@@ -211,9 +215,9 @@ function createImageLayer()
 
     return L.imageOverlay(
         climateDataUrl(date_range, measurement, month, 'png'),
-        [[85.051129, -180], [-85.051129, 180 - 1/12]],
+        [[85.051129, -180], [-85.051129 + DELTA/2, 180 - DELTA/2]],
         {
-            'opacity': 0.8
+            'opacity': 0.6
         }
     );
 }

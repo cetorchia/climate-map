@@ -186,7 +186,8 @@ function createTileLayer()
     return L.tileLayer(
         climateDataUrl(date_range, measurement, month, 'tiles'),
         {
-            maxZoom: 10,
+            maxZoom: 12,
+            maxNativeZoom: 7,
             opacity: 0.8,
         }
     );

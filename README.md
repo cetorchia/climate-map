@@ -68,6 +68,14 @@ server {
 }
 ```
 
+## Running the API web server
+
+Run this in bash:
+
+```
+FLASK_APP=src/climatapi.py flask run
+```
+
 # Important notes
 
 * Coordinates in Postgis and geoJSON are `[longitude, latitude]`, but coordinates

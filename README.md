@@ -100,7 +100,53 @@ netCDF4 format and are grouped by month.
 Also WorldClim geotiff data that is 2-dimensional and already aggregated by month can also
 be used.
 
-## Transforming to PNG files
+## Transforming to database
+
+Use these commands to load the climate data to the postgres database.
+```
+bin/transform-dataset.py tmean_5m_bil/ localhost:climate_map:climate_map tavg 1960 1990 1 worldclim
+bin/transform-dataset.py tmean_5m_bil/ localhost:climate_map:climate_map tavg 1960 1990 2 worldclim
+...
+bin/transform-dataset.py tmean_5m_bil/ localhost:climate_map:climate_map tavg 1960 1990 12 worldclim
+
+bin/transform-dataset.py tmin_5m_bil/ localhost:climate_map:climate_map tmin 1960 1990 1 worldclim
+...
+
+bin/transform-dataset.py tmax_5m_bil/ localhost:climate_map:climate_map tmax 1960 1990 1 worldclim
+...
+
+bin/transform-dataset.py precip_5m_bil/ localhost:climate_map:climate_map precip 1960 1990 1 worldclim
+...
+```
+
+The 2nd argument is the connection string and is of the form `<host>/<db>/<user>`.
+You could put the password in `.pgpass` or specify it as `<host>/<db>/<user>/<password>`.
+
+The last argument is the data source and is required to identify the data source of all
+values. For example, we can provide both NOAA data and WorldClim data! But we'll need
+to specify which data are of which data source.
+
+## Transforming to PNG tiles
+
+To improve efficiency, tiles can be generated that divide the map so that Leaflet
+does not have to load the entire contour map. We use the same map tiling system
+that OSM uses as Leaflet has built-in support for it. These are stored in a folder
+structure similar to the above, and can be created by transform script by
+specifying that the output folder ends with `/tiles/{full_variable_name}`:
+
+```
+bin/transform-dataset.py tmean_5m_bil/ public/data/1980-2010/tiles/temperature-avg-01 tavg 1980 2010 1
+...
+
+bin/transform-dataset.py precip_5m_bil/ public/data/1980-2010/tiles/precipitation-01 precip 1980 2010 1
+...
+```
+
+## Transforming to non-tile PNG files
+
+**Deprecated**, the application does not need files in this form, but
+can be modified to use a whole image instead of tiles. See the
+createImageLayer() javascript function for details.
 
 These files are used to overlay a PNG representation of the climate data
 on the map. This can allow the browser to render colours for different temperatures
@@ -138,15 +184,20 @@ bin/transform-all-months-png.sh precip.mon.mean.v501.nc precip 1980 2010
 "tavg" as the variable name instead of "air". This applies to the other usages below.
 The "precip" variable name for precipitation must still be used with WorldClim.
 
-```
-bin/transform-all-months-png.sh wc2.0_5m_tavg tavg 1970 2000
-bin/transform-all-months.sh wc2.0_5m_tavg tavg 1970 2000
+**TODO**: update the script for database insertion and tile generation.
 
-bin/transform-all-months-png.sh wc2.0_5m_prec precip 1970 2000
-bin/transform-all-months.sh wc2.0_5m_prec precip 1970 2000
+```
+bin/transform-all-months-png-worldclim.sh wc2.0_5m_tavg tavg 1970 2000
+bin/transform-all-months-worldclim.sh wc2.0_5m_tavg tavg 1970 2000
+
+bin/transform-all-months-png-worldclim.sh wc2.0_5m_prec precip 1970 2000
+bin/transform-all-months-worldclim.sh wc2.0_5m_prec precip 1970 2000
 ```
 
 ## Transforming to indexed JSON files
+
+**Deprecated**, these are no longer used as they take up too much space.
+Database is used instead of this.
 
 These files contain data for individual coordinates. They are stored in folders
 by their coordinates making looking up data for a single pair of coordinates
@@ -172,6 +223,7 @@ bin/transform-dataset.py precip.mon.total.v501.nc public/data/1980-2010/ precip 
 ```
 
 The following script does each month in one command for convenience.
+**TODO**: this script needs to be updated to insert into the database instead.
 
 ```
 bin/transform-all-months.sh air.mon.mean.v501.nc air 1970 2000
@@ -183,8 +235,8 @@ bin/transform-all-months.sh precip.mon.mean.v501.nc precip 1980 2010
 
 ## Transforming to bulk JSON files
 
-These files individually contain data for all coordinates, and as such the files
-can be very large and inefficient for the web application to load.
+**Deprecated**. These files would individually contain data for all coordinates, and as such the
+files can be very large and inefficient for the web application to load.
 
 ```
 # Generate temperature datasets
@@ -216,27 +268,9 @@ of 256x256 pixels. Then at zoom level 1 there are 2x2 tiles, also being
 For each increase in zoom level, the number of tiles widthwise and lengthwise
 doubles.
 
-To request a given tile for a part of the map, a request the ends with
+To request a given tile for a part of the map, a request that ends with
 `/{z}/{x}/{y}.png` must be made, where `{z}` is the zoom level, and x and y are
 the tile indexes starting at `0`. For zoom level `z`, the maximum tile index
 for the zoom level is `2^z - 1`. For example, to request the one tile at zoom level
 0, make a request to `/0/0/0.png`. For zoom level 4, you can request tile
 `/4/15/15.png` but x and y cannot be greater than that.
-
-## Map tiling
-
-To improve efficiency, tiles can be generated that divide the map so that Leaflet
-does not have to load the entire contour map. We use the same map tiling system
-that OSM uses as Leaflet has built-in support for it. These are stored in a folder
-structure similar to the above, and can be created by transform script by
-specifying that the output folder ends with `/tiles/{full_variable_name}/`:
-
-```
-bin/transform-dataset.py air.mon.mean.v501.nc public/data/1980-2010/tiles/temperature-avg air 1980 2010
-bin/transform-dataset.py air.mon.mean.v501.nc public/data/1980-2010/tiles/temperature-avg-01 air 1980 2010 1
-...
-
-bin/transform-dataset.py precip.mon.total.v501.nc public/data/1980-2010/tiles/precipitation precip 1980 2010
-bin/transform-dataset.py precip.mon.total.v501.nc public/data/1980-2010/tiles/precipitation-01 precip 1980 2010 1
-...
-```

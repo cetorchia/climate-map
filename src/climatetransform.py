@@ -3,12 +3,13 @@
 # Transforms datasets to various data formats for use
 # as climate data by application.
 #
-# Copyright (c) 2019 Carlos Torchia
+# Copyright (c) 2020 Carlos Torchia
 #
 import os
 import sys
 from datetime import timedelta
 from datetime import datetime
+from datetime import date
 import numpy as np
 import math
 import netCDF4
@@ -19,7 +20,9 @@ import re
 import png
 import matplotlib.pyplot as plt
 import cv2
-import psycopg2
+
+import climatedb
+from climatedb import NotFoundError
 
 # Constants
 ALLOWED_GDAL_EXTENSIONS = ('tif', 'bil')
@@ -678,7 +681,7 @@ def save_db_data(
         lon_arr,
         units,
         normals,
-        database,
+        db_conn_str,
         variable_name,
         start_time,
         end_time,
@@ -689,121 +692,51 @@ def save_db_data(
     Saves the data into the specified database.
     '''
     measurement = to_standard_variable_name(variable_name)
-    conn = psycopg2.open(database)
-    cur = conn.cursor()
+    climatedb.connect(db_conn_str)
 
-    data_source_id = fetch_data_source(cur, data_source)['id']
-    dataset_id = fetch_dataset(cur, data_source_id, start_time.date(), end_time.date(), create_if_not_exists=True)['id']
-    unit_id = fetch_unit(cur, units)['id']
-    measurement_id = fetch_measurement(cur, measurement)['id']
+    unit_id = climatedb.fetch_unit(units)['id']
+    measurement_id = climatedb.fetch_measurement(measurement)['id']
+    data_source_id = climatedb.fetch_data_source(data_source)['id']
+
+    # Start date will vary by month, ensure entire year is saved
+    start_date = date(start_time.year, 1, 1)
+    end_date = date(end_time.year, 12, 31)
+
+    try:
+        dataset_id = climatedb.fetch_dataset(data_source_id, start_date, end_date)['id']
+    except NotFoundError:
+        dataset_id = climatedb.create_dataset(data_source_id, start_date, end_date)['id']
 
     print('Storing data in database: ', end='', flush=True)
 
-    for lat_i, data_for_lat in enumerate(data_arr):
+    for lat_i, normals_for_lat in enumerate(normals):
         lat_value = lat_arr[lat_i].item()
 
-        for lon_i, value in enumerate(data_for_lat):
+        for lon_i, value in enumerate(normals_for_lat):
             lon_value = lon_arr[lon_i].item()
 
             if not np.ma.is_masked(value):
-                value.item()
-                pass
+                data_value = value.item()
 
-        if lat_i % math.ceil(data_arr.shape[0] / 100) == 0:
+                try:
+                    data_point_id = climatedb.fetch_data_point(dataset_id, lat_value, lon_value)
+                except NotFoundError:
+                    data_point_id = climatedb.create_data_point(dataset_id, lat_value, lon_value)
+
+                try:
+                    monthly_normal_id, existing_value = \
+                        climatedb.fetch_monthly_normal(data_point_id, measurement_id, month)
+
+                    if existing_value != data_value:
+                        climatedb.update_monthly_normal(monthly_normal_id, data_value)
+
+                except NotFoundError:
+                    climatedb.create_monthly_normal(data_point_id, measurement_id, unit_id, month, data_value)
+
+        if lat_i % math.ceil(normals.shape[0] / 100) == 0:
             print('.', end='', flush=True)
 
+    climatedb.commit()
+    climatedb.close()
+
     print()
-
-def fetch_data_source(cur, data_source):
-    '''
-    Fetches the specified data source using the specified database cursor.
-    '''
-    cur.execute('SELECT id, name, organisation, url, author, year FROM data_sources WHERE code = %s', (data_source,))
-    row = cur.fetchone()
-
-    if row is None:
-        raise Exception('Could not find data source "%s"' % data_source)
-
-    return {
-        'id': row[0],
-        'code': data_source,
-        'name': row[1],
-        'organisation': row[2],
-        'url': row[3],
-        'author': row[4],
-        'year': row[5],
-    }
-
-def fetch_dataset(cur, data_source_id, start_date, end_date, create_if_not_exists=False):
-    '''
-    Fetches the dataset with the specified data source, start date, and end date.
-    '''
-    cur.execute('''
-        SELECT id FROM datasets
-        WHERE data_source_id = %s
-        AND start_date = %s AND end_date = %s
-        ''',
-        (data_source_id, start_date, end_date)
-    );
-    row = cur.fetchone()
-
-    if row is None and create_if_not_exists:
-        cur.execute('''
-            INSERT INTO datasets(data_source_id, start_date, end_date)
-            VALUES (%s, %s, %s)
-            ''',
-            (data_source_id, start_date, end_date)
-        );
-
-        cur.execute('''
-            SELECT id FROM datasets
-            WHERE data_source_id = %s
-            AND start_date = %s AND end_date = %s
-            ''',
-            (data_source_id, start_date, end_date)
-        );
-        row = cur.fetchone()
-
-    if row is None:
-        raise Exception('Could not find dataset for data source %d, start_date %s, and end_date %s' % (
-            data_source_id, start_date, end_date
-        ))
-
-    return {
-        'id': row[0],
-        'data_source_id': data_source_id,
-        'start_date': start_date,
-        'end_date': end_date,
-    }
-
-def fetch_unit(cur, units):
-    '''
-    Fetches the specified units record using the specified units code (e.g. 'degC', 'mm').
-    '''
-    cur.execute('SELECT id, name FROM units WHERE code = %s', (units,))
-    row = cur.fetchone()
-
-    if row is None:
-        raise Exception('Could not find units "%s"' % units)
-
-    return {
-        'id': row[0],
-        'code': units,
-        'name': row[1],
-    }
-
-def fetch_measurement(cur, measurement):
-    '''
-    Fetches the specified measurement
-    '''
-    cur.execute('SELECT id, name FROM measurement WHERE code = %s', (measurement,))
-    row = cur.fetchone()
-
-    if row is None:
-        raise Exception('Could not find measurement "%s"' % measurement)
-
-    return {
-        'id': row[0],
-        'code': measurement,
-        'name': row[1],
-    }

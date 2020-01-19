@@ -33,7 +33,8 @@ CREATE TABLE datasets(
 CREATE TABLE data_points(
     id SERIAL PRIMARY KEY,
     dataset_id INTEGER REFERENCES datasets(id),
-    location GEOGRAPHY(POINT, 4326)
+    location GEOMETRY,
+    UNIQUE(dataset_id, location)
 );
 
 CREATE INDEX ON data_points USING GIST(location);
@@ -44,5 +45,6 @@ CREATE TABLE monthly_normals(
     measurement_id INTEGER REFERENCES measurements(id),
     unit_id INTEGER REFERENCES units(id),
     month INTEGER,
-    value FLOAT
+    value FLOAT,
+    UNIQUE(data_point_id, measurement_id, month)
 );

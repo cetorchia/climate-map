@@ -1,7 +1,7 @@
 /**
  * Main climate map javascript.
  *
- * Copyright (c) 2019 Carlos Torchia
+ * Copyright (c) 2020 Carlos Torchia
  */
 
 import L from 'leaflet';
@@ -98,7 +98,7 @@ function climateDataUrlForCoords(date_range, lat, lon)
 
     const coord_index = rounded_lat + '_' + rounded_lon;
 
-    return 'data/' + date_range + '/coords/' + lat_index + '/' + lon_index + '/' + coord_index + '.json';
+    return 'api/monthly-normals/worldclim/' + date_range + '/' + lat_index + '/' + lon_index;
 }
 
 /**

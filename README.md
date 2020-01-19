@@ -1,6 +1,10 @@
+# Climate map
+
+(c) 2020 Carlos Torchia
+
 # Installation
 
-Use npm to build the javascript output.
+To install the climate map, first use npm to build the javascript.
 
 ```
 npm run build
@@ -19,7 +23,7 @@ Install the following Ubuntu packages, or equivalent:
 * postgresql-10
 * postgresql-10-postgis-2.4
 
-## Database set up
+## Database setup
 
 The database is used to store climate data, and for the application
 to look up the climate data and display it to the user.
@@ -42,11 +46,33 @@ connect with an md5-hashed password (i.e. not using peer authentication).
 local   all             all                                     md5
 ```
 
+You then need to import climate data into this database.
+
+## Nginx setup
+
+Use the following config to serve the climate map.
+
+```
+server {
+    listen              80;
+    server_name         climatemap;
+    root                /path/to/climate-map/public;
+    index               index.html;
+
+    location /api {
+        rewrite             ^/api/(.*)      /$1 break;
+        proxy_set_header    X-Forwarded-For $remote_addr;
+        proxy_set_header    Host $http_host;
+        proxy_pass          "http://127.0.0.1:5000";
+    }
+}
+```
+
 # Important notes
 
-* Coordinates in OSM and geoJSON are `[longitude, latitude]`, but coordinates
+* Coordinates in Postgis and geoJSON are `[longitude, latitude]`, but coordinates
 in the datasets and the transformation code are `[latitude, longitude]`. Make sure
-which is which in every case.
+you know which is which in every case.
 
 * OpenStreetMap's coordinates go from latitude 85.051129 to -85.051129, so any images
 should map to those bounds, or they may not align with the OSM tiles. See

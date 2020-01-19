@@ -16,13 +16,15 @@ import json
 import climatetransform
 import numpy as np
 
+import climatedb
+
 def get_args(arguments):
     '''
     Determines command line arguments
     '''
     num_arguments = len(arguments)
     if num_arguments not in [6, 7, 8]:
-        print('Usage: ' + arguments[0] + ' <dataset-filename> <output-filename> <var> <start-year> <end-year> [month]', file=sys.stderr)
+        print('Usage: ' + arguments[0] + ' <dataset-filename> <output-filename> <var> <start-year> <end-year> [month] [data-source]', file=sys.stderr)
         sys.exit(1)
 
     input_file = arguments[1]
@@ -63,8 +65,10 @@ def get_args(arguments):
         output_fmt = 'tiles'
     elif output_file.endswith(os.path.sep):
         output_fmt = 'folder'
-    elif output_file.find('://') != -1:
+    elif climatedb.CONN_STR_RE.search(output_file):
         output_fmt = 'db'
+        if data_source is None:
+            raise Exception('Expected data source')
     else:
         output_fmt = output_file.split('.')[-1]
 

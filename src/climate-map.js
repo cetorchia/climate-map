@@ -83,22 +83,7 @@ function climateDataUrlForCoords(date_range, lat, lon)
     lat = mapCoordinateWithin180(lat);
     lon = mapCoordinateWithin180(lon);
 
-    /* Round the coordinate again because it can be infinitie digits.
-     * We times and divide by 100 to round to the nearest hundredth. */
-    let rounded_lat = Math.round(roundCoordinateToResolution(lat) * 100) / 100;
-    let rounded_lon = Math.round(roundCoordinateToResolution(lon) * 100) / 100;
-
-    const lat_index = Math.floor(rounded_lat);
-    const lon_index = Math.floor(rounded_lon);
-
-    /* Whole-number coordinates need to end with ".0". Python outputs them like that
-     * and JavaScript outputs them as integers without decimal. */
-    rounded_lat = (rounded_lat * 10 % 10 == 0) ? rounded_lat.toFixed(1) : rounded_lat;
-    rounded_lon = (rounded_lon * 10 % 10 == 0) ? rounded_lon.toFixed(1) : rounded_lon;
-
-    const coord_index = rounded_lat + '_' + rounded_lon;
-
-    return 'api/monthly-normals/worldclim/' + date_range + '/' + lat_index + '/' + lon_index;
+    return 'api/monthly-normals/worldclim/' + date_range + '/' + lat + '/' + lon;
 }
 
 /**

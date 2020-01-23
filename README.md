@@ -50,7 +50,7 @@ You then need to import climate data into this database.
 
 ## Nginx setup
 
-Use the following config to serve the climate map.
+Use the following nginx config to serve the climate map.
 
 ```
 server {

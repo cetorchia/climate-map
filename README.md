@@ -134,6 +134,14 @@ The last argument is the data source and is required to identify the data source
 values. For example, we can provide both NOAA data and WorldClim data! But we'll need
 to specify which data are of which data source.
 
+To do load data for all months, you can run the transform-all-months script:
+
+```
+bin/transform-all-months.sh ~/Documents/Climate/tmean_5m_bil/ tavg 1960 1990 worldclim
+bin/transform-all-months.sh ~/Documents/Climate/prec_5m_bil/ precip 1960 1990 worldclim
+...
+```
+
 ## Transforming to PNG tiles
 
 To improve efficiency, tiles can be generated that divide the map so that Leaflet
@@ -147,6 +155,14 @@ bin/transform-dataset.py tmean_5m_bil/ public/data/1980-2010/tiles/temperature-a
 ...
 
 bin/transform-dataset.py precip_5m_bil/ public/data/1980-2010/tiles/precipitation-01 precip 1980 2010 1
+...
+```
+
+To do this for all months, you can run the all-months script:
+
+```
+bin/transform-all-months-png.sh ~/Documents/Climate/tmean_5m_bil/ tavg 1960 1990 worldclim
+bin/transform-all-months-png.sh ~/Documents/Climate/prec_5m_bil/ precip 1960 1990 worldclim
 ...
 ```
 
@@ -176,32 +192,6 @@ bin/transform-dataset.py precip.mon.total.v501.nc public/data/1980-2010/precipit
 bin/transform-dataset.py precip.mon.total.v501.nc public/data/1980-2010/precipitation-12.png precip 1980 2010 12
 ```
 
-The following script does each month in one command for convenience.
-
-```
-bin/transform-all-months-png.sh air.mon.mean.v501.nc air 1970 2000
-bin/transform-all-months-png.sh air.mon.mean.v501.nc air 1980 2010
-bin/transform-all-months-png.sh precip.mon.mean.v501.nc precip 1970 2000
-bin/transform-all-months-png.sh precip.mon.mean.v501.nc precip 1980 2010
-...
-```
-
-## WorldClim transformations
-
-**N.B.**: For WorldClim data, pass the entire folder as the first argument, but use
-"tavg" as the variable name instead of "air". This applies to the other usages below.
-The "precip" variable name for precipitation must still be used with WorldClim.
-
-**TODO**: update the script for database insertion and tile generation.
-
-```
-bin/transform-all-months-png-worldclim.sh wc2.0_5m_tavg tavg 1970 2000
-bin/transform-all-months-worldclim.sh wc2.0_5m_tavg tavg 1970 2000
-
-bin/transform-all-months-png-worldclim.sh wc2.0_5m_prec precip 1970 2000
-bin/transform-all-months-worldclim.sh wc2.0_5m_prec precip 1970 2000
-```
-
 ## Transforming to indexed JSON files
 
 **Deprecated**, these are no longer used as they take up too much space.
@@ -228,17 +218,6 @@ bin/transform-dataset.py precip.mon.total.v501.nc public/data/1980-2010/ precip 
 bin/transform-dataset.py precip.mon.total.v501.nc public/data/1980-2010/ precip 1980 2010 2
 ...
 bin/transform-dataset.py precip.mon.total.v501.nc public/data/1980-2010/ precip 1980 2010 12
-```
-
-The following script does each month in one command for convenience.
-**TODO**: this script needs to be updated to insert into the database instead.
-
-```
-bin/transform-all-months.sh air.mon.mean.v501.nc air 1970 2000
-bin/transform-all-months.sh air.mon.mean.v501.nc air 1980 2010
-bin/transform-all-months.sh precip.mon.mean.v501.nc precip 1970 2000
-bin/transform-all-months.sh precip.mon.mean.v501.nc precip 1980 2010
-...
 ```
 
 ## Transforming to bulk JSON files

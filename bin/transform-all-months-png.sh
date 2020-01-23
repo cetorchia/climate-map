@@ -1,22 +1,23 @@
 #!/bin/bash
 #
 # Runs transformation for all months for a date range.
-# The input must contain all months data.
+# Loads data into PNG tiles.
 #
 
 ROOT_FOLDER=$(dirname $0)/..
 SCRIPT=$(dirname $0)/transform-dataset.py
 
-if [ -z "$4" ]; then
-    echo "Usage: $(basename $0) <dataset-filename> <variable-name> <start-year> <end-year>"
+if [ -z "$5" ]; then
+    echo "Usage: $(basename $0) <input-dataset> <variable_name> <start-year> <end-year> <data-source>"
 fi
 
-INPUT_FILENAME="$1"
+INPUT_FILE="$1"
 VARIABLE_NAME="$2"
 START_YEAR="$3"
 END_YEAR="$4"
+DATA_SOURCE="$5"
 
-OUTPUT_FOLDER="$ROOT_FOLDER/public/data/$START_YEAR-$END_YEAR/"
+OUTPUT_FOLDER="$ROOT_FOLDER/public/data/$DATA_SOURCE/$START_YEAR-$END_YEAR/"
 
 case $VARIABLE_NAME in
     tmin)
@@ -25,8 +26,7 @@ case $VARIABLE_NAME in
     tmax)
         OUTPUT_NAME=temperature-max
         ;;
-    air)
-    tavg)
+    tavg|air)
         OUTPUT_NAME=temperature-avg
         ;;
     precip)
@@ -38,13 +38,13 @@ esac
 
 # Annual normals
 echo $VARIABLE_NAME $START_YEAR $END_YEAR
-OUTPUT_FILE=$OUTPUT_FOLDER/$OUTPUT_NAME.png
-$SCRIPT $INPUT_FILENAME $OUTPUT_FILE $VARIABLE_NAME $START_YEAR $END_YEAR || exit 1
+TILE_FOLDER=$OUTPUT_FOLDER/tiles/$OUTPUT_NAME
+$SCRIPT $INPUT_FILE $TILE_FOLDER $VARIABLE_NAME $START_YEAR $END_YEAR || exit 1
 
 # Monthly normals
 for MONTH in $(seq 1 12); do
     echo $VARIABLE_NAME $START_YEAR $END_YEAR $MONTH
     OUTPUT_MONTH=$(printf '%02d' $MONTH)
-    OUTPUT_FILE=$OUTPUT_FOLDER/$OUTPUT_NAME-$OUTPUT_MONTH.png
-    $SCRIPT $INPUT_FILENAME $OUTPUT_FILE $VARIABLE_NAME $START_YEAR $END_YEAR $MONTH || exit 1
+    TILE_FOLDER=$OUTPUT_FOLDER/tiles/$OUTPUT_NAME-$OUTPUT_MONTH
+    $SCRIPT $INPUT_FILE $TILE_FOLDER $VARIABLE_NAME $START_YEAR $END_YEAR $MONTH || exit 1
 done

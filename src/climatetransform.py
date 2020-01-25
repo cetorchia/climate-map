@@ -377,7 +377,7 @@ def get_pixels(units, data_arr, month):
 
     return pixels
 
-def get_contour_levels(units):
+def get_contour_levels(units, month):
     '''
     Returns a list of the contour levels for use with pyplot.contourf()
     '''
@@ -403,18 +403,32 @@ def get_contour_levels(units):
         ]
 
     elif units == 'mm':
-        return [
-            0,
-            10,
-            25,
-            50,
-            75,
-            100,
-            150,
-            300,
-            400,
-            500,
-        ]
+        if month:
+            return [
+                0,
+                10,
+                25,
+                50,
+                75,
+                100,
+                150,
+                300,
+                400,
+                500,
+            ]
+        else:
+            return [
+                0,
+                100,
+                250,
+                500,
+                750,
+                1000,
+                1500,
+                3000,
+                4000,
+                5000,
+            ]
 
     else:
         raise Exception('Unknown units: ' + units)
@@ -483,7 +497,7 @@ def precipitation_millimetres_colour(amount, month):
     Returns the colour for the specified mm of precipitation.
     '''
     if not month:
-        amount = amount / 12
+        amount /= 10
 
     if amount >= 500:
         return 0, 0, 255
@@ -661,7 +675,7 @@ def save_contours_png(lat_arr, lon_arr, units, normals, output_file, month, leng
     ax.set_axis_off()
     fig.add_axes(ax)
 
-    contour_levels = get_contour_levels(units)
+    contour_levels = get_contour_levels(units, month)
     contour_colours = get_contour_colours(contour_levels, units, month)
 
     cs = ax.contourf(lon_arr, plot_lat_arr, normals, levels=contour_levels, colors=contour_colours, extend='both')

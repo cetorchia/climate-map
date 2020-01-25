@@ -203,11 +203,13 @@ def fetch_data_point_closest_to(dataset_id, lat, lon):
     '''
     db.cur.execute(
         '''
-        SELECT id, ST_X(location), ST_Y(location) FROM data_points
+        SELECT id, ST_X(location) AS lon, ST_Y(location) AS lat
+        FROM data_points
         WHERE dataset_id = %s
+        AND location <-> ST_MakePoint(%s, %s) < 0.1
         ORDER BY location <-> ST_MakePoint(%s, %s) LIMIT 1
         ''',
-        (dataset_id, lon, lat)
+        (dataset_id, lon, lat, lon, lat)
     )
     row = db.cur.fetchone()
 

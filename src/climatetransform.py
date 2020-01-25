@@ -405,11 +405,15 @@ def get_contour_levels(units):
     elif units == 'mm':
         return [
             0,
+            10,
+            25,
+            50,
+            75,
             100,
-            250,
+            150,
+            300,
+            400,
             500,
-            1000,
-            2000,
         ]
 
     else:
@@ -478,21 +482,29 @@ def precipitation_millimetres_colour(amount, month):
     '''
     Returns the colour for the specified mm of precipitation.
     '''
-    if month:
-        amount = amount * 12;
+    if not month:
+        amount = amount / 12
 
-    if amount > 2000:
-        return 68, 255, 68
-    elif amount > 1000:
-        return 136, 255, 136
-    elif amount > 500:
-        return 204, 255, 204
-    elif amount < 100:
-        return 255, 255, 68
-    elif amount < 250:
-        return 255, 255, 136
+    if amount >= 500:
+        return 0, 0, 255
+    elif amount >= 400:
+        return 60, 60, 255
+    elif amount >= 300:
+        return 0, 255, 0
+    elif amount >= 150:
+        return 50, 255, 50
+    elif amount >= 100:
+        return 100, 255, 100
+    elif amount >= 75:
+        return 150, 255, 150
+    elif amount >= 50:
+        return 240, 255, 240
+    elif amount >= 25:
+        return 230, 230, 180
+    elif amount >= 10:
+        return 230, 230, 120
     else:
-        return 255, 255, 204
+        return 240, 230, 90
 
 def pixels_for_latitude(lat, delta, pixels_so_far, num_latitudes):
     '''

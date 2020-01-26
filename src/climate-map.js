@@ -378,9 +378,16 @@ function createClimateChart(datasets, units, labels, type, canvas_id)
         const colours = coloursForMonthData(mean_values, units);
         chart_datasets.push(
             {
+                label: labels[0],
+                data: mean_values,
+                backgroundColor: '#000',
+                type: 'scatter',
+            },
+            {
                 label: label,
                 data: values,
                 backgroundColor: colours,
+                hoverBackgroundColor: '#555',
             }
         );
     } else {

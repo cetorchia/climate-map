@@ -64,6 +64,33 @@ class NotFoundError(Exception):
     '''
     pass
 
+def fetch_data_sources():
+    '''
+    Fetches all active data sources.
+    '''
+    db.cur.execute(
+        '''
+        SELECT id, code, name, organisation, url, author, year
+        FROM data_sources WHERE active
+        '''
+    )
+    rows = db.cur.fetchall()
+
+    data_sources = []
+
+    for row in rows:
+        data_sources.append({
+            'id': row[0],
+            'code': row[1],
+            'name': row[2],
+            'organisation': row[3],
+            'url': row[4],
+            'author': row[5],
+            'year': row[6],
+        })
+
+    return data_sources
+
 def fetch_data_source(data_source):
     '''
     Fetches the specified data source using the specified database cursor.
@@ -90,6 +117,34 @@ def fetch_data_source(data_source):
         'author': row[4],
         'year': row[5],
     }
+
+def fetch_datasets(data_source_id):
+    '''
+    Fetches all datasets of the specified data source.
+    '''
+    db.cur.execute(
+        '''
+        SELECT id, start_date, end_date
+        FROM datasets
+        WHERE data_source_id = %s
+        ''',
+        (data_source_id,)
+    )
+    rows = db.cur.fetchall()
+
+    datasets = []
+
+    for row in rows:
+        datasets.append({
+            'id': row[0],
+            'data_source_id': data_source_id,
+            'start_date': row[1],
+            'end_date': row[2],
+            'start_year': row[1].year,
+            'end_year': row[2].year,
+        })
+
+    return datasets
 
 def fetch_dataset(data_source_id, start_date, end_date):
     '''

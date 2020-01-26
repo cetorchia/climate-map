@@ -30,6 +30,31 @@ L.Icon.Default.mergeOptions({
 const DELTA = 1/12, DELTA_OFFSET = 0;
 
 /**
+ * Gives a promise to the list of all active data sources.
+ */
+async function fetchDataSources()
+{
+    const url = 'api/data-sources';
+
+    const response = await fetch(url);
+
+    return response.json();
+}
+
+/**
+ * Gives a promise to the list of all datasets for the specified
+ * data source.
+ */
+async function fetchDatasets(data_source_code)
+{
+    const url = 'api/datasets/' + data_source_code;
+
+    const response = await fetch(url);
+
+    return response.json();
+}
+
+/**
  * Returns the URL for the specified climate data.
  */
 function climateDataUrl(data_source, date_range, measurement, month, fmt)
@@ -92,7 +117,6 @@ function climateDataUrlForCoords(data_source, date_range, lat, lon)
 async function fetchClimateDataForCoords(data_source, date_range, lat, lon)
 {
     const url = climateDataUrlForCoords(data_source, date_range, lat, lon);
-    console.log(url);
 
     const response = await fetch(url);
     let data = await response.json();
@@ -122,7 +146,7 @@ async function fetchClimateDataForCoords(data_source, date_range, lat, lon)
 /**
  * Updates the tile layer for the climate filters in the document.
  */
-async function updateTileLayer(tile_layer)
+function updateTileLayer(tile_layer)
 {
     const data_source_select = document.getElementById('data-source');
     const date_range_select = document.getElementById('date-range');
@@ -142,7 +166,7 @@ async function updateTileLayer(tile_layer)
 /**
  * Updates the image layer for the climate filters in the document.
  */
-async function updateImageLayer(image_layer)
+function updateImageLayer(image_layer)
 {
     const data_source_select = document.getElementById('data-source');
     const date_range_select = document.getElementById('date-range');
@@ -180,6 +204,7 @@ function createTileLayer()
     return L.tileLayer(
         climateDataUrl(data_source, date_range, measurement, month, 'tiles'),
         {
+            attribution: dataSourceAttribution(data_source_select),
             maxZoom: 12,
             maxNativeZoom: 7,
             opacity: 0.6,
@@ -594,6 +619,67 @@ function updateClimateChart(data, temp_chart, precip_chart)
 }
 
 /**
+ * Populates the data sources
+ */
+async function populateDataSources(data_source_select)
+{
+    const data_sources = await fetchDataSources();
+
+    /* Remove all existing options. */
+    data_source_select.innerHTML = '';
+
+    /* Add each data source. */
+    for (let i = 0; i <= data_sources.length - 1; i++) {
+        let option = document.createElement('option');
+
+        option.text = data_sources[i].name;
+        option.value = data_sources[i].code;
+        option.setAttribute('data-name', data_sources[i].name);
+        option.setAttribute('data-organisation', data_sources[i].organisation);
+        option.setAttribute('data-url', data_sources[i].url);
+
+        data_source_select.add(option);
+    }
+}
+
+/**
+ * Populates the date ranges from valid datasets for this data source.
+ */
+async function populateDataRanges(date_range_select, data_source_select)
+{
+    const selected_option = data_source_select.options[data_source_select.selectedIndex];
+    const data_source_code = selected_option.value;
+    const datasets = await fetchDatasets(data_source_code);
+
+    /* Remove all existing options. */
+    date_range_select.innerHTML = '';
+
+    /* Add each data source. */
+    for (let i = 0; i <= datasets.length - 1; i++) {
+        let dataset = datasets[i];
+        let date_range = dataset.start_year + '-' + dataset.end_year;
+        let option = document.createElement('option');
+
+        option.text = date_range;
+        option.value = date_range;
+
+        date_range_select.add(option);
+    }
+}
+
+/**
+ * Gives the attribution for the selected data source.
+ */
+function dataSourceAttribution(data_source_select)
+{
+    const selected_option = data_source_select.options[data_source_select.selectedIndex];
+    const data_source_organisation = selected_option.getAttribute('data-organisation');
+    const data_source_url = selected_option.getAttribute('data-url');
+
+    return 'Climate data &copy; <a href="' + data_source_url + '">' + data_source_organisation + '</a>';
+}
+
+/**
  * Shows the location climate container.
  */
 function showLocationClimate()
@@ -614,35 +700,39 @@ function hideLocationClimate()
 /**
  * Loads the climate map.
  */
-window.onload = async function() {
+window.onload = function() {
     /* Fetch GeoJSON */
     var climate_map = L.map('climate-map').setView([0, 0], 3);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: 'Map tiles &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors | Climate data &copy; <a href="http://worldclim.org">WorldClim</a>'
+        attribution: 'Map tiles &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     }).addTo(climate_map);
 
-    const climate_tile_layer = createTileLayer().addTo(climate_map);
+    var climate_tile_layer;
     const location_marker = L.marker([0, 0]);
 
     var temp_chart, precip_chart;
     var clicked_lat, clicked_lon;
 
-    /**
-     * Handle changes to the filters. We will update the map's colours.
-     */
+    const data_source_select = document.getElementById('data-source');
     const date_range_select = document.getElementById('date-range');
     const measurement_select = document.getElementById('measurement');
     const month_select = document.getElementById('month');
 
-    date_range_select.onchange = function () {
+    populateDataSources(data_source_select).then(function() {
+        populateDataRanges(date_range_select, data_source_select).then(function() {
+            climate_tile_layer = createTileLayer().addTo(climate_map);
+        });
+    });
+
+    /**
+     * Handle changes to the filters. We will update the map's colours.
+     */
+    const update_tiles_and_chart = function() {
         updateTileLayer(climate_tile_layer);
 
         if (clicked_lat && clicked_lon) {
-            const data_source_select = document.getElementById('data-source');
             const data_source = data_source_select.value;
-
-            const date_range_select = document.getElementById('date-range');
             const date_range = date_range_select.value;
 
             fetchClimateDataForCoords(data_source, date_range, clicked_lat, clicked_lon).then(function(data) {
@@ -651,11 +741,23 @@ window.onload = async function() {
         }
     };
 
-    measurement_select.onchange = function () {
+    data_source_select.onchange = function() {
+        populateDataRanges(date_range_select, data_source_select).then(function() {
+            update_tiles_and_chart();
+
+            climate_tile_layer.remove();
+            climate_tile_layer.options.attribution = dataSourceAttribution(data_source_select);
+            climate_tile_layer.addTo(climate_map);
+        });
+    }
+
+    date_range_select.onchange = update_tiles_and_chart;
+
+    measurement_select.onchange = function() {
         updateTileLayer(climate_tile_layer);
     };
 
-    month_select.onchange = function () {
+    month_select.onchange = function() {
         updateTileLayer(climate_tile_layer);
     };
 

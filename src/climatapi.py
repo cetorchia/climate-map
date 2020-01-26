@@ -61,3 +61,21 @@ def monthly_normals(data_source, start_year, end_year, lat, lon):
 
     except climatedb.NotFoundError as e:
         return jsonify({'error': str(e)}), 404
+
+@app.route('/data-sources')
+def data_sources():
+    '''
+    Gives all active data sources.
+    '''
+    return jsonify(climatedb.fetch_data_sources())
+
+@app.route('/datasets/<string:data_source>')
+def datasets(data_source):
+    '''
+    Gives all datasets for the specified data source.
+    '''
+    try:
+        data_source_id = climatedb.fetch_data_source(data_source)['id']
+        return jsonify(climatedb.fetch_datasets(data_source_id))
+    except climatedb.NotFoundError as e:
+        return jsonify({'error': str(e)}), 404

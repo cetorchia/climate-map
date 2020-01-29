@@ -39,11 +39,23 @@ def to_standard_variable_name(variable_name):
     This is useful when datasets use different variable names like "tmean" or "air"
     as we want to store everything under one variable name "tavg".
     '''
-    if variable_name in ('air', 'tmean'):
+    if variable_name in ('air', 'tmean', 'tas'):
         return 'tavg'
 
-    elif variable_name == 'prec':
+    elif variable_name == 'tasmin':
+        return 'tmin'
+
+    elif variable_name == 'tasmax':
+        return 'tmax'
+
+    elif variable_name in ('prec', 'pr'):
         return 'precip'
+
+    elif variable_name == 'prsn':
+        return 'snowfall'
+
+    elif variable_name == 'sfcWind':
+        return 'wind'
 
     else:
         return variable_name
@@ -54,7 +66,7 @@ def units_from_filename(input_file):
     This is useful when the dataset does not contain the units, and we
     have to guess based on information in the filename.
     '''
-    if re.search('tmax|tmin|tavg|tmean', input_file):
+    if re.search('tmax|tmin|tavg|tmean|tas', input_file):
         return 'degC'
     elif input_file.find('prec') != -1:
         return 'mm'
@@ -165,42 +177,62 @@ def normals_from_netcdf4(input_file, variable_name, start_time, end_time, month)
     value_var = dataset.variables[variable_name]
     units = value_var.units
 
-    normals = calculate_normals(time_var, value_var, variable_name, start_time, end_time, month)
+    value_arr = value_var[:]
+    if type(value_arr) is not np.ma.masked_array:
+        value_arr = np.ma.masked_values(value_arr, value_var.missing_value)
+    normals = calculate_normals(time_var, value_arr, variable_name, start_time, end_time, month)
 
     return (lat_arr, lon_arr, units, normals)
 
-def calculate_normals(time_var, value_var, variable_name, start_time, end_time, month):
+def calculate_normals(time_var, value_arr, variable_name, start_time, end_time, month):
     '''
     Calculates the means (or totals) through the given time period.
     '''
-    # Filter down the variables
-    oldest_time = datetime.strptime(time_var.units, 'hours since %Y-%m-%d %H:%M:%S')
+    # Parse the time units
+    if re.search('^hours since \d{4}-\d{2}-\d{2} \d{1,2}:\d{1,2}:\d{1,2}$', time_var.units):
+        oldest_time = datetime.strptime(time_var.units, 'hours since %Y-%m-%d %H:%M:%S')
+        time_units = 'hours'
+    elif re.search('^days since \d{4}-\d{2}-\d{2} \d{1,2}:\d{1,2}:\d{1,2}\.\d{1,6}$', time_var.units):
+        oldest_time = datetime.strptime(time_var.units, 'days since %Y-%m-%d %H:%M:%S.%f')
+        time_units = 'days'
+    else:
+        raise Exception('Don\'t understand the time units "%s"' % time_var.units)
+
+    # Determine start and end times in the time units
     start_delta = start_time - oldest_time
     end_delta = end_time - oldest_time
-    start_hours = start_delta.days * 24
-    end_hours = end_delta.days * 24
+
+    if time_units == 'hours':
+        start = start_delta.days * 24
+        end = end_delta.days * 24
+        time_delta = lambda time_value: timedelta(hours=time_value)
+    elif time_units == 'days':
+        start = start_delta.days
+        end = end_delta.days
+        time_delta = lambda time_value: timedelta(days=time_value)
+    else:
+        raise Exception('Unexpected time units "%s"' % time_units)
 
     # Determine the time indexes that correspond for this range and month
     time_arr = time_var[:]
-    time_indexes_range = np.where((time_arr >= start_hours) & (time_arr <= end_hours))[0]
+    time_indexes_range = np.where((time_arr >= start) & (time_arr <= end))[0]
 
     if month:
         filtered_time_indexes = []
         for time_i in time_indexes_range:
             time_value = time_var[time_i]
-            time = oldest_time + timedelta(hours=time_value)
+            time = oldest_time + time_delta(time_value)
             if time.month == month:
                 filtered_time_indexes.append(time_i)
     else:
         filtered_time_indexes = time_indexes_range
 
     # Filter the data by the time indexes
-    values = value_var[:]
-    filtered_values = values[filtered_time_indexes, :, :]
+    filtered_values = value_arr[filtered_time_indexes, :, :]
 
     # Compute the means (or totals) of each coordinate through time axis
-    if (variable_name == 'precip' and not month):
-        totals = filtered_values.sum(axis = 0) / ((end_time - start_time).days / 365)
+    if (to_standard_variable_name(variable_name) == 'precip' and not month):
+        totals = filtered_values.sum(axis = 0) / ((end_time - start_time).days / 365.25)
         return totals
     else:
         means = filtered_values.mean(axis = 0)
@@ -221,19 +253,23 @@ def pad_data(lat_arr, lon_arr, data_arr):
             'There should be %d longitudes if they have a delta of %g, found %d' % (
                 expected_lon_size, lon_delta, lon_arr.size))
 
-    # Just pad it on the bottom, not on the side.
-    lat_delta = lat_arr[1] - lat_arr[0]
-    if abs(lat_arr[0]) != 90:
-        raise Exception('Expected first latitude to be 90')
-    desired_lat_size = int(round((90 - (-90)) / abs(lat_delta)))
+    # Determine the number of empty rows to add to the bottom.
+    lat_delta = abs(lat_arr[lat_arr.size - 1] - lat_arr[0]) / (lat_arr.size - 1)
+    if abs(lat_arr[0]) + lat_delta < 90:
+        raise Exception('Expected first latitude to be within one delta of 90 or -90')
+    desired_lat_size = int(round((90 - (-90)) / lat_delta))
+    if desired_lat_size < lat_arr.size:
+        raise Exception(
+            'Expected no more than %d latitudes (delta %g), found %d' % (desired_lat_size, lat_delta, lat_arr.size)
+        )
     aug_size = desired_lat_size - lat_arr.size
-    if aug_size < 0:
-        raise Exception('Expected no more than %d latitudes, found %d' % (desired_lat_size, lat_arr.size))
 
+    # Pad the data array
     data_aug = np.full((aug_size, data_arr.shape[1]), data_arr.fill_value)
     new_data_unmasked = np.append(data_arr, data_aug, axis=0)
     new_data_arr = np.ma.masked_values(new_data_unmasked, data_arr.fill_value)
 
+    # Pad the latitudes too
     last_lat = lat_arr[lat_arr.size - 1]
     lat_aug = np.linspace(last_lat + lat_delta, last_lat + lat_delta * aug_size, aug_size)
     new_lat_arr = np.append(lat_arr, lat_aug)
@@ -252,15 +288,34 @@ def normalize_longitudes(lon_arr, data_arr):
         raise Exception('Longitudes are not strictly increasing')
 
     gt180_idxs = np.where(lon_arr > 180)[0]
+    lt180_idxs = ~gt180_idxs[::-1] # ~ reverses the indexes for some reason
 
     if len(gt180_idxs) > 0:
         # Move the longitudes > 180 to the front, and then subtract 360
-        new_lon_arr = np.append(lon_arr[gt180_idxs] - 360, lon_arr[~gt180_idxs], axis=1)
-        new_data_arr = np.append(data_arr[:, gt180_idxs], data_arr[:, ~gt180_idxs], axis=1)
+        new_lon_arr = np.append(lon_arr[gt180_idxs] - 360, lon_arr[lt180_idxs])
+        new_data_arr = np.append(data_arr[:, gt180_idxs], data_arr[:, lt180_idxs], axis=1)
 
         return new_lon_arr, new_data_arr
     else:
         return lon_arr, data_arr
+
+def normalize_latitudes(lat_arr, data_arr):
+    '''
+    Ensures that the latitudes go positive to negative. If they start
+    at a negative number, they will be reversed and also the data will
+    be reversed latitudinally.
+
+    Assumes axis 0 in the data array contains the latitudes.
+    '''
+    # Must be strictly increasing or decreasing.
+    # Ensure strictly decreasing.
+    # See https://stackoverflow.com/a/4983359
+    if all(x<y for x, y in zip(lat_arr, lat_arr[1:])):
+        return lat_arr[::-1], data_arr[::-1]
+    elif all(x>y for x, y in zip(lat_arr, lat_arr[1:])):
+        return lat_arr, data_arr
+    else:
+        raise Exception('Longitudes are not strictly increasing or decreasing')
 
 def project_data(lat_arr, data_arr):
     '''
@@ -275,14 +330,16 @@ def project_data(lat_arr, data_arr):
     '''
     pixels_so_far = 0
     num_latitudes = data_arr.shape[0] # Total number of latitudes
-    delta = abs(lat_arr[1] - lat_arr[0])
     repeats = np.empty(num_latitudes, np.int64)
 
     for lat_i in range(0, lat_arr.size):
+        # Assumes latitudes are strictly decreasing so deltas are positive.
+        delta_north = lat_arr[lat_i] - lat_arr[lat_i - 1] if lat_i > 0 else 90 - lat_arr[lat_i]
+        delta_south = lat_arr[lat_i + 1] - lat_arr[lat_i] if lat_i < lat_arr.size - 1 else lat_arr[lat_i] - (-90)
         lat_value = lat_arr[lat_i].item()
 
         if lat_value >= -MAX_LAT and lat_value <= MAX_LAT:
-            height = pixels_for_latitude(lat_value, delta, pixels_so_far, num_latitudes)
+            height = pixels_for_latitude(lat_value, delta_north, delta_south, pixels_so_far, num_latitudes)
             repeats[lat_i] = height
             pixels_so_far += height
 
@@ -298,26 +355,16 @@ def data_to_standard_units(units, data_arr):
     '''
     Converts the data array to standard units and gives the new units.
     '''
-    new_data_arr = np.full(data_arr.shape, data_arr.fill_value)
+    new_data_arr, new_units = to_standard_units(data_arr, units)
 
-    for lat_i in range(0, data_arr.shape[0]):
-        for lon_i in range(0, data_arr.shape[1]):
-            if not data_arr.mask[lat_i][lon_i]:
-                value = data_arr[lat_i][lon_i]
-
-                value = value.item()
-                new_value, new_units = to_standard_units(value, units)
-
-                new_data_arr[lat_i][lon_i] = new_value
-
-    new_masked_arr = np.ma.masked_values(new_data_arr, data_arr.fill_value)
-    return new_units, new_masked_arr
+    return new_units, new_data_arr
 
 def to_standard_units(value, units):
     '''
     Gives the value in standard units
+    Value can be a masked numpy array.
     '''
-    if units == 'degK':
+    if units == 'degK' or units == 'K':
         new_value = value - 273.15
         new_units = 'degC'
     elif units == 'cm':
@@ -520,7 +567,7 @@ def precipitation_millimetres_colour(amount, month):
     else:
         return 240, 230, 90
 
-def pixels_for_latitude(lat, delta, pixels_so_far, num_latitudes):
+def pixels_for_latitude(lat, delta_north, delta_south, pixels_so_far, num_latitudes):
     '''
     Returns the number of pixels the latitude should take up based
     on the spherical Mercator projection. "Delta" is the size of each
@@ -530,8 +577,8 @@ def pixels_for_latitude(lat, delta, pixels_so_far, num_latitudes):
     # For completeness we include the north latitude, but we are
     # basing the calculation on a running count of pixels so the
     # round off error balances out.
-    lat_north = min(lat + delta / 2, MAX_LAT) if lat < MAX_LAT else MAX_LAT
-    lat_south = max(lat - delta / 2, -MAX_LAT) if lat > -MAX_LAT else -MAX_LAT
+    lat_north = min(lat + delta_north / 2, MAX_LAT) if lat < MAX_LAT else MAX_LAT
+    lat_south = max(lat - delta_south / 2, -MAX_LAT) if lat > -MAX_LAT else -MAX_LAT
 
     # Scale to have enough pixels going top to bottom.
     # Scale the existing total pixels by the increase from the projection.

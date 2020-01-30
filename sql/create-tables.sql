@@ -27,7 +27,8 @@ CREATE TABLE datasets(
     id SERIAL PRIMARY KEY,
     data_source_id INTEGER NOT NULL REFERENCES data_sources(id),
     start_date DATE NOT NULL,
-    end_date DATE NOT NULL
+    end_date DATE NOT NULL,
+    delta FLOAT
 );
 
 -- SRID 4326 (WGS 84) basically goes from longitude -180 to 180 and latitude -90 to 90.

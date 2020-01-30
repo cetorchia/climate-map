@@ -288,7 +288,7 @@ def normalize_longitudes(lon_arr, data_arr):
         raise Exception('Longitudes are not strictly increasing')
 
     gt180_idxs = np.where(lon_arr > 180)[0]
-    lt180_idxs = ~gt180_idxs[::-1] # ~ reverses the indexes for some reason
+    lt180_idxs = np.where(lon_arr <= 180)[0] # ~ reverses the indexes for some reason
 
     if len(gt180_idxs) > 0:
         # Move the longitudes > 180 to the front, and then subtract 360
@@ -794,7 +794,8 @@ def save_db_data(
     try:
         dataset_id = climatedb.fetch_dataset(data_source_id, start_date, end_date)['id']
     except NotFoundError:
-        dataset_id = climatedb.create_dataset(data_source_id, start_date, end_date)['id']
+        lat_delta = abs(lat_arr[lat_arr.size - 1] - lat_arr[0]) / (lat_arr.size - 1)
+        dataset_id = climatedb.create_dataset(data_source_id, start_date, end_date, lat_delta)['id']
 
     print('Storing data in database: ', end='', flush=True)
 

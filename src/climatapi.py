@@ -6,6 +6,7 @@
 #
 
 from datetime import date
+import math
 from flask import Flask
 from flask import jsonify
 from werkzeug.routing import FloatConverter as BaseFloatConverter
@@ -47,8 +48,13 @@ def monthly_normals(data_source, start_year, end_year, lat, lon):
 
     try:
         data_source_id = climatedb.fetch_data_source(data_source)['id']
-        dataset_id = climatedb.fetch_dataset(data_source_id, start_date, end_date)['id']
-        data_point = climatedb.fetch_data_point_closest_to(dataset_id, lat, lon)
+        dataset = climatedb.fetch_dataset(data_source_id, start_date, end_date)
+
+        dataset_id = dataset['id']
+        delta = dataset['delta']
+        error = math.sqrt(2*delta**2)
+
+        data_point = climatedb.fetch_data_point_closest_to(dataset_id, lat, lon, error)
 
         normals = climatedb.fetch_monthly_normals_by_data_point(data_point['id'])
 

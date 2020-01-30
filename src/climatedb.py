@@ -153,7 +153,7 @@ def fetch_dataset(data_source_id, start_date, end_date):
     '''
     db.cur.execute(
         '''
-        SELECT id FROM datasets
+        SELECT id, delta FROM datasets
         WHERE data_source_id = %s
         AND start_date = %s AND end_date = %s
         ''',
@@ -171,18 +171,19 @@ def fetch_dataset(data_source_id, start_date, end_date):
         'data_source_id': data_source_id,
         'start_date': start_date,
         'end_date': end_date,
+        'delta': row[1],
     }
 
-def create_dataset(data_source_id, start_date, end_date):
+def create_dataset(data_source_id, start_date, end_date, delta):
     '''
     Creates a new dataset for the specified data source, start date, and end date.
     '''
     db.cur.execute(
         '''
-        INSERT INTO datasets(data_source_id, start_date, end_date)
-        VALUES (%s, %s, %s)
+        INSERT INTO datasets(data_source_id, start_date, end_date, delta)
+        VALUES (%s, %s, %s, %s)
         ''',
-        (data_source_id, start_date, end_date)
+        (data_source_id, start_date, end_date, delta)
     )
 
     return fetch_dataset(data_source_id, start_date, end_date)
@@ -253,33 +254,10 @@ def create_data_point(dataset_id, lat, lon):
 
     return fetch_data_point(dataset_id, lat, lon)
 
-def fetch_delta(dataset_id):
-    '''
-    Gives the distance between the first two longitudes
-    in the specified dataset.
-    '''
-    # TODO: store delta with dataset and do not do this calculation.
-    db.cur.execute(
-        '''
-        SELECT DISTINCT ST_X(location)
-        FROM data_points
-        WHERE dataset_id = %s
-        ORDER BY ST_X(location) LIMIT 2
-        ''',
-        (dataset_id,)
-    )
-    rows = db.cur.fetchall()
-
-    if len(rows) < 2:
-        raise Exception('Expected more than two distinct longitudes in dataset %d' % dataset_id)
-
-    return rows[1][0] - rows[0][0]
-
-def fetch_data_point_closest_to(dataset_id, lat, lon):
+def fetch_data_point_closest_to(dataset_id, lat, lon, error):
     '''
     Fetches the data point closest to the specified location
     '''
-    delta = math.sqrt(2*fetch_delta(dataset_id)**2)
     db.cur.execute(
         '''
         SELECT id, ST_X(location) AS lon, ST_Y(location) AS lat
@@ -288,7 +266,7 @@ def fetch_data_point_closest_to(dataset_id, lat, lon):
         AND location <-> ST_MakePoint(%s, %s) < %s
         ORDER BY location <-> ST_MakePoint(%s, %s) LIMIT 1
         ''',
-        (dataset_id, lon, lat, delta, lon, lat)
+        (dataset_id, lon, lat, error, lon, lat)
     )
     row = db.cur.fetchone()
 

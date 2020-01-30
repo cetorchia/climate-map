@@ -333,9 +333,12 @@ def project_data(lat_arr, data_arr):
     repeats = np.empty(num_latitudes, np.int64)
 
     for lat_i in range(0, lat_arr.size):
-        # Assumes latitudes are strictly decreasing so deltas are positive.
-        delta_north = lat_arr[lat_i] - lat_arr[lat_i - 1] if lat_i > 0 else 90 - lat_arr[lat_i]
-        delta_south = lat_arr[lat_i + 1] - lat_arr[lat_i] if lat_i < lat_arr.size - 1 else lat_arr[lat_i] - (-90)
+        if (lat_i > 0 and lat_arr[lat_i - 1] < lat_arr[lat_i]) \
+        or (lat_i < lat_arr.size - 1 and lat_arr[lat_i] < lat_arr[lat_i + 1]):
+            raise Exception('Expected latitudes to be strictly decreasing')
+
+        delta_north = lat_arr[lat_i - 1] - lat_arr[lat_i] if lat_i > 0 else 90 - lat_arr[lat_i]
+        delta_south = lat_arr[lat_i] - lat_arr[lat_i + 1] if lat_i < lat_arr.size - 1 else lat_arr[lat_i] - (-90)
         lat_value = lat_arr[lat_i].item()
 
         if lat_value >= -MAX_LAT and lat_value <= MAX_LAT:

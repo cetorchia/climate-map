@@ -6,6 +6,7 @@
 #
 import psycopg2
 import re
+import math
 
 # Connection string is of the form "<host>:[<port>:]<dbname>:<user>"
 CONN_STR_RE = re.compile('^([^:]+):(?:([0-9]+):)?([^:]+):([^:]+)$')
@@ -252,19 +253,42 @@ def create_data_point(dataset_id, lat, lon):
 
     return fetch_data_point(dataset_id, lat, lon)
 
+def fetch_delta(dataset_id):
+    '''
+    Gives the distance between the first two longitudes
+    in the specified dataset.
+    '''
+    # TODO: store delta with dataset and do not do this calculation.
+    db.cur.execute(
+        '''
+        SELECT DISTINCT ST_X(location)
+        FROM data_points
+        WHERE dataset_id = %s
+        ORDER BY ST_X(location) LIMIT 2
+        ''',
+        (dataset_id,)
+    )
+    rows = db.cur.fetchall()
+
+    if len(rows) < 2:
+        raise Exception('Expected more than two distinct longitudes in dataset %d' % dataset_id)
+
+    return rows[1][0] - rows[0][0]
+
 def fetch_data_point_closest_to(dataset_id, lat, lon):
     '''
     Fetches the data point closest to the specified location
     '''
+    delta = math.sqrt(2*fetch_delta(dataset_id)**2)
     db.cur.execute(
         '''
         SELECT id, ST_X(location) AS lon, ST_Y(location) AS lat
         FROM data_points
         WHERE dataset_id = %s
-        AND location <-> ST_MakePoint(%s, %s) < 0.1
+        AND location <-> ST_MakePoint(%s, %s) < %s
         ORDER BY location <-> ST_MakePoint(%s, %s) LIMIT 1
         ''',
-        (dataset_id, lon, lat, lon, lat)
+        (dataset_id, lon, lat, delta, lon, lat)
     )
     row = db.cur.fetchone()
 

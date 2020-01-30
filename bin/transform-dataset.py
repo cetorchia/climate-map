@@ -101,11 +101,11 @@ def main(args):
         lat_arr, lon_arr, units, normals = climatetransform.normals_from_folder(input_file, variable_name, month)
 
     # Transform the climate normals to standard form.
-    units, normals = climatetransform.data_to_standard_units(units, normals)
+    units, normals = climatetransform.data_to_standard_units(units, normals, month)
+    lon_arr, normals = climatetransform.normalize_longitudes(lon_arr, normals)
 
     if output_fmt in ('tiles', 'png'):
         lat_arr, lon_arr, normals = climatetransform.pad_data(lat_arr, lon_arr, normals)
-        lon_arr, normals = climatetransform.normalize_longitudes(lon_arr, normals)
         lat_arr, normals = climatetransform.normalize_latitudes(lat_arr, normals)
 
     # Load normals to storage in the output format

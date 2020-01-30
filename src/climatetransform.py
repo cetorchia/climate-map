@@ -354,15 +354,24 @@ def project_data(lat_arr, data_arr):
 
     return projected_lat_arr, projected_data_arr
 
-def data_to_standard_units(units, data_arr):
+def data_to_standard_units(units, data_arr, month):
     '''
     Converts the data array to standard units and gives the new units.
     '''
-    new_data_arr, new_units = to_standard_units(data_arr, units)
+    new_data_arr, new_units = to_standard_units(data_arr, units, month)
 
     return new_units, new_data_arr
 
-def to_standard_units(value, units):
+def days_in_month(month):
+    '''
+    Gives the number of days in the specified month.
+    '''
+    if month == 2:
+        return 28.2425
+    else:
+        return (date(2020 + month // 12, month % 12 + 1, 1) - date(2020, month, 1)).days
+
+def to_standard_units(value, units, month):
     '''
     Gives the value in standard units
     Value can be a masked numpy array.
@@ -372,6 +381,10 @@ def to_standard_units(value, units):
         new_units = 'degC'
     elif units == 'cm':
         new_value = value * 10.0
+        new_units = 'mm'
+    elif units == 'kg m-2 s-1':
+        days = days_in_month(month)
+        new_value = value * 86400 * days
         new_units = 'mm'
     else:
         new_value = value

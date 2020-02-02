@@ -6,12 +6,12 @@
 # Copyright (c) 2020 Carlos Torchia
 #
 import os
-import sys
 from datetime import timedelta
 from datetime import datetime
 from datetime import date
 import numpy as np
 import math
+import numbers
 import netCDF4
 from osgeo import gdal
 import json
@@ -28,10 +28,12 @@ from climatedb import NotFoundError
 ALLOWED_GDAL_EXTENSIONS = ('tif', 'bil')
 TILE_LENGTH = 256
 MAX_ZOOM_LEVEL = 7
+EARTH_RADIUS = 6378137
+EARTH_CIRCUMFERENCE = 2*math.pi*EARTH_RADIUS
 
 # Max latitude in OpenStreetMap, about 85.0511
 # https://en.wikipedia.org/wiki/Web_Mercator_projection#Formulas
-MAX_LAT = (2*math.atan(math.exp(math.pi)) - math.pi/2) * 180 / math.pi
+MAX_LAT = math.degrees(2*math.atan(math.exp(math.pi)) - math.pi/2)
 
 def to_standard_variable_name(variable_name):
     '''
@@ -247,20 +249,20 @@ def pad_data(lat_arr, lon_arr, data_arr):
     '''
     # Don't pad the longitudes, but enforce it being 360
     lon_delta = lon_arr[1] - lon_arr[0]
-    expected_lon_size = int(round((180 - (-180)) / abs(lon_delta)))
+    expected_lon_size = int((180 - (-180)) / abs(lon_delta))
     if lon_arr.size < expected_lon_size:
         raise Exception(
             'There should be %d longitudes if they have a delta of %g, found %d' % (
                 expected_lon_size, lon_delta, lon_arr.size))
 
     # Determine the number of empty rows to add to the bottom.
-    lat_delta = abs(lat_arr[lat_arr.size - 1] - lat_arr[0]) / (lat_arr.size - 1)
-    if abs(lat_arr[0]) + lat_delta < 90:
+    lat_delta = (lat_arr[lat_arr.size - 1] - lat_arr[0]) / (lat_arr.size - 1)
+    if abs(lat_arr[0]) + abs(lat_delta) < 90:
         raise Exception('Expected first latitude to be within one delta of 90 or -90')
-    desired_lat_size = int(round((90 - (-90)) / lat_delta))
+    desired_lat_size = int((90 - (-90)) / abs(lat_delta))
     if desired_lat_size < lat_arr.size:
         raise Exception(
-            'Expected no more than %d latitudes (delta %g), found %d' % (desired_lat_size, lat_delta, lat_arr.size)
+            'Expected no more than %d latitudes (delta %g), found %d' % (desired_lat_size, abs(lat_delta), lat_arr.size)
         )
     aug_size = desired_lat_size - lat_arr.size
 
@@ -287,17 +289,17 @@ def normalize_longitudes(lon_arr, data_arr):
     if not all(x<y for x, y in zip(lon_arr, lon_arr[1:])):
         raise Exception('Longitudes are not strictly increasing')
 
-    gt180_idxs = np.where(lon_arr > 180)[0]
-    lt180_idxs = np.where(lon_arr <= 180)[0] # ~ reverses the indexes for some reason
+    gt180_idxs = np.where(lon_arr >= 180)[0]
 
     if len(gt180_idxs) > 0:
         # Move the longitudes > 180 to the front, and then subtract 360
+        lt180_idxs = np.where(lon_arr < 180)[0]
         new_lon_arr = np.append(lon_arr[gt180_idxs] - 360, lon_arr[lt180_idxs])
         new_data_arr = np.append(data_arr[:, gt180_idxs], data_arr[:, lt180_idxs], axis=1)
-
-        return new_lon_arr, new_data_arr
     else:
-        return lon_arr, data_arr
+        new_lon_arr, new_data_arr = lon_arr, data_arr
+
+    return new_lon_arr, new_data_arr
 
 def normalize_latitudes(lat_arr, data_arr):
     '''
@@ -311,48 +313,13 @@ def normalize_latitudes(lat_arr, data_arr):
     # Ensure strictly decreasing.
     # See https://stackoverflow.com/a/4983359
     if all(x<y for x, y in zip(lat_arr, lat_arr[1:])):
-        return lat_arr[::-1], data_arr[::-1]
+        new_lat_arr, new_data_arr = lat_arr[::-1], data_arr[::-1]
     elif all(x>y for x, y in zip(lat_arr, lat_arr[1:])):
-        return lat_arr, data_arr
+        new_lat_arr, new_data_arr = lat_arr, data_arr
     else:
-        raise Exception('Longitudes are not strictly increasing or decreasing')
+        raise Exception('Latitudes are not strictly increasing or decreasing')
 
-def project_data(lat_arr, data_arr):
-    '''
-    Projects an array of climate data onto a sphere using the Mercator
-    projection. This assumes the latitudes are along axis 0, i.e. data_arr[lat][lon].
-
-    To do this, we multiply each row by how much space the latitude would take up
-    on the projected map.
-
-    We also return a new latitude array with each latitude multiplied to
-    match the projected data.
-    '''
-    pixels_so_far = 0
-    num_latitudes = data_arr.shape[0] # Total number of latitudes
-    repeats = np.empty(num_latitudes, np.int64)
-
-    for lat_i in range(0, lat_arr.size):
-        if (lat_i > 0 and lat_arr[lat_i - 1] < lat_arr[lat_i]) \
-        or (lat_i < lat_arr.size - 1 and lat_arr[lat_i] < lat_arr[lat_i + 1]):
-            raise Exception('Expected latitudes to be strictly decreasing')
-
-        delta_north = lat_arr[lat_i - 1] - lat_arr[lat_i] if lat_i > 0 else 90 - lat_arr[lat_i]
-        delta_south = lat_arr[lat_i] - lat_arr[lat_i + 1] if lat_i < lat_arr.size - 1 else lat_arr[lat_i] - (-90)
-        lat_value = lat_arr[lat_i].item()
-
-        if lat_value >= -MAX_LAT and lat_value <= MAX_LAT:
-            height = pixels_for_latitude(lat_value, delta_north, delta_south, pixels_so_far, num_latitudes)
-            repeats[lat_i] = height
-            pixels_so_far += height
-
-        else:
-            repeats[lat_i] = 0
-
-    projected_data_arr = np.repeat(data_arr, repeats, axis=0)
-    projected_lat_arr = np.repeat(lat_arr, repeats, axis=0)
-
-    return projected_lat_arr, projected_data_arr
+    return new_lat_arr, new_data_arr
 
 def data_to_standard_units(units, data_arr, month):
     '''
@@ -391,54 +358,6 @@ def to_standard_units(value, units, month):
         new_units = units
 
     return new_value, new_units
-
-def get_data_dict(lat_arr, lon_arr, units, data_arr, month):
-    '''
-    Gives the JSON for the specified data.
-    This data is indexed by latitude and longitude.
-    '''
-    data = {}
-
-    for lat_i, data_for_lat in enumerate(data_arr):
-        lat_value = lat_arr[lat_i].item()
-        for lon_i, value in enumerate(data_for_lat):
-            lon_value = lon_arr[lon_i].item()
-
-            if not np.ma.is_masked(value):
-                value = value.item()
-
-                if data.get(lat_value) is None:
-                    data[lat_value] = {}
-
-                data[lat_value][lon_value] = [
-                    round(value, 1),
-                    units,
-                ]
-
-    return data
-
-def get_pixels(units, data_arr, month):
-    '''
-    Gives the PNG representation of the specified data.
-    '''
-    pixels = []
-
-    for data_for_lat in data_arr:
-        row = []
-
-        for value in data_for_lat:
-
-            if not np.ma.is_masked(value):
-                red, green, blue = colour_for_amount(value, units, month)
-
-                row.append([red, green, blue])
-
-            else:
-                row.append([0, 0, 0])
-
-        pixels.append(row)
-
-    return pixels
 
 def get_contour_levels(units, month):
     '''
@@ -583,94 +502,32 @@ def precipitation_millimetres_colour(amount, month):
     else:
         return 240, 230, 90
 
-def pixels_for_latitude(lat, delta_north, delta_south, pixels_so_far, num_latitudes):
-    '''
-    Returns the number of pixels the latitude should take up based
-    on the spherical Mercator projection. "Delta" is the size of each
-    point, in other words the distance between each latitude in the
-    data.
-    '''
-    # For completeness we include the north latitude, but we are
-    # basing the calculation on a running count of pixels so the
-    # round off error balances out.
-    lat_north = min(lat + delta_north / 2, MAX_LAT) if lat < MAX_LAT else MAX_LAT
-    lat_south = max(lat - delta_south / 2, -MAX_LAT) if lat > -MAX_LAT else -MAX_LAT
-
-    # Scale to have enough pixels going top to bottom.
-    # Scale the existing total pixels by the increase from the projection.
-    # "Addition" gives the latitudes near the equator more pixels,
-    # as this somehow makes the map line up better.
-    addition = 3
-    y_max = lat2y(MAX_LAT)
-    new_total = (y_max / MAX_LAT + addition) * num_latitudes
-    factor = new_total / y_max / 2
-
-    y_north = y_max * factor - pixels_so_far
-    y_south = lat2y(lat_south) * factor
-
-    return round(y_north - y_south + addition)
-
 def lat2y(lat):
     '''
-    Returns the Y projection of the specified latitude using
+    Converts the specified latitude to metres from the equator using
     the spherical Mercator projection.
+
+    Accepts a numpy array, and the function will convert every value in the array.
     '''
-    if lat < 0:
+    if isinstance(lat, numbers.Real) and lat == -90:
         return -lat2y(-lat)
-    elif lat == 0:
+    elif isinstance(lat, numbers.Real) and lat == 0:
         return 0
+    else:
+        # Source: https://wiki.openstreetmap.org/wiki/Mercator#Python_implementation
+        return EARTH_RADIUS*np.log(np.tan(math.pi/4.0+np.radians(lat)/2.0))
 
+def lon2x(lon):
+    '''
+    Converts the specified longitude to metres from the meridian using
+    the spherical Mercator projection.
+
+    Accepts a numpy array, and the function will convert every value in the array.
+    '''
     # Source: https://wiki.openstreetmap.org/wiki/Mercator#Python_implementation
-    return 180/math.pi*math.log(math.tan(math.pi/4.0+lat*(math.pi/180)/2.0))
+    return EARTH_RADIUS*np.radians(lon)
 
-def save_folder_data(lat_arr, lon_arr, units, data_arr, output_folder, variable_name, month):
-    '''
-    Saves data in coordinate folders for quick lookup of stats.
-    Augments existing data.
-    '''
-    variable_name = to_standard_variable_name(variable_name)
-
-    print('Storing data in folders: ', end='', flush=True)
-
-    for lat_i, data_for_lat in enumerate(data_arr):
-        lat_value = lat_arr[lat_i].item()
-        lat_index = str(math.floor(lat_value))
-        lat_folder = os.path.join(output_folder, 'coords', lat_index)
-        os.makedirs(lat_folder, exist_ok=True)
-
-        for lon_i, value in enumerate(data_for_lat):
-            lon_value = lon_arr[lon_i].item()
-            lon_index = str(math.floor(lon_value))
-            lon_folder = os.path.join(lat_folder, lon_index)
-
-            if not np.ma.is_masked(value):
-
-                if not os.path.exists(lon_folder):
-                    os.mkdir(lon_folder)
-
-                coord_index = str(round(lat_value, 2)) + '_' + str(round(lon_value, 2))
-                coord_file = os.path.join(lon_folder, coord_index + '.json')
-
-                if not os.path.exists(coord_file):
-                    existing_datum = {}
-                else:
-                    with open(coord_file, 'r') as f:
-                        existing_datum = json.load(f)
-
-                if existing_datum.get(variable_name) is None:
-                    existing_datum[variable_name] = {}
-
-                existing_datum[variable_name][month] = [round(value.item(), 1), units]
-
-                with open(coord_file, 'w') as f:
-                    json.dump(existing_datum, f)
-
-        if lat_i % math.ceil(data_arr.shape[0] / 100) == 0:
-            print('.', end='', flush=True)
-
-    print()
-
-def save_contours_tiles(lat_arr, lon_arr, units, normals, output_folder, month):
+def save_contours_tiles(y_arr, x_arr, units, normals, output_folder, month):
     '''
     Saves contours in the data as PNG map tiles that will be displayable over
     the map. These tiles will use the same naming conventions/folder structure
@@ -679,91 +536,82 @@ def save_contours_tiles(lat_arr, lon_arr, units, normals, output_folder, month):
 
     E.g. /tiles/temperature-avg-01/{z}/{x}/{y}.png
     '''
-    max_zoom_level = min(int(math.log2(lon_arr.size)), MAX_ZOOM_LEVEL)
+    full_output_file = output_folder + '.png'
+    tile_length = int(round(EARTH_CIRCUMFERENCE / 1000))
+    save_contours_png(y_arr, x_arr, units, normals, full_output_file, month, length=16384,
+                      extent=(
+                          -EARTH_CIRCUMFERENCE/2,
+                          EARTH_CIRCUMFERENCE/2,
+                          -EARTH_CIRCUMFERENCE/2,
+                          EARTH_CIRCUMFERENCE/2
+                      ))
+    img = cv2.imread(full_output_file)
+
+    max_zoom_level = min(int(math.log2(x_arr.size)), MAX_ZOOM_LEVEL)
 
     for zoom_level in range(0, max_zoom_level + 1):
         print('Zoom level %d: ' % zoom_level, end='', flush=True)
 
         num_tiles = 2**zoom_level
-        lat_size = lat_arr.size / num_tiles
-        lon_size = lon_arr.size / num_tiles
 
-        lon_ranges = [(int(x * lon_size), int((x + 1) * lon_size)) for x in range(0, num_tiles)]
-        sub_lon_arrs = [lon_arr[lon_i:lon_end] for lon_i, lon_end in lon_ranges]
+        y_size = img.shape[0] / num_tiles
+        x_size = img.shape[1] / num_tiles
 
         for y in range(0, num_tiles):
-            lat_i = int(y * lat_size)
-            lat_end = int((y + 1) * lat_size) #if y < num_tiles - 1 else lat_arr.size - 1 # really lat_end + 1
-
-            sub_lat_arr = lat_arr[lat_i:lat_end]
-            normals_for_lat_range = normals[lat_i:lat_end]
+            y_start = int(round(y * y_size))
+            y_end = int(round((y + 1) * y_size))
+            img_y = img[y_start:y_end]
 
             for x in range(0, num_tiles):
-                lon_i, lon_end = lon_ranges[x]
-                #lon_end = lon_end if x < num_tiles - 1 else lon_arr.size - 1 # really lon_end + 1
+                x_start = int(round(x * x_size))
+                x_end = int(round((x + 1) * x_size))
 
-                sub_lon_arr = sub_lon_arrs[x]
-                sub_normals = normals_for_lat_range[:, lon_i:lon_end]
+                img_xy = img_y[:, x_start:x_end]
+                if img_xy.shape[0] != img_y.shape[0]:
+                    raise Exception('Unexpected mismatch of axis 0 on the img arrays')
+                resized_img = cv2.resize(img_xy, (TILE_LENGTH, TILE_LENGTH), interpolation=cv2.INTER_NEAREST)
 
                 output_parent = os.path.join(output_folder, str(zoom_level), str(x))
                 os.makedirs(output_parent, exist_ok=True)
                 output_file = os.path.join(output_parent, str(y) + '.png')
 
-                save_contours_png(sub_lat_arr, sub_lon_arr, units, sub_normals, output_file, month, TILE_LENGTH)
+                cv2.imwrite(output_file, resized_img)
 
             if y % math.ceil(num_tiles/100) == 0:
                 print('.', end='', flush=True)
 
         print()
 
-def save_contours_png(lat_arr, lon_arr, units, normals, output_file, month, length=None):
+    os.remove(full_output_file)
+
+def save_contours_png(y_arr, x_arr, units, normals, output_file, month, length=None, extent=None):
     '''
     Saves contours in the data as a PNG file that is displayable over
     the map.
     '''
-    # Latitude array is projected and will contain duplicates.
-    # The Y axis must contain the projected number of distinct points or
-    # contour function will just "unproject" the image.
-    plot_lat_arr = np.linspace(lat_arr.size, 1, lat_arr.size)
-
     # Use dpi to ensure the plot takes up the expected dimensions in pixels.
     height = 1
-    dpi = lon_arr.size if length is None else length
-    #dpi = int(plot_lat_arr.size / height)
+    dpi = x_arr.size if length is None else length
     width = height
 
     fig = plt.figure()
     fig.set_size_inches(width, height)
     ax = plt.Axes(fig, [0, 0, width, height])
+    if extent is not None:
+        ax.set_xlim(extent[0], extent[1])
+        ax.set_ylim(extent[2], extent[3])
     ax.set_axis_off()
     fig.add_axes(ax)
 
     contour_levels = get_contour_levels(units, month)
     contour_colours = get_contour_colours(contour_levels, units, month)
 
-    cs = ax.contourf(lon_arr, plot_lat_arr, normals, levels=contour_levels, colors=contour_colours, extend='both')
+    cs = ax.contourf(x_arr, y_arr, normals, levels=contour_levels, colors=contour_colours, extend='both')
     cs.cmap.set_over(contour_colours[-1])
     cs.cmap.set_under(contour_colours[0])
     cs.changed()
     plt.savefig(output_file, dpi=dpi, transparent=True)
     plt.close(fig)
-
-def save_png(lat_arr, lon_arr, units, normals, output_file, month, length=None):
-    '''
-    Saves the data as a PNG image displayable over the map.
-    '''
-    if length is not None:
-        # The resize does not honour the masked values, have to remask the array.
-        normals = np.ma.masked_values(
-            cv2.resize(normals, (length, length), interpolation=cv2.INTER_NEAREST),
-            normals.fill_value
-        )
-
-    pixels = get_pixels(units, normals, month)
-    png.from_array(pixels, 'RGB', info={
-        'transparent': (0, 0, 0),
-        'compression': 9,
-    }).save(output_file)
 
 def save_db_data(
         lat_arr,

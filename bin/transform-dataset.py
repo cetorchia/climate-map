@@ -12,9 +12,7 @@ sys.path.append(dir_path)
 
 from datetime import timedelta
 from datetime import datetime
-import json
 import climatetransform
-import numpy as np
 
 import climatedb
 
@@ -63,8 +61,6 @@ def get_args(arguments):
     # Determine output format
     if output_file.find(os.path.sep + 'tiles' + os.path.sep) != - 1 or output_file.startswith('tiles' + os.path.sep):
         output_fmt = 'tiles'
-    elif output_file.endswith(os.path.sep):
-        output_fmt = 'folder'
     elif climatedb.CONN_STR_RE.search(output_file):
         output_fmt = 'db'
         if data_source is None:
@@ -72,7 +68,7 @@ def get_args(arguments):
     else:
         output_fmt = output_file.split('.')[-1]
 
-        if output_fmt not in ('json', 'png'):
+        if output_fmt not in ('png'):
             raise Exception('Unknown output format ' + output_fmt)
 
     return (input_file, input_fmt, output_file, output_fmt, variable_name, month, start_time, end_time, data_source)
@@ -109,22 +105,22 @@ def main(args):
         lat_arr, normals = climatetransform.normalize_latitudes(lat_arr, normals)
 
     # Load normals to storage in the output format
-    if output_fmt == 'json':
-        data = climatetransform.get_data_dict(lat_arr, lon_arr, units, normals, month)
-
-        with open(output_file, 'w') as f:
-            json.dump(data, f)
-
-    elif output_fmt == 'png':
-        projected_lat_arr, projected_normals = climatetransform.project_data(lat_arr, normals)
-        climatetransform.save_contours_png(projected_lat_arr, lon_arr, units, projected_normals, output_file, month)
+    if output_fmt == 'png':
+        projected_y_arr = climatetransform.lat2y(lat_arr)
+        projected_x_arr = climatetransform.lon2x(lon_arr)
+        climatetransform.save_contours_png(projected_y_arr, projected_x_arr, units, normals, output_file, month,
+                                           length=8192,
+                                           extent=(
+                                               -climatetransform.EARTH_CIRCUMFERENCE/2,
+                                               climatetransform.EARTH_CIRCUMFERENCE/2,
+                                               -climatetransform.EARTH_CIRCUMFERENCE/2,
+                                               climatetransform.EARTH_CIRCUMFERENCE/2
+                                           ))
 
     elif output_fmt == 'tiles':
-        projected_lat_arr, projected_normals = climatetransform.project_data(lat_arr, normals)
-        climatetransform.save_contours_tiles(projected_lat_arr, lon_arr, units, projected_normals, output_file, month)
-
-    elif output_fmt == 'folder':
-        climatetransform.save_folder_data(lat_arr, lon_arr, units, normals, output_file, variable_name, month)
+        projected_y_arr = climatetransform.lat2y(lat_arr)
+        projected_x_arr = climatetransform.lon2x(lon_arr)
+        climatetransform.save_contours_tiles(projected_y_arr, projected_x_arr, units, normals, output_file, month)
 
     elif output_fmt == 'db':
         climatetransform.save_db_data(

@@ -15,7 +15,6 @@ Install the following Ubuntu packages, or equivalent:
 * python3-numpy
 * python3-netcdf4
 * python3-gdal
-* python3-png
 * python3-matplotlib
 * python3-opencv
 * python3-flask
@@ -190,53 +189,6 @@ bin/transform-dataset.py precip.mon.total.v501.nc public/data/1980-2010/precipit
 bin/transform-dataset.py precip.mon.total.v501.nc public/data/1980-2010/precipitation-02.png precip 1980 2010 2
 ...
 bin/transform-dataset.py precip.mon.total.v501.nc public/data/1980-2010/precipitation-12.png precip 1980 2010 12
-```
-
-## Transforming to indexed JSON files
-
-**Deprecated**, these are no longer used as they take up too much space.
-Database is used instead of this.
-
-These files contain data for individual coordinates. They are stored in folders
-by their coordinates making looking up data for a single pair of coordinates
-simple and efficient. For example, the file path for the JSON file
-containing data for `[-13.75, -172.25]` during 1970-2000
-would be `public/data/1970-2000/coords/-20/-180/-13.75_-172.25.json`.
-Future plan is to use a database server.
-
-```
-# Generate temperature datasets
-bin/transform-dataset.py air.mon.mean.v501.nc public/data/1980-2010/ air 1980 2010
-bin/transform-dataset.py air.mon.mean.v501.nc public/data/1980-2010/ air 1980 2010 1
-bin/transform-dataset.py air.mon.mean.v501.nc public/data/1980-2010/ air 1980 2010 2
-...
-bin/transform-dataset.py air.mon.mean.v501.nc public/data/1980-2010/ air 1980 2010 12
-
-# Generate precipitation datasets
-bin/transform-dataset.py precip.mon.total.v501.nc public/data/1980-2010/ precip 1980 2010
-bin/transform-dataset.py precip.mon.total.v501.nc public/data/1980-2010/ precip 1980 2010 1
-bin/transform-dataset.py precip.mon.total.v501.nc public/data/1980-2010/ precip 1980 2010 2
-...
-bin/transform-dataset.py precip.mon.total.v501.nc public/data/1980-2010/ precip 1980 2010 12
-```
-
-## Transforming to bulk JSON files
-
-**Deprecated**. These files would individually contain data for all coordinates, and as such the
-files can be very large and inefficient for the web application to load.
-
-```
-# Generate temperature datasets
-bin/transform-dataset.py air.mon.mean.v501.nc public/data/1980-2010/temperature-avg.json air 1980 2010
-bin/transform-dataset.py air.mon.mean.v501.nc public/data/1980-2010/temperature-avg-01.json air 1980 2010 1
-bin/transform-dataset.py air.mon.mean.v501.nc public/data/1980-2010/temperature-avg-02.json air 1980 2010 2
-...
-
-# Generate precipitation datasets
-bin/transform-dataset.py precip.mon.total.v501.nc public/data/1980-2010/precipitation.json precip 1980 2010
-bin/transform-dataset.py precip.mon.total.v501.nc public/data/1980-2010/precipitation-01.json precip 1980 2010 1
-bin/transform-dataset.py precip.mon.total.v501.nc public/data/1980-2010/precipitation-02.json precip 1980 2010 2
-...
 ```
 
 # Tiling scheme

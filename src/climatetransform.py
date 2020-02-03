@@ -182,11 +182,11 @@ def normals_from_netcdf4(input_file, variable_name, start_time, end_time, month)
     value_arr = value_var[:]
     if type(value_arr) is not np.ma.masked_array:
         value_arr = np.ma.masked_values(value_arr, value_var.missing_value)
-    normals = calculate_normals(time_var, value_arr, variable_name, start_time, end_time, month)
+    normals = calculate_normals(time_var, value_arr, units, variable_name, start_time, end_time, month)
 
     return (lat_arr, lon_arr, units, normals)
 
-def calculate_normals(time_var, value_arr, variable_name, start_time, end_time, month):
+def calculate_normals(time_var, value_arr, units, variable_name, start_time, end_time, month):
     '''
     Calculates the means (or totals) through the given time period.
     '''
@@ -233,8 +233,8 @@ def calculate_normals(time_var, value_arr, variable_name, start_time, end_time, 
     filtered_values = value_arr[filtered_time_indexes, :, :]
 
     # Compute the means (or totals) of each coordinate through time axis
-    if (to_standard_variable_name(variable_name) == 'precip' and not month):
-        totals = filtered_values.sum(axis = 0) / ((end_time - start_time).days / 365.25)
+    if (to_standard_variable_name(variable_name) == 'precip' and not month and units != 'kg m-2 s-1'):
+        totals = filtered_values.sum(axis = 0) / ((end_time - start_time).days / 365.2425)
         return totals
     else:
         means = filtered_values.mean(axis = 0)
@@ -335,6 +335,8 @@ def days_in_month(month):
     '''
     if month == 2:
         return 28.2425
+    elif month == 0:
+        return 365.2425
     else:
         return (date(2020 + month // 12, month % 12 + 1, 1) - date(2020, month, 1)).days
 

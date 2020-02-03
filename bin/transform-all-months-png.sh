@@ -20,16 +20,16 @@ DATA_SOURCE="$5"
 OUTPUT_FOLDER="$ROOT_FOLDER/public/data/$DATA_SOURCE/$START_YEAR-$END_YEAR/"
 
 case $VARIABLE_NAME in
-    tmin)
+    tmin|tasmin)
         OUTPUT_NAME=temperature-min
         ;;
-    tmax)
+    tmax|tasmax)
         OUTPUT_NAME=temperature-max
         ;;
-    tavg|air)
+    tavg|air|tas)
         OUTPUT_NAME=temperature-avg
         ;;
-    precip)
+    precip|pr)
         OUTPUT_NAME=precipitation
         ;;
     *)

@@ -51,3 +51,9 @@ CREATE TABLE monthly_normals(
     value FLOAT NOT NULL,
     UNIQUE(data_point_id, measurement_id, month)
 );
+
+CREATE TABLE search_queue(
+    id SERIAL PRIMARY KEY,
+    timestamp FLOAT NOT NULL,
+    UNIQUE(time_stamp)
+);

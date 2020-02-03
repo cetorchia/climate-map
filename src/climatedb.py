@@ -7,6 +7,8 @@
 import psycopg2
 import re
 import math
+from datetime import datetime
+import time
 
 # Connection string is of the form "<host>:[<port>:]<dbname>:<user>"
 CONN_STR_RE = re.compile('^([^:]+):(?:([0-9]+):)?([^:]+):([^:]+)$')
@@ -348,3 +350,89 @@ def fetch_monthly_normals_by_data_point(data_point_id):
         normals[measurement][month] = [value, units]
 
     return normals
+
+def wait_search(seconds):
+    '''
+    Waits the specified number of seconds to do another search.
+    If other users are already requesting a search, we must wait
+    the specified amount of time after ALL users have made the
+    request.
+    '''
+    original_timestamp = timestamp = datetime.now().timestamp()
+    queue_id = insert_search_queue(timestamp)
+    commit()
+    same_queue_id = next_queue_id = fetch_search_queue()
+    attempts = 1
+
+    while (next_queue_id != queue_id) or datetime.now().timestamp() - timestamp < seconds:
+        time.sleep(seconds / 4)
+        next_queue_id = fetch_search_queue()
+        attempts += 1
+
+        if attempts == 40:
+            delete_search_queue(queue_id)
+            raise Exception('Search queue timed out')
+
+        if same_queue_id != next_queue_id:
+            same_queue_id = next_queue_id
+            timestamp = datetime.now().timestamp()
+
+    delete_search_queue(queue_id)
+    commit()
+
+def insert_search_queue(timestamp):
+    '''
+    Inserts a search queue item with the specified timestamp.
+    '''
+    db.cur.execute(
+        '''
+        INSERT INTO search_queue(timestamp)
+        VALUES (%s)
+        ''',
+        (timestamp,)
+    )
+
+    db.cur.execute(
+        '''
+        SELECT id FROM search_queue
+        WHERE timestamp = %s
+        ''',
+        (timestamp,)
+    )
+
+    row = db.cur.fetchone()
+
+    if row is None:
+        raise Exception('Could not retrieve queue item with timestamp %g we just inserted' % timestamp)
+
+    return row[0]
+
+def fetch_search_queue():
+    '''
+    Fetches the id of the oldest item on the queue, or None if there are none.
+    '''
+    db.cur.execute(
+        '''
+        SELECT id FROM search_queue
+        ORDER BY timestamp LIMIT 1
+        '''
+    )
+
+    row = db.cur.fetchone()
+
+    if row is None:
+        return None
+    else:
+        return row[0]
+
+def delete_search_queue(queue_id):
+    '''
+    Deletes the queue item with the specified id
+    '''
+    db.cur.execute(
+        '''
+        DELETE FROM search_queue
+        WHERE id = %s
+        ''',
+        (queue_id,)
+    )

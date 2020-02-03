@@ -30,6 +30,18 @@ L.Icon.Default.mergeOptions({
 const DELTA = 1/12, DELTA_OFFSET = 0;
 
 /**
+ * Does a search using the API.
+ */
+async function search(query)
+{
+    const url = 'api/search/' + encodeURIComponent(query);
+
+    const response = await fetch(url);
+
+    return response.json();
+}
+
+/**
  * Gives a promise to the list of all active data sources.
  */
 async function fetchDataSources()
@@ -773,26 +785,53 @@ window.onload = function() {
      * about that particular location's climate.
      */
 
-    climate_map.on('click', function(e) {
-        clicked_lat = e.latlng.lat;
-        clicked_lon = e.latlng.lng;
-
+    function showClimateChart(lat, lon) {
         const data_source_select = document.getElementById('data-source');
         const data_source = data_source_select.value;
 
         const date_range_select = document.getElementById('date-range');
         const date_range = date_range_select.value;
 
-        fetchClimateDataForCoords(data_source, date_range, clicked_lat, clicked_lon).then(function(data) {
-            location_marker.setLatLng(e.latlng).addTo(climate_map).on('click', showLocationClimate);
+        fetchClimateDataForCoords(data_source, date_range, lat, lon).then(function(data) {
+            location_marker.setLatLng([lat, lon]).addTo(climate_map).on('click', showLocationClimate);
 
             [temp_chart, precip_chart] = updateClimateChart(data, temp_chart, precip_chart);
 
             showLocationClimate();
         });
+    }
+
+    climate_map.on('click', function(e) {
+        clicked_lat = e.latlng.lat;
+        clicked_lon = e.latlng.lng;
+
+        showClimateChart(clicked_lat, clicked_lon);
     });
 
     document.getElementById('close-location-climate').onclick = function() {
         hideLocationClimate();
     };
+
+    async function doSearch() {
+        const search_input = document.getElementById('search');
+        const search_query = search_input.value;
+
+        if (search_query) {
+            const data = await search(search_query);
+            const lat = data['lat'];
+            const lon = data['lon'];
+
+            climate_map.setView([lat, lon], 3);
+            showClimateChart(lat, lon);
+        }
+    }
+
+    document.getElementById('search-button').onclick = doSearch;
+    document.getElementById('search').addEventListener("keyup", function(event) {
+        /* Credit: https://www.w3schools.com/howto/howto_js_trigger_button_enter.asp */
+        event.preventDefault();
+        if (event.keyCode === 13) {
+            doSearch();
+        };
+    });
 };

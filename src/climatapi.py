@@ -7,11 +7,17 @@
 
 from datetime import date
 import math
+import json
+import urllib
 from flask import Flask
 from flask import jsonify
 from werkzeug.routing import FloatConverter as BaseFloatConverter
 
 import climatedb
+
+NOMINATIM_API = 'https://nominatim.openstreetmap.org/search/'
+NOMINATIM_DELAY = 1
+USER_AGENT = 'Climate Map API'
 
 app = Flask(__name__)
 
@@ -85,3 +91,39 @@ def datasets(data_source):
         return jsonify(climatedb.fetch_datasets(data_source_id))
     except climatedb.NotFoundError as e:
         return jsonify({'error': str(e)}), 404
+
+@app.route('/search/<string:query>')
+def search(query):
+    '''
+    Searches for the place specified in the query.
+    '''
+    climatedb.wait_search(NOMINATIM_DELAY)
+
+    encoded_query = urllib.parse.quote(query)
+    url = NOMINATIM_API + '/' + encoded_query + '?format=json&limit=1'
+    request = urllib.request.Request(
+        url,
+        data=None,
+        headers={
+            'User-Agent': USER_AGENT,
+        }
+    )
+    f = urllib.request.urlopen(request)
+
+    if f.getcode() >= 400:
+        return jsonify({'error': 'Error from Nominatim API'}), f.getcode()
+
+    response = f.read()
+    data = json.loads(response)
+
+    if type(data) is list and len(data) == 1:
+        new_data = data[0]
+        new_data['lat'] = float(new_data['lat'])
+        new_data['lon'] = float(new_data['lon'])
+
+        return jsonify(new_data)
+    else:
+        return jsonify({'error': 'Unexpected result from Nominatim API'}), 500
+
+if __name__ == '__main__':
+    app.run(processes=3)

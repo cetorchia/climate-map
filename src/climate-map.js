@@ -845,7 +845,15 @@ window.onload = function() {
 
     document.getElementById('search-expand-button').onclick = function() {
         const search_div = document.getElementById('search-container');
-        search_div.style.display = (search_div.style.display == 'none') ? 'block' : 'none';
+
+        if (search_div.style.display == 'none') {
+            search_div.style.display = 'block';
+            const search_input = document.getElementById('search');
+            search_input.focus();
+            search_input.setSelectionRange(0, search_input.value.length);
+        } else {
+            search_div.style.display = 'none';
+        }
     };
 
     document.getElementById('about-button').onclick = function() {

@@ -359,24 +359,27 @@ def wait_search(seconds):
     request.
     '''
     original_timestamp = timestamp = datetime.now().timestamp()
+    total_delay = current_delay = 0
     queue_id = insert_search_queue(timestamp)
     commit()
-    same_queue_id = next_queue_id = fetch_search_queue()
-    attempts = 1
+    last_queue_id = next_queue_id = fetch_search_queue()
 
-    while (next_queue_id != queue_id) or datetime.now().timestamp() - timestamp < seconds:
+    while (next_queue_id != queue_id) or current_delay < seconds:
         time.sleep(seconds / 4)
         next_queue_id = fetch_search_queue()
-        attempts += 1
 
-        if attempts == 40:
+        if total_delay >= 10:
             delete_search_queue(queue_id)
             raise Exception('Search queue timed out')
 
-        if same_queue_id != next_queue_id:
-            same_queue_id = next_queue_id
+        if last_queue_id != next_queue_id:
+            last_queue_id = next_queue_id
             timestamp = datetime.now().timestamp()
 
+        current_delay = datetime.now().timestamp() - timestamp
+        total_delay = datetime.now().timestamp() - original_timestamp
+
+    print(total_delay)
     delete_search_queue(queue_id)
     commit()
 

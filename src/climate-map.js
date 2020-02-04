@@ -821,6 +821,8 @@ window.onload = function() {
             const lat = data['lat'];
             const lon = data['lon'];
 
+            document.getElementById('search-container').style.display = 'none';
+
             climate_map.setView([lat, lon], 3);
             showClimateChart(lat, lon);
         }
@@ -834,4 +836,20 @@ window.onload = function() {
             doSearch();
         };
     });
+
+    document.getElementById('filter-button').onclick = function() {
+        this.classList.toggle('hamburger-close');
+        const filters_div = document.getElementById('filter-container');
+        filters_div.style.display = (filters_div.style.display == 'none') ? 'block' : 'none';
+    };
+
+    document.getElementById('search-expand-button').onclick = function() {
+        const search_div = document.getElementById('search-container');
+        search_div.style.display = (search_div.style.display == 'none') ? 'block' : 'none';
+    };
+
+    document.getElementById('about-button').onclick = function() {
+        const about_div = document.getElementById('about');
+        about_div.style.display = (about_div.style.display == 'none') ? 'block' : 'none';
+    };
 };

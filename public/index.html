@@ -1,17 +1,27 @@
 <html>
     <head>
         <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 
         <script type="text/javascript" src="bundle.js"></script>
+
+        <title>Climate Map</title>
     </head>
     <body>
         <div id="climate-map"></div>
-        <div id="sidebar">
-            <h1>Climate Map</h1>
-            <div id="search-container">
-                <input id="search" type="text" placeholder="Search">
-                <button id="search-button">&#128270; Search</button>
-            </div>
+        <div id="filter-button" class="hamburger map-button">
+            <div class="hamburger-bar1"></div>
+            <div class="hamburger-bar2"></div>
+            <div class="hamburger-bar3"></div>
+        </div>
+        <div id="search-expand-button" class="map-button">&#128270;</div>
+        <div id="about-button" class="map-button"><span id="about-question-mark">?</span></div>
+
+        <div id="search-container" class="map-window" style="display:none">
+            <input id="search" type="text" placeholder="Search">
+            <button id="search-button">&#128270; Search</button>
+        </div>
+        <div id="filter-container" class="map-window" style="display:none">
             <div id="data-source-filter">
                 Data source:
                 <select id="data-source">
@@ -50,7 +60,7 @@
                 </select>
             </div>
         </div>
-        <div id="about">
+        <div id="about" class="map-window" style="display:none">
             <p>
                 This map shows climate normals, such as average temperature and
                 average precipitation, as colours on the map.
@@ -62,7 +72,8 @@
             <p>
                 Climate data is approximated in some cases and may differ from actual
                 climate normals. Temperatures and precipitation amounts can change
-                within short distances.
+                within short distances. Also stations may have been built or removed
+                over time and in some datasets station data may not have even been used.
                 Therefore the average temperature and precipitation for a region may not
                 represent all places in the region.
             </p>
@@ -73,15 +84,15 @@
         <div id="close-location-climate-container">
             <button id="close-location-climate" type="button">Close</button>
         </div>
-        <div id="location-climate">
+        <div id="location-climate" class="map-window" style="display:none">
             <p>
                 Average Annual Temperature (&#176;C): <span id="average-temperature"></span>
             </p>
             <p>
                 Total Annual Precipitation (mm): <span id="total-precipitation"></span>
             </p>
-            <canvas id="location-temperature-chart" width="400" height="200"></canvas>
-            <canvas id="location-precipitation-chart" width="400" height="200"></canvas>
+            <canvas id="location-temperature-chart" width="400" height="300"></canvas>
+            <canvas id="location-precipitation-chart" width="400" height="300"></canvas>
         </div>
     </body>
 </html>

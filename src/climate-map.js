@@ -823,7 +823,7 @@ window.onload = function() {
 
             document.getElementById('search-container').style.display = 'none';
 
-            climate_map.setView([lat, lon], 3);
+            climate_map.setView([lat, lon], 8);
             showClimateChart(lat, lon);
         }
     }

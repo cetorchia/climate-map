@@ -29,7 +29,7 @@ case $VARIABLE_NAME in
     tavg|air|tas)
         OUTPUT_NAME=temperature-avg
         ;;
-    precip|pr)
+    precip|pr|ppt)
         OUTPUT_NAME=precipitation
         ;;
     *)

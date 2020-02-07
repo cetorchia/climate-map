@@ -50,7 +50,7 @@ def to_standard_variable_name(variable_name):
     elif variable_name == 'tasmax':
         return 'tmax'
 
-    elif variable_name in ('prec', 'pr'):
+    elif variable_name in ('prec', 'pr', 'ppt'):
         return 'precip'
 
     elif variable_name == 'prsn':
@@ -98,19 +98,18 @@ def normals_from_folder(input_folder, variable_name, month=0):
 
                 if file_variable_name == to_standard_variable_name(variable_name):
                     if month == 0:
-                        # Annual average/total, add up the normals.
-                        lat_arr, lon_arr, units, normals_for_file = normals_from_geotiff(input_file, input_fmt)
+                        # Annual average
+                        lat_arr, lon_arr, units, normals_for_month = normals_from_geotiff(input_file, input_fmt)
 
                         if normals is None:
-                            normals = normals_for_file
+                            normals = normals_for_month / 12
                         else:
-                            # Add the arrays of all months together.
-                            normals += normals_for_file
+                            normals += normals_for_month / 12
 
                         num_months += 1
 
                     else:
-                        # Specific month, is it the month?
+                        # Specific month
                         file_month = int(match.group(2))
 
                         if file_month == month:
@@ -121,10 +120,58 @@ def normals_from_folder(input_folder, variable_name, month=0):
     elif month == 0 and num_months < 12:
         raise Exception('Could not find data for all months in %s' % input_folder)
 
-    if variable_name != 'precip':
-        normals /= 12
+    return (lat_arr, lon_arr, units, normals.astype(np.int16))
 
-    return (lat_arr, lon_arr, units, normals)
+def mask_array_as_int16(data_arr, missing_value):
+    '''
+    Masks the specified array with the specified missing value
+    as a int16 array. If the numbers won't fit as int16, this
+    will fail.
+    '''
+    dtype = np.int16
+    MIN_DTYPE = np.iinfo(dtype).min
+    MAX_DTYPE = np.iinfo(dtype).max
+
+    if missing_value < MIN_DTYPE or missing_value > MAX_DTYPE:
+        if np.any(data_arr == MIN_DTYPE):
+            raise Exception('Data cannot contain %d as this is needed for missing values' % MIN_DTYPE)
+
+        np.place(data_arr, data_arr == missing_value, MIN_DTYPE)
+        missing_value = MIN_DTYPE
+
+        if isinstance(data_arr, np.ma.masked_array):
+            data_arr.set_fill_value(missing_value)
+            data_arr.mask = (data_arr == missing_value)
+
+    if np.any((data_arr < MIN_DTYPE) | (data_arr > MAX_DTYPE)):
+        raise Exception('Data contains values out of range (%d..%d) for a %s' % (MIN_DTYPE, MAX_DTYPE, dtype))
+
+    data_arr = data_arr.astype(dtype, copy=False)
+
+    if not isinstance(data_arr, np.ma.masked_array):
+        return np.ma.masked_values(data_arr, missing_value)
+    else:
+        return data_arr
+
+def scale_array_to_integers(data_arr, scale_factor=None, offset=None):
+    '''
+    This scales the array using the specified scale factor and offset.
+    In the case of large datasets, we multiply by 10 to preserve
+    one decimal and we convert to integers.
+    '''
+    if scale_factor is not None and scale_factor != 1:
+        if scale_factor == 0.1:
+            # Data is already multiplied by 10
+            pass
+        else:
+            raise Exception('Scale factor of %g currently not supported' % scale_factor)
+    else:
+        data_arr *= 10
+
+    offset = int(round(offset * 10)) if offset is not None else 0
+    data_arr += offset
+
+    return data_arr
 
 def normals_from_geotiff(input_file, input_fmt):
     '''
@@ -138,10 +185,6 @@ def normals_from_geotiff(input_file, input_fmt):
 
     units = units_from_filename(input_file)
 
-    # The WorldClim v1 data multiplies temperatures by 10, because
-    # the values are stored as integers and so they cannot have decimals.
-    factor = 10 if input_fmt == 'bil' and units == 'degC' else 1
-
     if (dataset.RasterCount != 1):
         raise Exception('Expected 1 raster band, got ' + dataset.RasterCount)
 
@@ -149,7 +192,13 @@ def normals_from_geotiff(input_file, input_fmt):
     # values can be assumed to be normals already.
     band = dataset.GetRasterBand(1)
     band_arr = band.ReadAsArray()
-    normals = np.ma.masked_values(band_arr / factor, band.GetNoDataValue() / factor)
+
+    normals = mask_array_as_int16(band_arr, band.GetNoDataValue())
+
+    if input_fmt == 'bil' and units == 'degC':
+        normals = scale_array_to_integers(normals, 0.1)
+    else:
+        normals = scale_array_to_integers(normals, band.GetScale(), band.GetOffset())
 
     if len(normals.shape) != 2:
         raise Exception('Expected two dimensional raster band, got ' + len(normals.shape))
@@ -177,11 +226,18 @@ def normals_from_netcdf4(input_file, variable_name, start_time, end_time, month)
     lat_arr = dataset.variables['lat'][:]
     lon_arr = dataset.variables['lon'][:]
     value_var = dataset.variables[variable_name]
+
+    if value_var.dtype is not value_var[0].dtype:
+        print('Data type is wrong with netCDF4, opening with gdal')
+        value_arr = gdal.Open(input_file).ReadAsArray()
+    else:
+        value_arr = value_var[:]
+
     units = value_var.units
 
-    value_arr = value_var[:]
-    if type(value_arr) is not np.ma.masked_array:
-        value_arr = np.ma.masked_values(value_arr, value_var.missing_value)
+    value_arr = mask_array_as_int16(value_arr, value_var.missing_value)
+    value_arr = scale_array_to_integers(value_arr, value_var.scale_factor, value_var.add_offset)
+
     normals = calculate_normals(time_var, value_arr, units, variable_name, start_time, end_time, month)
 
     return (lat_arr, lon_arr, units, normals)
@@ -191,7 +247,9 @@ def calculate_normals(time_var, value_arr, units, variable_name, start_time, end
     Calculates the means (or totals) through the given time period.
     '''
     # Parse the time units
-    if re.search('^hours since \d{4}-\d{2}-\d{2} \d{1,2}:\d{1,2}:\d{1,2}$', time_var.units):
+    if time_var.size == 12:
+        time_units = 'months'
+    elif re.search('^hours since \d{4}-\d{2}-\d{2} \d{1,2}:\d{1,2}:\d{1,2}$', time_var.units):
         oldest_time = datetime.strptime(time_var.units, 'hours since %Y-%m-%d %H:%M:%S')
         time_units = 'hours'
     elif re.search('^days since \d{4}-\d{2}-\d{2} \d{1,2}:\d{1,2}:\d{1,2}\.\d{1,6}$', time_var.units):
@@ -200,45 +258,72 @@ def calculate_normals(time_var, value_arr, units, variable_name, start_time, end
     else:
         raise Exception('Don\'t understand the time units "%s"' % time_var.units)
 
-    # Determine start and end times in the time units
-    start_delta = start_time - oldest_time
-    end_delta = end_time - oldest_time
+    if time_units == 'months':
+        #
+        # In this case, the file only contains 12 time indexes,
+        # so they are not actual moments in time and the data
+        # is already aggregated by month.
+        #
+        if not month:
+            filtered_time_indexes = np.arange(0, 12)
+        else:
+            filtered_time_indexes = np.array([month - 1])
 
-    if time_units == 'hours':
-        start = start_delta.days * 24
-        end = end_delta.days * 24
-        time_delta = lambda time_value: timedelta(hours=time_value)
-    elif time_units == 'days':
-        start = start_delta.days
-        end = end_delta.days
-        time_delta = lambda time_value: timedelta(days=time_value)
+        # Number of years to divide by is 1 because these data are already averaged.
+        range_years = 1
     else:
-        raise Exception('Unexpected time units "%s"' % time_units)
+        # Determine start and end times in the time units
+        start_delta = start_time - oldest_time
+        end_delta = end_time - oldest_time
 
-    # Determine the time indexes that correspond for this range and month
-    time_arr = time_var[:]
-    time_indexes_range = np.where((time_arr >= start) & (time_arr <= end))[0]
+        if time_units == 'hours':
+            start = start_delta.days * 24
+            end = end_delta.days * 24
+            time_delta = lambda time_value: timedelta(hours=time_value)
+        elif time_units == 'days':
+            start = start_delta.days
+            end = end_delta.days
+            time_delta = lambda time_value: timedelta(days=time_value)
+        else:
+            raise Exception('Unexpected time units "%s"' % time_units)
 
-    if month:
-        filtered_time_indexes = []
-        for time_i in time_indexes_range:
-            time_value = time_var[time_i]
-            time = oldest_time + time_delta(time_value)
-            if time.month == month:
-                filtered_time_indexes.append(time_i)
-    else:
-        filtered_time_indexes = time_indexes_range
+        # Determine the time indexes that correspond for this range and month
+        time_arr = time_var[:]
+        time_indexes_range = np.where((time_arr >= start) & (time_arr <= end))[0]
+
+        if month:
+            filtered_time_indexes = []
+            for time_i in time_indexes_range:
+                time_value = time_var[time_i]
+                time = oldest_time + time_delta(time_value)
+                if time.month == month:
+                    filtered_time_indexes.append(time_i)
+        else:
+            filtered_time_indexes = time_indexes_range
+
+        range_years = end_time.year - start_time.year + 1
 
     # Filter the data by the time indexes
     filtered_values = value_arr[filtered_time_indexes, :, :]
 
-    # Compute the means (or totals) of each coordinate through time axis
-    if (to_standard_variable_name(variable_name) == 'precip' and not month and units != 'kg m-2 s-1'):
-        totals = filtered_values.sum(axis = 0) / ((end_time - start_time).days / 365.2425)
-        return totals
-    else:
-        means = filtered_values.mean(axis = 0)
-        return means
+    # Compute the average for each coordinate through time axis
+    means = filtered_values.mean(axis = 0, dtype=np.int16)
+    return means
+
+def unpack_normals(normals):
+    '''
+    Divides each normal by 10.
+    This would be done assuming all normals are stored as themselves
+    multiplied by 10 in order to store them as an int16 and save space.
+    '''
+    new_normals = normals.copy()
+
+    for measurement, measurement_normals in new_normals.items():
+        if type(measurement_normals) is dict:
+            for month, month_normals in measurement_normals.items():
+                month_normals[0] /= 10
+
+    return new_normals
 
 def pad_data(lat_arr, lon_arr, data_arr):
     '''
@@ -366,7 +451,7 @@ def get_contour_levels(units, month):
     Returns a list of the contour levels for use with pyplot.contourf()
     '''
     if units == 'degC':
-        return [
+        return np.array([
             -40,
             -35,
             -30,
@@ -384,35 +469,21 @@ def get_contour_levels(units, month):
             30,
             35,
             40,
-        ]
+        ]) * 10
 
     elif units == 'mm':
-        if month:
-            return [
-                0,
-                10,
-                25,
-                50,
-                75,
-                100,
-                150,
-                300,
-                400,
-                500,
-            ]
-        else:
-            return [
-                0,
-                100,
-                250,
-                500,
-                750,
-                1000,
-                1500,
-                3000,
-                4000,
-                5000,
-            ]
+        return np.array([
+            0,
+            10,
+            25,
+            50,
+            75,
+            100,
+            150,
+            300,
+            400,
+            500,
+        ]) * 10
 
     else:
         raise Exception('Unknown units: ' + units)
@@ -440,8 +511,7 @@ def degrees_celsius_colour(amount, month):
     '''
     Returns the colour for the specified degrees Celsius.
     '''
-    if not month:
-        amount -= 10
+    amount /= 10
 
     if amount >= 35:
         return 255, 0, 0
@@ -480,8 +550,7 @@ def precipitation_millimetres_colour(amount, month):
     '''
     Returns the colour for the specified mm of precipitation.
     '''
-    if not month:
-        amount /= 10
+    amount /= 10
 
     if amount >= 500:
         return 0, 0, 255

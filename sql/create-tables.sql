@@ -48,7 +48,7 @@ CREATE TABLE monthly_normals(
     measurement_id INTEGER NOT NULL REFERENCES measurements(id),
     unit_id INTEGER NOT NULL REFERENCES units(id),
     month INTEGER NOT NULL,
-    value FLOAT NOT NULL,
+    value SMALLINT NOT NULL,
     UNIQUE(data_point_id, measurement_id, month)
 );
 

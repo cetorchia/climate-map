@@ -14,6 +14,7 @@ from flask import jsonify
 from werkzeug.routing import FloatConverter as BaseFloatConverter
 
 import climatedb
+import climatetransform
 
 NOMINATIM_API = 'https://nominatim.openstreetmap.org/search/'
 NOMINATIM_DELAY = 1
@@ -68,6 +69,8 @@ def monthly_normals(data_source, start_year, end_year, lat, lon):
             'lat': data_point['lat'],
             'lon': data_point['lon'],
         })
+
+        normals = climatetransform.unpack_normals(normals)
 
         return jsonify(normals)
 

@@ -152,7 +152,7 @@ async function fetchClimateDataForCoords(data_source, date_range, lat, lon)
         data['precip'][0] = getTotalPrecipitation(data['precip']);
     }
 
-    return data
+    return data;
 }
 
 /**

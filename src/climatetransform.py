@@ -249,7 +249,8 @@ def netcdf4_main_variable(dataset):
     undimensional_variables = [var for name, var in dataset.variables.items() if name not in dataset.dimensions]
 
     if len(undimensional_variables) > 1:
-        raise Exception('Can\'t determine whether to use "' + '" or "'.join(undimensional_variables) + '"')
+        undimensional_variable_names = [var.name for var in undimensional_variables]
+        raise Exception('Can\'t determine whether to use "' + '" or "'.join(undimensional_variable_names) + '"')
     elif len(undimensional_variables) == 0:
         raise Exception('No undimensional variables to use as variable')
     else:

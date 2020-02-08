@@ -29,7 +29,7 @@ ALLOWED_GDAL_EXTENSIONS = ('tif', 'bil')
 TILE_LENGTH = 256
 MAX_ZOOM_LEVEL = 7
 EARTH_RADIUS = 6378137
-EARTH_CIRCUMFERENCE = 2*math.pi*EARTH_RADIUS
+EARTH_CIRCUMFERENCE = 2 * math.pi * EARTH_RADIUS
 
 # Max latitude in OpenStreetMap, about 85.0511
 # https://en.wikipedia.org/wiki/Web_Mercator_projection#Formulas
@@ -74,6 +74,27 @@ def units_from_filename(input_file):
         return 'mm'
     else:
         raise Exception('Do not know the measurement units of ' + input_file)
+
+def aggregate_normals(input_files, get_normals):
+    '''
+    Computes the running average of the next normals with the
+    already-aggregated normals given the number of datasets.
+    '''
+    aggregated_normals = None
+    number = len(input_files)
+
+    if number == 1:
+        return get_normals(input_files[0])
+
+    for input_file in input_files:
+        lat_arr, lon_arr, units, next_normals = get_normals(input_file)
+
+        if aggregated_normals is None:
+            aggregated_normals = next_normals / number
+        else:
+            aggregated_normals += next_normals / number
+
+    return (lat_arr, lon_arr, units, np.int16(aggregated_normals))
 
 def normals_from_folder(input_folder, variable_name, month=0):
     '''
@@ -215,6 +236,21 @@ def normals_from_geotiff(input_file, input_fmt):
 
     return (lat_arr, lon_arr, units, normals)
 
+def netcdf4_main_variable(dataset):
+    '''
+    Gives the name of the undimensional variable from a dataset.
+    This is useful when you don't know for sure what the variable
+    is called. It is probably the one variable that isn't a dimension.
+    '''
+    undimensional_variables = [var for name, var in dataset.variables.items() if name not in dataset.dimensions]
+
+    if len(undimensional_variables) > 1:
+        raise Exception('Can\'t determine whether to use "' + '" or "'.join(undimensional_variables) + '"')
+    elif len(undimensional_variables) == 0:
+        raise Exception('No undimensional variables to use as variable')
+    else:
+        return undimensional_variables[0]
+
 def normals_from_netcdf4(input_file, variable_name, start_time, end_time, month):
     '''
     Extracts climate normals from a NetCDF4 file.
@@ -225,7 +261,12 @@ def normals_from_netcdf4(input_file, variable_name, start_time, end_time, month)
     time_var = dataset.variables['time']
     lat_arr = dataset.variables['lat'][:]
     lon_arr = dataset.variables['lon'][:]
-    value_var = dataset.variables[variable_name]
+
+    if variable_name in dataset.variables:
+        value_var = dataset.variables[variable_name]
+    else:
+        value_var = netcdf4_main_variable(dataset)
+        print('Warning: variable %s not in %s, using "%s"' % (variable_name, input_file, value_var.name))
 
     if value_var.dtype is not value_var[0].dtype:
         print('Data type is wrong with netCDF4, opening with gdal')
@@ -430,8 +471,11 @@ def to_standard_units(value, units, month):
     Gives the value in standard units
     Value can be a masked numpy array.
     '''
-    if units == 'degK' or units == 'K':
+    if units in ('deg K', 'degK', 'K'):
         new_value = value - 273.15
+        new_units = 'degC'
+    elif units in ('deg C', 'C'):
+        new_value = value
         new_units = 'degC'
     elif units == 'cm':
         new_value = value * 10.0
@@ -609,6 +653,7 @@ def save_contours_tiles(y_arr, x_arr, units, normals, output_folder, month):
     '''
     full_output_file = output_folder + '.png'
     tile_length = int(round(EARTH_CIRCUMFERENCE / 1000))
+    os.makedirs(os.path.dirname(full_output_file), exist_ok=True)
     save_contours_png(y_arr, x_arr, units, normals, full_output_file, month, length=16384,
                       extent=(
                           -EARTH_CIRCUMFERENCE/2,

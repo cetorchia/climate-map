@@ -107,6 +107,8 @@ netCDF4 format and are grouped by month.
 Also WorldClim geotiff data that is 2-dimensional and already aggregated by month can also
 be used.
 
+CMIP6 and TerraClimate data are also supported.
+
 ## Transforming to database
 
 Use these commands to load the climate data to the postgres database.
@@ -126,8 +128,8 @@ bin/transform-dataset.py precip_5m_bil/ localhost:climate_map:climate_map precip
 ...
 ```
 
-The 2nd argument is the connection string and is of the form `<host>/<db>/<user>`.
-You could put the password in `.pgpass` or specify it as `<host>/<db>/<user>/<password>`.
+The 2nd argument is the connection string and is of the form `<host>:<db>:<user>`.
+You could put the password in `.pgpass` or specify it as `<host>:<db>:<user>:<password>`.
 
 The last argument is the data source and is required to identify the data source of all
 values. For example, we can provide both NOAA data and WorldClim data! But we'll need
@@ -136,8 +138,14 @@ to specify which data are of which data source.
 To do load data for all months, you can run the transform-all-months script:
 
 ```
-bin/transform-all-months.sh ~/Documents/Climate/tmean_5m_bil/ tavg 1960 1990 worldclim
-bin/transform-all-months.sh ~/Documents/Climate/prec_5m_bil/ precip 1960 1990 worldclim
+bin/transform-all-months-png.sh TerraClimate19812010_tmin.nc tmin 1891 2010 TerraClimate
+bin/transform-all-months-png.sh TerraClimate19812010_tmax.nc tmin 1891 2010 TerraClimate
+```
+
+Or:
+```
+bin/transform-all-months.sh tmean_5m_bil/ tavg 1960 1990 worldclim
+bin/transform-all-months.sh prec_5m_bil/ precip 1960 1990 worldclim
 ...
 ```
 
@@ -150,45 +158,39 @@ structure similar to the above, and can be created by transform script by
 specifying that the output folder ends with `/tiles/{full_variable_name}`:
 
 ```
-bin/transform-dataset.py tmean_5m_bil/ public/data/1980-2010/tiles/temperature-avg-01 tavg 1980 2010 1
+bin/transform-dataset.py tmean_5m_bil/ public/data/worldclim/1960-1990/tiles/temperature-avg-01 tavg 1960 1990 0 worldclim
+bin/transform-dataset.py tmean_5m_bil/ public/data/worldclim/1960-1990/tiles/temperature-avg-01 tavg 1960 1990 1 worldclim
 ...
 
-bin/transform-dataset.py precip_5m_bil/ public/data/1980-2010/tiles/precipitation-01 precip 1980 2010 1
+bin/transform-dataset.py precip_5m_bil/ public/data/worldclim/1960-1990/tiles/precipitation-01 precip 1960 1990 1 worldclim
 ...
+```
+
+Month `0` is all-months so you can have a map that shows annual average temperature
+or precipitation.
+
+You can also specify minimum and maximum temperature datasets if you do not have
+average temperature in a dataset (useful for saving space as these files
+can be quite large):
+
+```
+bin/transform-dataset.py TerraClimate19812010_tmin.nc TerraClimate19812010_tmax.nc public/data/TerraClimate/1981-2010/tiles/temperature-avg-01 tavg 1981 2010 1 TerraClimate
+
+bin/transform-dataset.py TerraClimate19812010_ppt.nc public/data/TerraClimate/1981-2010/tiles/precipitation-01 ppt 1981 2010 1 TerraClimate
 ```
 
 To do this for all months, you can run the all-months script:
 
 ```
-bin/transform-all-months-png.sh ~/Documents/Climate/tmean_5m_bil/ tavg 1960 1990 worldclim
-bin/transform-all-months-png.sh ~/Documents/Climate/prec_5m_bil/ precip 1960 1990 worldclim
+bin/transform-all-months-png.sh tmean_5m_bil/ tavg 1960 1990 worldclim
+bin/transform-all-months-png.sh prec_5m_bil/ precip 1960 1990 worldclim
 ...
 ```
 
-## Transforming to non-tile PNG files
-
-**Deprecated**, the application does not need files in this form, but
-can be modified to use a whole image instead of tiles. See the
-createImageLayer() javascript function for details.
-
-These files are used to overlay a PNG representation of the climate data
-on the map. This can allow the browser to render colours for different temperatures
-or precipitation much quicker than plotting polygons for data it would have to load.
+Or:
 
 ```
-# Generate temperature datasets
-bin/transform-dataset.py air.mon.mean.v501.nc public/data/1980-2010/temperature-avg.png air 1980 2010
-bin/transform-dataset.py air.mon.mean.v501.nc public/data/1980-2010/temperature-avg-01.png air 1980 2010 1
-bin/transform-dataset.py air.mon.mean.v501.nc public/data/1980-2010/temperature-avg-02.png air 1980 2010 1
-...
-bin/transform-dataset.py air.mon.mean.v501.nc public/data/1980-2010/temperature-avg-12.png air 1980 2010 12
-
-# Generate precipitation datasets
-bin/transform-dataset.py precip.mon.total.v501.nc public/data/1980-2010/precipitation.png precip 1980 2010
-bin/transform-dataset.py precip.mon.total.v501.nc public/data/1980-2010/precipitation-01.png precip 1980 2010 1
-bin/transform-dataset.py precip.mon.total.v501.nc public/data/1980-2010/precipitation-02.png precip 1980 2010 2
-...
-bin/transform-dataset.py precip.mon.total.v501.nc public/data/1980-2010/precipitation-12.png precip 1980 2010 12
+bin/transform-all-months-png.sh TerraClimate19812010_tmin.nc TerraClimate19812010_tmax.nc tavg 1981 2010 TerraClimate
 ```
 
 # Tiling scheme

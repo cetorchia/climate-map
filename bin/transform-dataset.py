@@ -12,8 +12,8 @@ sys.path.append(dir_path)
 
 from datetime import timedelta
 from datetime import datetime
-import climatetransform
 
+import climatetransform
 import climatedb
 
 def get_args(arguments):
@@ -21,84 +21,98 @@ def get_args(arguments):
     Determines command line arguments
     '''
     num_arguments = len(arguments)
-    if num_arguments not in [6, 7, 8]:
-        print('Usage: ' + arguments[0] + ' <dataset-filename> <output-filename> <var> <start-year> <end-year> [month] [data-source]', file=sys.stderr)
+    if num_arguments < 8:
+        print('Usage: ' + arguments[0] + ' <dataset-filename1> [dataset-filename2] ... <output-filename> <var> <start-year> <end-year> <month|0> <data-source>', file=sys.stderr)
+        print('0 means all months')
         sys.exit(1)
 
-    input_file = arguments[1]
-    output_file = arguments[2]
-    variable_name = arguments[3]
-    start_year = int(arguments[4])
-    end_year = int(arguments[5])
+    input_files = arguments[1:-6]
+    rest_of_arguments = arguments[-6:]
 
-    if num_arguments >= 7:
-        month = int(arguments[6])
+    output_file = rest_of_arguments[0]
+    variable_name = rest_of_arguments[1]
+    start_year = int(rest_of_arguments[2])
+    end_year = int(rest_of_arguments[3])
+    month = int(rest_of_arguments[4])
+    data_source = rest_of_arguments[5]
+
+    if month > 0:
         start_time = datetime(start_year, month, 1)
         # This will set the end time to the last second of the last day of the
         # specified month in the specified end year.
         # Credit to https://stackoverflow.com/a/4131114 for the div/mod by 12
         end_time = datetime(end_year + month // 12, month % 12 + 1, 1) - timedelta(seconds=1)
-
-        if num_arguments >= 8:
-            data_source = arguments[7]
-        else:
-            data_source = None
     else:
-        month = 0
         start_time = datetime(start_year, 1, 1)
         end_time = datetime(end_year + 1, 1, 1) - timedelta(seconds=1)
-        data_source = None
 
-    # Determine input format
+    return (input_files, output_file, variable_name, month, start_time, end_time, data_source)
+
+def get_input_fmt(input_file):
+    '''
+    Gives the format of the specified input file.
+    '''
     if input_file.endswith(os.path.sep):
-        input_fmt = 'folder'
+        return 'folder'
     else:
         input_fmt = input_file.split('.')[-1]
 
         if input_fmt not in ('nc', 'tif', 'bil'):
-            raise Exception('Unknown input format ' + input_fmt)
+            raise Exception('Unsupported input format ' + input_fmt)
 
-    # Determine output format
+        return input_fmt
+
+def get_output_fmt(output_file):
+    '''
+    Gives the format of the specified output file.
+    '''
     if output_file.find(os.path.sep + 'tiles' + os.path.sep) != - 1 or output_file.startswith('tiles' + os.path.sep):
-        output_fmt = 'tiles'
+        return 'tiles'
     elif climatedb.CONN_STR_RE.search(output_file):
-        output_fmt = 'db'
-        if data_source is None:
-            raise Exception('Expected data source')
+        return 'db'
     else:
         output_fmt = output_file.split('.')[-1]
 
-        if output_fmt not in ('png'):
-            raise Exception('Unknown output format ' + output_fmt)
+        if output_fmt != 'png':
+            raise Exception('Unsupported output format ' + output_fmt)
 
-    return (input_file, input_fmt, output_file, output_fmt, variable_name, month, start_time, end_time, data_source)
+        return output_fmt
 
 def main(args):
     '''
     The main function
     '''
-    input_file, input_fmt, output_file, output_fmt, variable_name, month, start_time, end_time, data_source = \
-        get_args(args)
+    input_files, output_file, variable_name, month, start_time, end_time, data_source = get_args(args)
 
-    # Extract and transform normals from dataset
-    if input_fmt == 'nc':
-        lat_arr, lon_arr, units, normals = climatetransform.normals_from_netcdf4(
-            input_file,
-            variable_name,
-            start_time,
-            end_time,
-            month
-        )
+    # Extract normals from datasets
+    def get_normals(input_file):
+        input_fmt = get_input_fmt(input_file)
 
-    elif input_fmt in ('tif', 'bil'):
-        lat_arr, lon_arr, units, normals = climatetransform.normals_from_geotiff(input_file, input_fmt)
+        if input_fmt == 'nc':
+            return climatetransform.normals_from_netcdf4(
+                input_file,
+                variable_name,
+                start_time,
+                end_time,
+                month
+            )
 
-    elif input_fmt == 'folder':
-        lat_arr, lon_arr, units, normals = climatetransform.normals_from_folder(input_file, variable_name, month)
+        elif input_fmt in ('tif', 'bil'):
+            return climatetransform.normals_from_geotiff(input_file, input_fmt)
+
+        elif input_fmt == 'folder':
+            return climatetransform.normals_from_folder(input_file, variable_name, month)
+
+        else:
+            raise Exception('Unexpected input format "%s"' % input_fmt)
+
+    lat_arr, lon_arr, units, normals = climatetransform.aggregate_normals(input_files, get_normals)
 
     # Transform the climate normals to standard form.
     units, normals = climatetransform.data_to_standard_units(units, normals, month)
     lon_arr, normals = climatetransform.normalize_longitudes(lon_arr, normals)
+
+    output_fmt = get_output_fmt(output_file)
 
     if output_fmt in ('tiles', 'png'):
         lat_arr, lon_arr, normals = climatetransform.pad_data(lat_arr, lon_arr, normals)

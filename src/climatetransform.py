@@ -154,15 +154,19 @@ def mask_array_as_int16(data_arr, missing_value):
     MAX_DTYPE = np.iinfo(dtype).max
 
     if missing_value < MIN_DTYPE or missing_value > MAX_DTYPE:
-        if np.any(data_arr == MIN_DTYPE):
-            raise Exception('Data cannot contain %d as this is needed for missing values' % MIN_DTYPE)
+        new_missing_value = MIN_DTYPE
 
-        np.place(data_arr, data_arr == missing_value, MIN_DTYPE)
-        missing_value = MIN_DTYPE
+        if np.any(data_arr.base == new_missing_value):
+            raise Exception('Data cannot contain %d as this is needed for missing values' % new_missing_value)
 
         if isinstance(data_arr, np.ma.masked_array):
-            data_arr.set_fill_value(missing_value)
-            data_arr.mask = (data_arr == missing_value)
+            np.place(data_arr.base, data_arr.mask, new_missing_value)
+            data_arr.set_fill_value(new_missing_value)
+            data_arr.mask = (data_arr.base == new_missing_value)
+        else:
+            np.place(data_arr, data_arr == missing_value, new_missing_value)
+
+        missing_value = new_missing_value
 
     if np.any((data_arr < MIN_DTYPE) | (data_arr > MAX_DTYPE)):
         raise Exception('Data contains values out of range (%d..%d) for a %s' % (MIN_DTYPE, MAX_DTYPE, dtype))
@@ -348,8 +352,10 @@ def calculate_normals(time_var, value_arr, units, variable_name, start_time, end
     filtered_values = value_arr[filtered_time_indexes, :, :]
 
     # Compute the average for each coordinate through time axis
-    means = filtered_values.mean(axis = 0, dtype=np.int16)
-    return means
+    means = filtered_values.mean(axis = 0, dtype=np.int32)
+    np.place(means.base, means.mask, filtered_values.fill_value)
+    means.set_fill_value(filtered_values.fill_value)
+    return means.astype(np.int16)
 
 def unpack_normals(normals):
     '''
@@ -394,8 +400,8 @@ def pad_data(lat_arr, lon_arr, data_arr):
 
     # Pad the data array
     data_aug = np.full((aug_size, data_arr.shape[1]), data_arr.fill_value)
-    new_data_unmasked = np.append(data_arr, data_aug, axis=0)
-    new_data_arr = np.ma.masked_values(new_data_unmasked, data_arr.fill_value)
+    new_data_arr = np.ma.append(data_arr, data_aug, axis=0)
+    new_data_arr.set_fill_value(data_arr.fill_value)
 
     # Pad the latitudes too
     last_lat = lat_arr[lat_arr.size - 1]

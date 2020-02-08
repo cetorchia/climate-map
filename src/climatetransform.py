@@ -30,6 +30,9 @@ TILE_LENGTH = 256
 MAX_ZOOM_LEVEL = 7
 EARTH_RADIUS = 6378137
 EARTH_CIRCUMFERENCE = 2 * math.pi * EARTH_RADIUS
+SECONDS_IN_A_DAY = 86400
+AVERAGE_MONTH_DAYS = 30.436875
+AVERAGE_FEB_DAYS = 28.2425
 
 # Max latitude in OpenStreetMap, about 85.0511
 # https://en.wikipedia.org/wiki/Web_Mercator_projection#Formulas
@@ -94,7 +97,7 @@ def aggregate_normals(input_files, get_normals):
         else:
             aggregated_normals += next_normals / number
 
-    return (lat_arr, lon_arr, units, np.int16(aggregated_normals))
+    return (lat_arr, lon_arr, units, aggregated_normals.astype(next_normals.dtype))
 
 def normals_from_folder(input_folder, variable_name, month=0):
     '''
@@ -141,15 +144,20 @@ def normals_from_folder(input_folder, variable_name, month=0):
     elif month == 0 and num_months < 12:
         raise Exception('Could not find data for all months in %s' % input_folder)
 
-    return (lat_arr, lon_arr, units, normals.astype(np.int16))
+    return (lat_arr, lon_arr, units, normals.astype(normals_for_month.dtype))
 
-def mask_array_as_int16(data_arr, missing_value):
+def mask_array_as_int16(data_arr, missing_value, units=None):
     '''
     Masks the specified array with the specified missing value
     as a int16 array. If the numbers won't fit as int16, this
     will fail.
     '''
-    dtype = np.int16
+    if units == 'kg m-2 s-1':
+        data_arr *= SECONDS_IN_A_DAY
+        dtype = np.int32
+    else:
+        dtype = np.int16
+
     MIN_DTYPE = np.iinfo(dtype).min
     MAX_DTYPE = np.iinfo(dtype).max
 
@@ -281,8 +289,10 @@ def normals_from_netcdf4(input_file, variable_name, start_time, end_time, month)
 
     units = value_var.units
 
-    value_arr = mask_array_as_int16(value_arr, value_var.missing_value)
-    value_arr = scale_array_to_integers(value_arr, value_var.scale_factor, value_var.add_offset)
+    value_arr = mask_array_as_int16(value_arr, value_var.missing_value, units)
+    scale_factor = value_var.scale_factor if hasattr(value_var, 'scale_factor') else None
+    add_offset = value_var.add_offset if hasattr(value_var, 'add_offset') else None
+    value_arr = scale_array_to_integers(value_arr, scale_factor, add_offset)
 
     normals = calculate_normals(time_var, value_arr, units, variable_name, start_time, end_time, month)
 
@@ -300,6 +310,9 @@ def calculate_normals(time_var, value_arr, units, variable_name, start_time, end
         time_units = 'hours'
     elif re.search('^days since \d{4}-\d{2}-\d{2} \d{1,2}:\d{1,2}:\d{1,2}\.\d{1,6}$', time_var.units):
         oldest_time = datetime.strptime(time_var.units, 'days since %Y-%m-%d %H:%M:%S.%f')
+        time_units = 'days'
+    elif re.search('^days since \d{4}-\d{2}-\d{2} \d{1,2}:\d{1,2}:\d{1,2}$', time_var.units):
+        oldest_time = datetime.strptime(time_var.units, 'days since %Y-%m-%d %H:%M:%S')
         time_units = 'days'
     else:
         raise Exception('Don\'t understand the time units "%s"' % time_var.units)
@@ -354,9 +367,10 @@ def calculate_normals(time_var, value_arr, units, variable_name, start_time, end
 
     # Compute the average for each coordinate through time axis
     means = filtered_values.mean(axis = 0, dtype=np.int32)
-    np.place(means.base, means.mask, filtered_values.fill_value)
+    if np.any(means.mask):
+        np.place(means.base, means.mask, filtered_values.fill_value)
     means.set_fill_value(filtered_values.fill_value)
-    return means.astype(np.int16)
+    return means.astype(filtered_values.dtype)
 
 def unpack_normals(normals):
     '''
@@ -467,9 +481,10 @@ def days_in_month(month):
     Gives the number of days in the specified month.
     '''
     if month == 2:
-        return 28.2425
+        return AVERAGE_FEB_DAYS
     elif month == 0:
-        return 365.2425
+        # Average length of a month
+        return AVERAGE_MONTH_DAYS
     else:
         return (date(2020 + month // 12, month % 12 + 1, 1) - date(2020, month, 1)).days
 
@@ -479,17 +494,18 @@ def to_standard_units(value, units, month):
     Value can be a masked numpy array.
     '''
     if units in ('deg K', 'degK', 'K'):
-        new_value = value - 273.15
+        new_value = np.int16(np.round(value - 2731.5))
         new_units = 'degC'
     elif units in ('deg C', 'C'):
         new_value = value
         new_units = 'degC'
     elif units == 'cm':
-        new_value = value * 10.0
+        new_value = value * 10
         new_units = 'mm'
     elif units == 'kg m-2 s-1':
         days = days_in_month(month)
-        new_value = value * 86400 * days
+        # Already multiplied by the number of seconds in a day in mask_array_as_int16()
+        new_value = np.int16(np.round(value * days))
         new_units = 'mm'
     else:
         new_value = value

@@ -708,7 +708,7 @@ def save_contours_tiles(y_arr, x_arr, units, normals, output_folder, month):
                 img_xy = img_y[:, x_start:x_end]
                 if img_xy.shape[0] != img_y.shape[0]:
                     raise Exception('Unexpected mismatch of axis 0 on the img arrays')
-                resized_img = cv2.resize(img_xy, (TILE_LENGTH, TILE_LENGTH), interpolation=cv2.INTER_NEAREST)
+                resized_img = cv2.resize(img_xy, (TILE_LENGTH, TILE_LENGTH), fx=0.5, fy=0.5, interpolation=cv2.INTER_CUBIC)
 
                 output_parent = os.path.join(output_folder, str(zoom_level), str(x))
                 os.makedirs(output_parent, exist_ok=True)

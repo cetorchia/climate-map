@@ -780,9 +780,11 @@ def save_db_data(
 
     try:
         dataset_id = climatedb.fetch_dataset(data_source_id, start_date, end_date)['id']
+        new_dataset = False
     except NotFoundError:
         lat_delta = abs(lat_arr[lat_arr.size - 1] - lat_arr[0]) / (lat_arr.size - 1)
         dataset_id = climatedb.create_dataset(data_source_id, start_date, end_date, lat_delta)['id']
+        new_dataset = True
 
     print('Storing data in database: ', end='', flush=True)
 
@@ -795,20 +797,11 @@ def save_db_data(
             if not np.ma.is_masked(value):
                 data_value = value.item()
 
-                try:
-                    data_point_id = climatedb.fetch_data_point(dataset_id, lat_value, lon_value)
-                except NotFoundError:
-                    data_point_id = climatedb.create_data_point(dataset_id, lat_value, lon_value)
+                if new_dataset:
+                    climatedb.create_data_point(dataset_id, lat_value, lon_value)
 
-                try:
-                    monthly_normal_id, existing_value = \
-                        climatedb.fetch_monthly_normal(data_point_id, measurement_id, month)
-
-                    if existing_value != data_value:
-                        climatedb.update_monthly_normal(monthly_normal_id, data_value)
-
-                except NotFoundError:
-                    climatedb.create_monthly_normal(data_point_id, measurement_id, unit_id, month, data_value)
+                data_point_id = climatedb.fetch_data_point(dataset_id, lat_value, lon_value)
+                climatedb.create_monthly_normal(data_point_id, measurement_id, unit_id, month, data_value)
 
                 climatedb.commit()
 

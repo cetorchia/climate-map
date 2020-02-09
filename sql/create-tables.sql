@@ -37,10 +37,7 @@ CREATE TABLE data_points(
     id SERIAL PRIMARY KEY,
     dataset_id INTEGER NOT NULL REFERENCES datasets(id),
     location GEOMETRY NOT NULL
-    -- This unique constraint takes up a lot of room, we already
-    -- have an index on location. The application code ensures
-    -- each location is unique for each dataset.
-    -- UNIQUE(dataset_id, location)
+    UNIQUE(dataset_id, location)
 );
 
 CREATE INDEX ON data_points USING GIST(location);

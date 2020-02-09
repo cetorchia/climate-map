@@ -278,8 +278,6 @@ def create_data_point(dataset_id, lat, lon):
         (dataset_id, lon, lat)
     )
 
-    return fetch_data_point(dataset_id, lat, lon)
-
 def fetch_data_point_closest_to(dataset_id, lat, lon, error):
     '''
     Fetches the data point closest to the specified location
@@ -307,37 +305,6 @@ def fetch_data_point_closest_to(dataset_id, lat, lon, error):
         'lat': actual_lat,
         'lon': actual_lon,
     }
-
-def fetch_monthly_normal(data_point_id, measurement_id, month):
-    '''
-    Fetches the monthly normal value for the specified data point
-    '''
-    db.cur.execute(
-        '''
-        SELECT id, value FROM monthly_normals
-        WHERE data_point_id = %s
-        AND measurement_id = %s
-        AND month = %s
-        ''',
-        (data_point_id, measurement_id, month)
-    )
-    row = db.cur.fetchone()
-
-    if row is None:
-        raise NotFoundError(
-            'Could not find monthly normal (%d, %d, %d)' % (data_point_id, measurement_id, month)
-        )
-
-    return row
-
-def update_monthly_normal(monthly_normal_id, value):
-    '''
-    Updates an existing monthly normal to the specified value
-    '''
-    db.cur.execute(
-        'UPDATE monthly_normals SET value = %s WHERE id = %s',
-        (value, monthly_normal_id)
-    )
 
 def create_monthly_normal(data_point_id, measurement_id, unit_id, month, value):
     '''

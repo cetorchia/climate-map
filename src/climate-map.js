@@ -725,6 +725,22 @@ function hideLocationClimate()
 }
 
 /**
+ * Sets the specified drop-down to the specified option
+ */
+function setDropDown(element_id, desired_option_value)
+{
+    const select = document.getElementById(element_id);
+    const options = select.options;
+
+    for (let i = 0; i <= options.length - 1; i++) {
+        if (options[i].value == desired_option_value) {
+            select.selectedIndex = i;
+            return;
+        }
+    }
+}
+
+/**
  * Loads the climate map.
  */
 window.onload = function() {
@@ -864,6 +880,16 @@ window.onload = function() {
         } else {
             search_div.style.display = 'none';
         }
+    };
+
+    document.getElementById('temperature-button').onclick = function() {
+        setDropDown('measurement', 'temperature-avg');
+        updateTileLayer(climate_tile_layer);
+    };
+
+    document.getElementById('precipitation-button').onclick = function() {
+        setDropDown('measurement', 'precipitation');
+        updateTileLayer(climate_tile_layer);
     };
 
     document.getElementById('about-button').onclick = function() {

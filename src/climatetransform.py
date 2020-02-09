@@ -810,10 +810,11 @@ def save_db_data(
                 except NotFoundError:
                     climatedb.create_monthly_normal(data_point_id, measurement_id, unit_id, month, data_value)
 
+                climatedb.commit()
+
         if lat_i % math.ceil(normals.shape[0] / 100) == 0:
             print('.', end='', flush=True)
 
-    climatedb.commit()
     climatedb.close()
 
     print()

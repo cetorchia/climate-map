@@ -36,8 +36,11 @@ CREATE TABLE datasets(
 CREATE TABLE data_points(
     id SERIAL PRIMARY KEY,
     dataset_id INTEGER NOT NULL REFERENCES datasets(id),
-    location GEOMETRY NOT NULL,
-    UNIQUE(dataset_id, location)
+    location GEOMETRY NOT NULL
+    -- This unique constraint takes up a lot of room, we already
+    -- have an index on location. The application code ensures
+    -- each location is unique for each dataset.
+    -- UNIQUE(dataset_id, location)
 );
 
 CREATE INDEX ON data_points USING GIST(location);
@@ -48,9 +51,14 @@ CREATE TABLE monthly_normals(
     measurement_id INTEGER NOT NULL REFERENCES measurements(id),
     unit_id INTEGER NOT NULL REFERENCES units(id),
     month INTEGER NOT NULL,
-    value SMALLINT NOT NULL,
-    UNIQUE(data_point_id, measurement_id, month)
+    value SMALLINT NOT NULL
+    -- UNIQUE(data_point_id, measurement_id, month)
 );
+
+-- This index takes up less room than the unique constraint on three columns
+-- We mostly look up by data point as the user is requesting all months
+-- and measurements.
+CREATE INDEX ON monthly_normals(data_point_id);
 
 CREATE TABLE search_queue(
     id SERIAL PRIMARY KEY,

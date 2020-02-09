@@ -77,23 +77,33 @@ def monthly_normals(data_source, start_year, end_year, lat, lon):
     except climatedb.NotFoundError as e:
         return jsonify({'error': str(e)}), 404
 
-@app.route('/data-sources')
-def data_sources():
+@app.route('/date-ranges')
+def date_ranges():
     '''
-    Gives all active data sources.
+    Gives all available date ranges for which data exist.
     '''
-    return jsonify(climatedb.fetch_data_sources())
+    return jsonify(climatedb.fetch_date_ranges())
 
-@app.route('/datasets/<string:data_source>')
-def datasets(data_source):
+@app.route('/data-sources/<int:start_year>-<int:end_year>')
+def data_sources_by_date_range(start_year, end_year):
     '''
-    Gives all datasets for the specified data source.
+    Gives all data-sources for the specified date range and
+    the corresponding dataset id for each one.
     '''
-    try:
-        data_source_id = climatedb.fetch_data_source(data_source)['id']
-        return jsonify(climatedb.fetch_datasets(data_source_id))
-    except climatedb.NotFoundError as e:
-        return jsonify({'error': str(e)}), 404
+    start_date = date(start_year, 1, 1)
+    end_date = date(end_year, 12, 31)
+    datasets = climatedb.fetch_datasets_by_date_range(start_date, end_date)
+
+    if datasets:
+        data_sources = [
+            climatedb.fetch_data_source_by_id(dataset['data_source_id'])
+            for dataset in datasets
+        ]
+
+        return jsonify(data_sources)
+
+    else:
+        return jsonify({'error': 'Could not find date range %d-%d in the datasets' % (start_year, end_year)}), 404
 
 @app.route('/search/<string:query>')
 def search(query):

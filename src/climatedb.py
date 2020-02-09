@@ -67,36 +67,38 @@ class NotFoundError(Exception):
     '''
     pass
 
-def fetch_data_sources():
+def fetch_data_source_by_id(data_source_id):
     '''
-    Fetches all active data sources.
+    Fetches the specified data source
     '''
     db.cur.execute(
         '''
         SELECT id, code, name, organisation, url, author, year
-        FROM data_sources WHERE active
-        '''
+        FROM data_sources
+        WHERE id = %s
+        ''',
+        (data_source_id,)
     )
-    rows = db.cur.fetchall()
+    row = db.cur.fetchone()
 
-    data_sources = []
+    if row is None:
+        raise NotFoundError('Could not find data source %d' % data_source_id)
 
-    for row in rows:
-        data_sources.append({
-            'id': row[0],
-            'code': row[1],
-            'name': row[2],
-            'organisation': row[3],
-            'url': row[4],
-            'author': row[5],
-            'year': row[6],
-        })
+    data_source_id, code, name, organisation, url, author, year = row
 
-    return data_sources
+    return {
+        'id': data_source_id,
+        'code': code,
+        'name': name,
+        'organisation': organisation,
+        'url': url,
+        'author': author,
+        'year': year,
+    }
 
-def fetch_data_source(data_source):
+def fetch_data_source(data_source_code):
     '''
-    Fetches the specified data source using the specified database cursor.
+    Fetches the specified data source
     '''
     db.cur.execute(
         '''
@@ -104,50 +106,66 @@ def fetch_data_source(data_source):
         FROM data_sources
         WHERE code = %s
         ''',
-        (data_source,)
+        (data_source_code,)
     )
     row = db.cur.fetchone()
 
     if row is None:
-        raise NotFoundError('Could not find data source "%s"' % data_source)
+        raise NotFoundError('Could not find data source "%s"' % data_source_code)
+
+    data_source_id, name, organisation, url, author, year = row
 
     return {
-        'id': row[0],
-        'code': data_source,
-        'name': row[1],
-        'organisation': row[2],
-        'url': row[3],
-        'author': row[4],
-        'year': row[5],
+        'id': data_source_id,
+        'code': data_source_code,
+        'name': name,
+        'organisation': organisation,
+        'url': url,
+        'author': author,
+        'year': year,
     }
 
-def fetch_datasets(data_source_id):
+def fetch_date_ranges():
     '''
-    Fetches all datasets of the specified data source.
+    Fetches all date ranges for available datasets in the system.
     '''
     db.cur.execute(
         '''
-        SELECT id, start_date, end_date
-        FROM datasets
-        WHERE data_source_id = %s
+        SELECT date_part('year', start_date) AS start_year, date_part('year', end_date) AS end_year
+        FROM datasets d
+        INNER JOIN data_sources s ON s.id = d.data_source_id
+        WHERE s.active
+        GROUP BY 1, 2
+        ORDER BY 1, 2
+        '''
+    )
+
+    rows = db.cur.fetchall()
+
+    return ['%d-%d' % (start_year, end_year) for start_year, end_year in rows]
+
+def fetch_datasets_by_date_range(start_date, end_date):
+    '''
+    Fetches the datasets matching the specified date range.
+    '''
+    db.cur.execute(
+        '''
+        SELECT id, data_source_id FROM datasets
+        WHERE start_date = %s AND end_date = %s
         ''',
-        (data_source_id,)
+        (start_date, end_date)
     )
     rows = db.cur.fetchall()
 
-    datasets = []
-
-    for row in rows:
-        datasets.append({
-            'id': row[0],
+    return [
+        {
+            'id': dataset_id,
             'data_source_id': data_source_id,
-            'start_date': row[1],
-            'end_date': row[2],
-            'start_year': row[1].year,
-            'end_year': row[2].year,
-        })
-
-    return datasets
+            'start_date': start_date,
+            'end_date': end_date,
+        }
+        for dataset_id, data_source_id in rows
+    ]
 
 def fetch_dataset(data_source_id, start_date, end_date):
     '''
@@ -168,12 +186,14 @@ def fetch_dataset(data_source_id, start_date, end_date):
             data_source_id, start_date, end_date
         ))
 
+    dataset_id, delta = row
+
     return {
-        'id': row[0],
+        'id': dataset_id,
         'data_source_id': data_source_id,
         'start_date': start_date,
         'end_date': end_date,
-        'delta': row[1],
+        'delta': delta,
     }
 
 def create_dataset(data_source_id, start_date, end_date, delta):
@@ -200,10 +220,12 @@ def fetch_unit(units):
     if row is None:
         raise NotFoundError('Could not find units "%s"' % units)
 
+    unit_id, unit_name = row
+
     return {
-        'id': row[0],
+        'id': unit_id,
         'code': units,
-        'name': row[1],
+        'name': unit_name,
     }
 
 def fetch_measurement(measurement):
@@ -216,10 +238,12 @@ def fetch_measurement(measurement):
     if row is None:
         raise NotFoundError('Could not find measurement "%s"' % measurement)
 
+    measurement_id, measurement_name = row
+
     return {
-        'id': row[0],
+        'id': measurement_id,
         'code': measurement,
-        'name': row[1],
+        'name': measurement_name,
     }
 
 def fetch_data_point(dataset_id, lat, lon):

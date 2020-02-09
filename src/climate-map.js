@@ -42,11 +42,12 @@ async function search(query)
 }
 
 /**
- * Gives a promise to the list of all active data sources.
+ * Gives a promise to the list of all datasets for the specified
+ * data source.
  */
-async function fetchDataSources()
+async function fetchDateRanges()
 {
-    const url = 'api/data-sources';
+    const url = 'api/date-ranges';
 
     const response = await fetch(url);
 
@@ -54,12 +55,11 @@ async function fetchDataSources()
 }
 
 /**
- * Gives a promise to the list of all datasets for the specified
- * data source.
+ * Gives a promise to the list of all active data sources.
  */
-async function fetchDatasets(data_source_code)
+async function fetchDataSources(date_range)
 {
-    const url = 'api/datasets/' + data_source_code;
+    const url = 'api/data-sources/' + date_range;
 
     const response = await fetch(url);
 
@@ -640,9 +640,16 @@ function updateClimateChart(data, temp_chart, precip_chart)
 /**
  * Populates the data sources
  */
-async function populateDataSources(data_source_select)
+async function populateDataSources(data_source_select, date_range_select)
 {
-    const data_sources = await fetchDataSources();
+    const date_range_option = date_range_select.options[date_range_select.selectedIndex];
+    const date_range = date_range_option.value;
+
+    const data_sources = await fetchDataSources(date_range);
+
+    /* Try to preserve the already selected data source, if any. */
+    const selected_option = data_source_select.options[data_source_select.selectedIndex];
+    const selected_data_source = selected_option.value;
 
     /* Remove all existing options. */
     data_source_select.innerHTML = '';
@@ -658,25 +665,26 @@ async function populateDataSources(data_source_select)
         option.setAttribute('data-url', data_sources[i].url);
 
         data_source_select.add(option);
+
+        if (option.value == selected_data_source) {
+            data_source_select.selectedIndex = i;
+        }
     }
 }
 
 /**
  * Populates the date ranges from valid datasets for this data source.
  */
-async function populateDataRanges(date_range_select, data_source_select)
+async function populateDateRanges(date_range_select)
 {
-    const selected_option = data_source_select.options[data_source_select.selectedIndex];
-    const data_source_code = selected_option.value;
-    const datasets = await fetchDatasets(data_source_code);
+    const date_ranges = await fetchDateRanges();
 
     /* Remove all existing options. */
     date_range_select.innerHTML = '';
 
     /* Add each data source. */
-    for (let i = 0; i <= datasets.length - 1; i++) {
-        let dataset = datasets[i];
-        let date_range = dataset.start_year + '-' + dataset.end_year;
+    for (let i = 0; i <= date_ranges.length - 1; i++) {
+        let date_range = date_ranges[i];
         let option = document.createElement('option');
 
         option.text = date_range;
@@ -721,7 +729,7 @@ function hideLocationClimate()
  */
 window.onload = function() {
     /* Fetch GeoJSON */
-    var climate_map = L.map('climate-map').setView([0, 0], 3);
+    var climate_map = L.map('climate-map').setView([0, 0], 2);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: 'Map tiles &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -738,8 +746,8 @@ window.onload = function() {
     const measurement_select = document.getElementById('measurement');
     const month_select = document.getElementById('month');
 
-    populateDataSources(data_source_select).then(function() {
-        populateDataRanges(date_range_select, data_source_select).then(function() {
+    populateDateRanges(date_range_select).then(function() {
+        populateDataSources(data_source_select, date_range_select).then(function() {
             climate_tile_layer = createTileLayer().addTo(climate_map);
         });
     });
@@ -760,17 +768,19 @@ window.onload = function() {
         }
     };
 
-    data_source_select.onchange = function() {
-        populateDataRanges(date_range_select, data_source_select).then(function() {
-            update_tiles_and_chart();
+    function change_data_source() {
+        update_tiles_and_chart();
 
-            climate_tile_layer.remove();
-            climate_tile_layer.options.attribution = dataSourceAttribution(data_source_select);
-            climate_tile_layer.addTo(climate_map);
-        });
+        climate_tile_layer.remove();
+        climate_tile_layer.options.attribution = dataSourceAttribution(data_source_select);
+        climate_tile_layer.addTo(climate_map);
     }
 
-    date_range_select.onchange = update_tiles_and_chart;
+    data_source_select.onchange = change_data_source;
+
+    date_range_select.onchange = function() {
+        populateDataSources(data_source_select, date_range_select).then(change_data_source);
+    };
 
     measurement_select.onchange = function() {
         updateTileLayer(climate_tile_layer);
@@ -785,7 +795,7 @@ window.onload = function() {
      * about that particular location's climate.
      */
 
-    function showClimateChart(lat, lon) {
+    function show_climate_chart(lat, lon) {
         const data_source_select = document.getElementById('data-source');
         const data_source = data_source_select.value;
 
@@ -805,7 +815,7 @@ window.onload = function() {
         clicked_lat = e.latlng.lat;
         clicked_lon = e.latlng.lng;
 
-        showClimateChart(clicked_lat, clicked_lon);
+        show_climate_chart(clicked_lat, clicked_lon);
     });
 
     document.getElementById('close-location-climate').onclick = function() {
@@ -824,7 +834,7 @@ window.onload = function() {
             document.getElementById('search-container').style.display = 'none';
 
             climate_map.setView([lat, lon], 8);
-            showClimateChart(lat, lon);
+            show_climate_chart(lat, lon);
         }
     }
 

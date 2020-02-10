@@ -19,11 +19,17 @@
         <div id="precipitation-button" class="map-button">&#127783;</div>
         <div id="about-button" class="map-button"><span id="about-question-mark">?</span></div>
 
+        <div id="date-range-slider-container">
+            <div id="date-range-slider-tooltip" class="slider-tooltip" style="display: none;"></div>
+            <input id="date-range-slider" type="range" min="0" max="0" value="0" list="date-range-list" class="slider">
+        </div>
+
         <div id="search-container" class="map-window" style="display:none">
             <input id="search" type="text" placeholder="Search">
             <button id="search-button">&#128270; Search</button>
             <br>Powered by <a href="http://nominatim.org/">Nominatim</a>
         </div>
+
         <div id="filter-container" class="map-window" style="display:none">
             <div id="date-range-filter">
                 Date range:
@@ -63,6 +69,7 @@
                 </select>
             </div>
         </div>
+
         <div id="about" class="map-window" style="display:none">
             <p>
                 This map shows climate normals, such as average temperature and
@@ -84,9 +91,11 @@
                 alert('Use this map at your own risk and do NOT trust the information herein. This interface is for educational purposes ONLY and MAY contain errors. To make actual decisions based on climate and climate change, it is STRONGLY advised that you consult accredited institutions and scholars. Climate and weather are survival aspects of life, and as such, due care must be taken to ensure survival of yourself and others.');
             </script>
         </div>
+
         <div id="close-location-climate-container">
             <button id="close-location-climate" type="button">Close</button>
         </div>
+
         <div id="location-climate" class="map-window" style="display:none">
             <p>
                 Average Annual Temperature (&#176;C): <span id="average-temperature"></span>

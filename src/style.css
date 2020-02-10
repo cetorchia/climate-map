@@ -135,3 +135,69 @@ body {
     -webkit-transform: rotate(45deg) translate(-6px, -6px) ;
     transform: rotate(45deg) translate(-6px, -6px) ;
 }
+
+/**
+ * Date range slider
+ *
+ * See https://www.w3schools.com/howto/howto_js_rangeslider.asp
+ */
+#date-range-slider-container {
+    position: absolute;
+    bottom: 50px;
+    width: 150px;
+    max-width: 50vw;
+    z-index: 1000;
+    left: 35vw;
+}
+
+.slider {
+    -webkit-appearance: none;
+    height: 10px;
+    width: 100%;
+    border-radius: 5px;
+    background: #888;
+    outline: none;
+    opacity: 0.7;
+    -webkit-transition: .2s;
+    transition: opacity .2s;
+}
+
+.slider:hover {
+    opacity: 1;
+}
+
+.slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 25px;
+    height: 25px;
+    border-radius: 50%;
+    background: #444;
+    cursor: pointer;
+}
+
+.slider::-moz-range-thumb {
+    width: 25px;
+    height: 25px;
+    border-radius: 50%;
+    background: #444;
+    cursor: pointer;
+}
+
+/* Tooltip based on https://www.w3schools.com/howto/tryit.asp?filename=tryhow_css_tooltip */
+#date-range-slider-tooltip {
+    z-index: 1001;
+    top: 50px;
+    left: 2px;
+    font-size: 120%;
+}
+
+.slider-tooltip {
+    position: relative;
+    background-color: #555;
+    color: #fff;
+    text-align: center;
+    border-radius: 6px;
+    padding: 5px 0;
+    transition: opacity 0.3s;
+}

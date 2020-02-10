@@ -692,6 +692,42 @@ async function populateDateRanges(date_range_select)
 
         date_range_select.add(option);
     }
+
+    populateDateRangeSlider(date_ranges, date_range_select.selectedIndex);
+}
+
+/**
+ * Populates the data list for the date range slider.
+ */
+function populateDateRangeSlider(date_ranges, selected_index)
+{
+    const date_range_slider = document.getElementById('date-range-slider');
+
+    date_range_slider.min = 0;
+    date_range_slider.max = date_ranges.length - 1;
+    date_range_slider.value = selected_index;
+}
+
+/**
+ * Updates the tooltip below the date range slider to show
+ * the selected date range.
+ */
+function updateDateRangeSliderTooltip()
+{
+    const selected_index = document.getElementById('date-range-slider').value;
+    const date_range = document.getElementById('date-range').options[selected_index].value;
+    const tooltip = document.getElementById('date-range-slider-tooltip');
+    tooltip.style.display = 'block';
+    tooltip.innerHTML = date_range;
+}
+
+/**
+ * Hides the tooltip below the date range
+ */
+function hideDateRangeSliderTooltip()
+{
+    const tooltip = document.getElementById('date-range-slider-tooltip');
+    tooltip.style.display = 'none';
 }
 
 /**
@@ -796,6 +832,7 @@ window.onload = function() {
 
     date_range_select.onchange = function() {
         populateDataSources(data_source_select, date_range_select).then(change_data_source);
+        document.getElementById('date-range-slider').value = date_range_select.selectedIndex;
     };
 
     measurement_select.onchange = function() {
@@ -812,10 +849,7 @@ window.onload = function() {
      */
 
     function show_climate_chart(lat, lon) {
-        const data_source_select = document.getElementById('data-source');
         const data_source = data_source_select.value;
-
-        const date_range_select = document.getElementById('date-range');
         const date_range = date_range_select.value;
 
         fetchClimateDataForCoords(data_source, date_range, lat, lon).then(function(data) {
@@ -896,4 +930,17 @@ window.onload = function() {
         const about_div = document.getElementById('about');
         about_div.style.display = (about_div.style.display == 'none') ? 'block' : 'none';
     };
+
+    const date_range_slider = document.getElementById('date-range-slider');
+
+    date_range_slider.onchange = function(e) {
+        date_range_select.selectedIndex = e.target.value;
+        populateDataSources(data_source_select, date_range_select).then(change_data_source);
+        hideDateRangeSliderTooltip();
+    };
+
+    date_range_slider.onmousedown = updateDateRangeSliderTooltip;
+    date_range_slider.onmouseup = hideDateRangeSliderTooltip;
+    date_range_slider.oninput = updateDateRangeSliderTooltip;
+    date_range_slider.onkeydown = updateDateRangeSliderTooltip;
 };

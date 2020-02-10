@@ -4,7 +4,9 @@
 #
 # Copyright (c) 2020 Carlos Torchia
 #
+
 import psycopg2
+import psycopg2.extras
 import re
 import math
 from datetime import datetime
@@ -246,6 +248,27 @@ def fetch_measurement(measurement):
         'name': measurement_name,
     }
 
+def fetch_data_points(dataset_id):
+    '''
+    Fetches all data points in the specified dataset.
+    '''
+    db.cur.execute(
+        '''
+        SELECT id, ST_X(location) AS lon, ST_Y(location) AS lat
+        FROM data_points
+        WHERE dataset_id = %s
+        ORDER BY lat DESC, lon
+        ''',
+        (dataset_id,)
+    )
+
+    rows = db.cur.fetchall()
+
+    if rows is None:
+        raise Exception('Could not fetch rows for dataset %d' % dataset_id)
+
+    return rows
+
 def fetch_data_point(dataset_id, lat, lon):
     '''
     Fetches the data point at the specified location
@@ -266,16 +289,19 @@ def fetch_data_point(dataset_id, lat, lon):
 
     return data_point_id
 
-def create_data_point(dataset_id, lat, lon):
+def create_data_point_batch(values):
     '''
     Creates a data point a the specified location
+    Values must be tuples in the form (dataset_id, lat, lon).
     '''
-    db.cur.execute(
+    values_to_insert = ((dataset_id, lon, lat) for dataset_id, lat, lon in values)
+    psycopg2.extras.execute_batch(
+        db.cur,
         '''
         INSERT INTO data_points(dataset_id, location)
         VALUES (%s, ST_MakePoint(%s, %s))
         ''',
-        (dataset_id, lon, lat)
+        values_to_insert
     )
 
 def fetch_data_point_closest_to(dataset_id, lat, lon, error):
@@ -306,16 +332,17 @@ def fetch_data_point_closest_to(dataset_id, lat, lon, error):
         'lon': actual_lon,
     }
 
-def create_monthly_normal(data_point_id, measurement_id, unit_id, month, value):
+def create_monthly_normal_batch(values):
     '''
     Creates a monthly normal value for the specified data point
     '''
-    db.cur.execute(
+    psycopg2.extras.execute_values(
+        db.cur,
         '''
         INSERT INTO monthly_normals(data_point_id, measurement_id, unit_id, month, value)
-        VALUES (%s, %s, %s, %s, %s)
+        VALUES %s
         ''',
-        (data_point_id, measurement_id, unit_id, month, value)
+        values
     )
 
 def fetch_monthly_normals_by_data_point(data_point_id):

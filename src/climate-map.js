@@ -638,6 +638,39 @@ function updateClimateChart(data, temp_chart, precip_chart)
 }
 
 /**
+ * Highlights the correct measurement button.
+ */
+function highlightMeasurementButton(measurement)
+{
+    let selected_button, unselected_buttons;
+
+    switch (measurement) {
+        case 'temperature-avg':
+            selected_button = document.getElementById('temperature-button');
+            unselected_buttons = [
+                document.getElementById('precipitation-button'),
+            ];
+            break;
+
+        case 'precipitation':
+            selected_button = document.getElementById('precipitation-button');
+            unselected_buttons = [
+                document.getElementById('temperature-button'),
+            ];
+            break;
+
+        default:
+            throw Error('Unexpected measurement "' + measurement + '"');
+    }
+
+    selected_button.classList.add('selected-map-button');
+
+    for (let i = 0; i <= unselected_buttons.length - 1; i++) {
+        unselected_buttons[i].classList.remove('selected-map-button');
+    }
+}
+
+/**
  * Populates the data sources
  */
 async function populateDataSources(data_source_select, date_range_select)
@@ -804,6 +837,8 @@ window.onload = function() {
         });
     });
 
+    highlightMeasurementButton('temperature-avg');
+
     /**
      * Handle changes to the filters. We will update the map's colours.
      */
@@ -837,6 +872,7 @@ window.onload = function() {
 
     measurement_select.onchange = function() {
         updateTileLayer(climate_tile_layer);
+        highlightMeasurementButton(measurement_select.value);
     };
 
     month_select.onchange = function() {
@@ -919,11 +955,13 @@ window.onload = function() {
     document.getElementById('temperature-button').onclick = function() {
         setDropDown('measurement', 'temperature-avg');
         updateTileLayer(climate_tile_layer);
+        highlightMeasurementButton('temperature-avg');
     };
 
     document.getElementById('precipitation-button').onclick = function() {
         setDropDown('measurement', 'precipitation');
         updateTileLayer(climate_tile_layer);
+        highlightMeasurementButton('precipitation');
     };
 
     document.getElementById('about-button').onclick = function() {

@@ -53,12 +53,14 @@ body {
     top: 145px;
     height: 26px;
     padding-top: 3px;
+    color: #f44;
 }
 
 #precipitation-button.map-button {
     top: 180px;
     height: 26px;
     padding-top: 3px;
+    color: #44e;
 }
 
 #about-button.map-button {
@@ -106,6 +108,10 @@ body {
 
 .map-button:hover {
     background-color: #f4f4f4;
+}
+
+.selected-map-button.map-button {
+    background-color: #fc9;
 }
 
 /**

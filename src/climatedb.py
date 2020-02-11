@@ -397,7 +397,6 @@ def wait_search(seconds):
         current_delay = datetime.now().timestamp() - timestamp
         total_delay = datetime.now().timestamp() - original_timestamp
 
-    print(total_delay)
     delete_search_queue(queue_id)
     commit()
 

@@ -55,19 +55,18 @@ def monthly_normals(data_source, start_year, end_year, lat, lon):
 
     try:
         data_source_id = climatedb.fetch_data_source(data_source)['id']
-        dataset = climatedb.fetch_dataset(data_source_id, start_date, end_date)
+        datasets = climatedb.fetch_datasets(data_source_id, start_date, end_date)
 
-        dataset_id = dataset['id']
-        delta = dataset['delta']
-        error = math.sqrt(2*delta**2)
+        normals = {}
 
-        data_point = climatedb.fetch_data_point_closest_to(dataset_id, lat, lon, error)
-
-        normals = climatedb.fetch_monthly_normals_by_data_point(data_point['id'])
+        for dataset in datasets:
+            measurement = climatedb.fetch_measurement_by_id(dataset['measurement_id'])['code']
+            actual_lat, actual_lon, normals_arr = climatedb.fetch_monthly_normals(dataset, lat, lon)
+            normals[measurement] = {i + 1, value.item() for i, value in enumerate(normals_arr)}
 
         normals.update({
-            'lat': data_point['lat'],
-            'lon': data_point['lon'],
+            'lat': actual_lat,
+            'lon': actual_lon,
         })
 
         normals = climatetransform.unpack_normals(normals)

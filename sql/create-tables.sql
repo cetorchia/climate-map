@@ -1,64 +1,47 @@
 -- Creates tables for the climate map database
 
 CREATE TABLE units(
-    id SERIAL PRIMARY KEY,
+    id INTEGER AUTO_INCREMENT PRIMARY KEY,
     code VARCHAR(32) NOT NULL UNIQUE,
     name VARCHAR(64) NOT NULL
 );
 
 CREATE TABLE measurements(
-    id SERIAL PRIMARY KEY,
+    id INTEGER AUTO_INCREMENT PRIMARY KEY,
     code VARCHAR(32) NOT NULL UNIQUE,
     name VARCHAR(64) NOT NULL
 );
 
 CREATE TABLE data_sources(
-    id SERIAL PRIMARY KEY,
+    id INTEGER AUTO_INCREMENT PRIMARY KEY,
     code VARCHAR(32) NOT NULL UNIQUE,
     name VARCHAR(128) NOT NULL,
     organisation VARCHAR(64),
     author VARCHAR(128),
-    year, VARCHAR(64),
+    year VARCHAR(64),
     url VARCHAR(2000) NOT NULL,
     active BOOLEAN NOT NULL DEFAULT TRUE
 );
 
 CREATE TABLE datasets(
-    id SERIAL PRIMARY KEY,
+    id INTEGER AUTO_INCREMENT PRIMARY KEY,
     data_source_id INTEGER NOT NULL REFERENCES data_sources(id),
-    start_date DATE NOT NULL,
-    end_date DATE NOT NULL,
-    delta FLOAT
-);
-
--- SRID 4326 (WGS 84) basically goes from longitude -180 to 180 and latitude -90 to 90.
--- This must be the same as the coordinate ranges used by the application.
-CREATE TABLE data_points(
-    id SERIAL PRIMARY KEY,
-    dataset_id INTEGER NOT NULL REFERENCES datasets(id),
-    location GEOMETRY NOT NULL
-    UNIQUE(dataset_id, location)
-);
-
-CREATE INDEX ON data_points USING GIST(location);
-
-CREATE TABLE monthly_normals(
-    id SERIAL PRIMARY KEY,
-    data_point_id INTEGER NOT NULL REFERENCES data_points(id),
     measurement_id INTEGER NOT NULL REFERENCES measurements(id),
     unit_id INTEGER NOT NULL REFERENCES units(id),
-    month INTEGER NOT NULL,
-    value SMALLINT NOT NULL
-    -- UNIQUE(data_point_id, measurement_id, month)
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    lat_start FLOAT NOT NULL,
+    lat_delta FLOAT NOT NULL,
+    lon_start FLOAT NOT NULL,
+    lon_delta FLOAT NOT NULL,
+    filename VARCHAR(128) NOT NULL,
+    lat_filename VARCHAR(128) NOT NULL,
+    lon_filename VARCHAR(128) NOT NULL,
+    UNIQUE(data_source_id, measurement_id, unit_id, start_date, end_date)
 );
 
--- This index takes up less room than the unique constraint on three columns
--- We mostly look up by data point as the user is requesting all months
--- and measurements.
-CREATE INDEX ON monthly_normals(data_point_id);
-
 CREATE TABLE search_queue(
-    id SERIAL PRIMARY KEY,
+    id INTEGER AUTO_INCREMENT PRIMARY KEY,
     timestamp FLOAT NOT NULL,
-    UNIQUE(time_stamp)
+    UNIQUE(timestamp)
 );

@@ -778,80 +778,69 @@ def save_db_data(
     start_date = date(start_time.year, 1, 1)
     end_date = date(end_time.year, 12, 31)
 
-    lat_delta = abs(lat_arr[lat_arr.size - 1] - lat_arr[0]) / (lat_arr.size - 1)
+    lat_start = lat_arr[0]
+    lat_delta = lat_arr[lat_arr.size - 1] - lat_arr[0] / (lat_arr.size - 1)
+    lon_start = lon_arr[0]
+    lon_delta = lon_arr[lon_arr.size - 1] - lon_arr[0] / (lon_arr.size - 1)
 
-    # Store the "dataset". This consists of a dataset
-    # record and all "data points" under the record. These are
-    # just latitude/longitude pairs attached to a particular dataset.
-    # Each climate normal is attached to a data point, so we need these
-    # to be present before we can store the normal values.
     try:
-        dataset_id = climatedb.fetch_dataset(data_source_id, start_date, end_date)['id']
-        new_dataset = False
+        dataset_record = climatedb.fetch_dataset(data_source_id, measurement_id, unit_id, start_date, end_date)
+
+        data_filename, lat_filename, lon_filename = climatedb.create_monthly_normals(
+            data_source,
+            start_date.year,
+            end_date.year,
+            measurement,
+            units,
+            month,
+            lat_arr,
+            lon_arr,
+            normals
+        )
+
+        if data_filename != dataset_record['data_filename']:
+            raise Exception('Expected data filename "%s" to be the same as the existing "%s"' % (
+                data_filename, dataset_record['data_filename']
+            ))
+
+        if lat_filename != dataset_record['lat_filename']:
+            raise Exception('Expected latitude filename "%s" to be the same as the existing "%s"' % (
+                data_filename, dataset_record['lat_filename']
+            ))
+
+        if lon_filename != dataset_record['lon_filename']:
+            raise Exception('Expected longitude filename "%s" to be the same as the existing "%s"' % (
+                data_filename, dataset_record['lon_filename']
+            ))
 
     except NotFoundError:
-        dataset_id = climatedb.create_dataset(data_source_id, start_date, end_date, lat_delta)['id']
+        data_filename, lat_filename, lon_filename = climatedb.create_monthly_normals(
+            data_source,
+            start_date.year,
+            end_date.year,
+            measurement,
+            units,
+            month,
+            lat_arr,
+            lon_arr,
+            normals
+        )
+        dataset_id = climatedb.create_dataset(
+            data_source_id,
+            measurement_id,
+            unit_id,
+            start_date,
+            end_date,
+            lat_start,
+            lat_delta,
+            lon_start,
+            lon_delta,
+            data_filename,
+            lat_filename,
+            lon_filename
+        )['id']
         new_dataset = True
 
-        print('Writing data points to database: ', end='', flush=True)
-        climatedb.create_data_point_batch(get_data_point_values(dataset_id, lat_arr, lon_arr, normals))
         climatedb.commit()
-        print()
-
-    print('Reading data points from database: ', end='', flush=True)
-    data_point_rows = climatedb.fetch_data_points(dataset_id)
-    print()
-
-    print('Writing normals to database: ', end='', flush=True)
-    climatedb.create_monthly_normal_batch(
-        get_monthly_normal_values(data_point_rows, lat_arr, lon_arr, measurement_id, unit_id, month, normals)
-    )
-    climatedb.commit()
-    print()
 
     climatedb.close()
-
-def get_data_point_values(dataset_id, lat_arr, lon_arr, normals):
-    '''
-    Generates the data points in tuples suitable for SQL.
-    '''
-    for lat_i, normals_for_lat in enumerate(normals):
-        lat_value = lat_arr[lat_i].item()
-
-        for lon_i, value in enumerate(normals_for_lat):
-            lon_value = lon_arr[lon_i].item()
-
-            if not np.ma.is_masked(value):
-                yield dataset_id, lat_value, lon_value
-
-        if lat_i % math.ceil(normals.shape[0] / 100) == 0:
-            print('.', end='', flush=True)
-
-def get_monthly_normal_values(data_point_rows, lat_arr, lon_arr, measurement_id, unit_id, month, normals):
-    '''
-    Generates the normal values in tuples suitable for SQL.
-    '''
-    lat_delta = abs(lat_arr[lat_arr.size - 1] - lat_arr[0]) / (lat_arr.size - 1)
-    lon_delta = abs(lon_arr[lon_arr.size - 1] - lon_arr[0]) / (lon_arr.size - 1)
-
-    lat_tolerance = 10**(math.floor(math.log10(lat_delta)) - 1)
-    lon_tolerance = 10**(math.floor(math.log10(lon_delta)) - 1)
-
-    for i, (data_point_id, lon_value, lat_value) in enumerate(data_point_rows):
-        lat_i = int(round(abs(lat_arr[0] - lat_value) / lat_delta))
-        lon_i = int(round(abs(lon_value - lon_arr[0]) / lon_delta))
-
-        if abs(lat_arr[lat_i].item() - lat_value) >= lat_tolerance:
-            raise Exception('Expected latitude %g for data point %d, got %g' % (lat_value, data_point_id, lat_arr[lat_i].item()))
-
-        if abs(lon_arr[lon_i].item() - lon_value) >= lon_tolerance:
-            raise Exception('Expected longitude %g for data point %d, got %g' % (lon_value, data_point_id, lon_arr[lon_i].item()))
-
-        if np.ma.is_masked(normals[lat_i][lon_i]):
-            raise Exception('Did not expect latitude %g and longitude %g to be masked' % (lat_value, lon_value))
-
-        data_value = normals[lat_i][lon_i].item()
-        yield data_point_id, measurement_id, unit_id, month, data_value
-
-        if i % math.ceil(len(data_point_rows) / 100) == 0:
-            print('.', end='', flush=True)

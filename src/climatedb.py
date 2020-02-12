@@ -5,18 +5,24 @@
 # Copyright (c) 2020 Carlos Torchia
 #
 
-import psycopg2
-import psycopg2.extras
+import MySQLdb
 import re
 import math
 from datetime import datetime
 import time
+import os.path
+import np
 
 # Connection string is of the form "<host>:[<port>:]<dbname>:<user>"
 CONN_STR_RE = re.compile('^([^:]+):(?:([0-9]+):)?([^:]+):([^:]+)$')
 
 # Global database object
 db = None
+
+# Passwords must be stored in config file
+DEFAULT_FILE='~/.my.cnf'
+
+DATA_DIR = os.path.dirname(__file__) + '/data'
 
 def connect(conn_str):
     '''
@@ -56,11 +62,10 @@ class Db:
         host, port, dbname, user = CONN_STR_RE.search(conn_str).groups()
 
         if port is None:
-            dsn = 'host=%s dbname=%s user=%s' % (host, dbname, user)
+            self.conn = MySQLdb.connect(host=host, db=dbname, user=user, read_default_file=DEFAULT_FILE)
         else:
-            dsn = 'host=%s port=%d dbname=%s user=%s' % (host, port, dbname, user)
+            self.conn = MySQLdb.connect(host=host, port=port, db=dbname, user=user, read_default_file=DEFAULT_FILE)
 
-        self.conn = psycopg2.connect(dsn)
         self.cur = self.conn.cursor()
 
 class NotFoundError(Exception):
@@ -68,6 +73,60 @@ class NotFoundError(Exception):
     Thrown when a record is not found.
     '''
     pass
+
+def fetch_unit(units):
+    '''
+    Fetches the specified units record using the specified units code (e.g. 'degC', 'mm').
+    '''
+    db.cur.execute('SELECT id, name FROM units WHERE code = %s', (units,))
+    row = db.cur.fetchone()
+
+    if row is None:
+        raise NotFoundError('Could not find units "%s"' % units)
+
+    unit_id, unit_name = row
+
+    return {
+        'id': unit_id,
+        'code': units,
+        'name': unit_name,
+    }
+
+def fetch_measurement_by_id(measurement_id):
+    '''
+    Fetches the specified measurement
+    '''
+    db.cur.execute('SELECT code, name FROM measurements WHERE id = %s', (measurement_id,))
+    row = db.cur.fetchone()
+
+    if row is None:
+        raise NotFoundError('Could not find measurement %d' % measurement_id)
+
+    measurement, measurement_name = row
+
+    return {
+        'id': measurement_id,
+        'code': measurement,
+        'name': measurement_name,
+    }
+
+def fetch_measurement(measurement):
+    '''
+    Fetches the specified measurement
+    '''
+    db.cur.execute('SELECT id, name FROM measurements WHERE code = %s', (measurement,))
+    row = db.cur.fetchone()
+
+    if row is None:
+        raise NotFoundError('Could not find measurement "%s"' % measurement)
+
+    measurement_id, measurement_name = row
+
+    return {
+        'id': measurement_id,
+        'code': measurement,
+        'name': measurement_name,
+    }
 
 def fetch_data_source_by_id(data_source_id):
     '''
@@ -133,7 +192,7 @@ def fetch_date_ranges():
     '''
     db.cur.execute(
         '''
-        SELECT date_part('year', start_date) AS start_year, date_part('year', end_date) AS end_year
+        SELECT year(start_date) AS start_year, year(end_date) AS end_year
         FROM datasets d
         INNER JOIN data_sources s ON s.id = d.data_source_id
         WHERE s.active
@@ -144,7 +203,7 @@ def fetch_date_ranges():
 
     rows = db.cur.fetchall()
 
-    return ['%d-%d' % (start_year, end_year) for start_year, end_year in rows]
+    return ('%d-%d' % (start_year, end_year) for start_year, end_year in rows)
 
 def fetch_datasets_by_date_range(start_date, end_date):
     '''
@@ -159,215 +218,251 @@ def fetch_datasets_by_date_range(start_date, end_date):
     )
     rows = db.cur.fetchall()
 
-    return [
+    return (
         {
             'id': dataset_id,
             'data_source_id': data_source_id,
-            'start_date': start_date,
-            'end_date': end_date,
         }
         for dataset_id, data_source_id in rows
-    ]
+    )
 
-def fetch_dataset(data_source_id, start_date, end_date):
+def fetch_dataset(data_source_id, measurement_id, unit_id, start_date, end_date):
     '''
-    Fetches the dataset with the specified data source, start date, and end date.
+    Fetches the specified dataset.
     '''
     db.cur.execute(
         '''
-        SELECT id, delta FROM datasets
+        SELECT
+            id
+            lat_start,
+            lat_delta,
+            lon_start,
+            lon_delta,
+            data_filename,
+            lat_filename,
+            lon_filename
+        FROM datasets
+        WHERE data_source_id = %s
+        AND measurement_id = %s AND unit_id = %s
+        AND start_date = %s AND end_date = %s
+        ''',
+        (data_source_id, measurement_id, unit_id, start_date, end_date)
+    )
+    row = db.cur.fetchone()
+
+    if row is None:
+        raise NotFoundError(
+            'Could not find dataset for data source %d, measurement %d, unit %d, start_date %s, and end_date %s' % (
+                data_source_id, measurement_id, unit_id, start_date, end_date
+            ))
+
+    (
+        dataset_id,
+        lat_start,
+        lat_delta,
+        lon_start,
+        lon_delta,
+        data_filename,
+        lat_filename,
+        lon_filename,
+    ) = row
+
+    return {
+        'id': dataset_id,
+        'lat_start': lat_start,
+        'lat_delta': lat_delta,
+        'lon_start': lon_start,
+        'lon_delta': lon_delta,
+        'data_filename': data_filename,
+        'lat_filename': lat_filename,
+        'lon_filename': lon_filename,
+    }
+
+def fetch_datasets(data_source_id, start_date, end_date):
+    '''
+    Fetches the datasets with the specified data source, start date, and end date.
+    '''
+    db.cur.execute(
+        '''
+        SELECT
+            id
+            measurement_id,
+            unit_id,
+            lat_start,
+            lat_delta,
+            lon_start,
+            lon_delta,
+            data_filename,
+            lat_filename,
+            lon_filename
+        FROM datasets
         WHERE data_source_id = %s
         AND start_date = %s AND end_date = %s
         ''',
         (data_source_id, start_date, end_date)
     )
-    row = db.cur.fetchone()
+    rows = db.cur.fetchall()
 
-    if row is None:
-        raise NotFoundError('Could not find dataset for data source %d, start_date %s, and end_date %s' % (
+    if rows is None:
+        raise NotFoundError('Could not find datasets for data source %d, start_date %s, and end_date %s' % (
             data_source_id, start_date, end_date
         ))
 
-    dataset_id, delta = row
+    return (
+        {
+            'id': dataset_id,
+            'measurement_id': measurement_id,
+            'unit_id': unit_id,
+            'lat_start': lat_start,
+            'lat_delta': lat_delta,
+            'lon_start': lon_start,
+            'lon_delta': lon_delta,
+            'data_filename': data_filename,
+            'lat_filename': lat_filename,
+            'lon_filename': lon_filename,
+        }
+        for (
+            dataset_id,
+            measurement_id,
+            unit_id,
+            lat_start,
+            lat_delta,
+            lon_start,
+            lon_delta,
+            data_filename,
+            lat_filename,
+            lon_filename,
+        )
+        in rows
+    )
 
-    return {
-        'id': dataset_id,
-        'data_source_id': data_source_id,
-        'start_date': start_date,
-        'end_date': end_date,
-        'delta': delta,
-    }
-
-def create_dataset(data_source_id, start_date, end_date, delta):
+def create_dataset(
+        data_source_id,
+        measurement_id,
+        unit_id,
+        start_date,
+        end_date,
+        lat_start,
+        lat_delta,
+        lon_start,
+        lon_delta,
+        data_filename,
+        lat_filename,
+        lon_filename
+):
     '''
     Creates a new dataset for the specified data source, start date, and end date.
     '''
     db.cur.execute(
         '''
-        INSERT INTO datasets(data_source_id, start_date, end_date, delta)
-        VALUES (%s, %s, %s, %s)
+        INSERT INTO datasets(
+            data_source_id,
+            measurement_id,
+            unit_id,
+            start_date,
+            end_date,
+            lat_start,
+            lat_delta,
+            lon_start,
+            lon_delta,
+            data_filename,
+            lat_filename,
+            lon_filename
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ''',
-        (data_source_id, start_date, end_date, delta)
+        (
+            data_source_id,
+            measurement_id,
+            unit_id,
+            start_date,
+            end_date,
+            lat_start,
+            lat_delta,
+            lon_start,
+            lon_delta,
+            data_filename,
+            lat_filename,
+            lon_filename
+        )
     )
 
     return fetch_dataset(data_source_id, start_date, end_date)
 
-def fetch_unit(units):
+def create_monthly_normals(
+    data_source,
+    start_year,
+    end_year,
+    measurement,
+    units,
+    month,
+    lat_arr,
+    lon_arr,
+    data_arr
+):
     '''
-    Fetches the specified units record using the specified units code (e.g. 'degC', 'mm').
+    Saves the monthly normal values in the specified data.
     '''
-    db.cur.execute('SELECT id, name FROM units WHERE code = %s', (units,))
-    row = db.cur.fetchone()
+    base_name = '%s-%d-%d-%s-%s' % (data_source, start_year, end_year, measurement, units)
+    data_basename = base_name + '-data.mmap'
+    lat_basename = base_name + '-lat.mmap'
+    lon_basename = base_name + '-lon.mmap'
 
-    if row is None:
-        raise NotFoundError('Could not find units "%s"' % units)
+    data_pathname = os.path.join(DATA_DIR, data_basename)
+    lat_pathname = os.path.join(DATA_DIR, lat_basename)
+    lon_pathname = os.path.join(DATA_DIR, lon_basename)
 
-    unit_id, unit_name = row
+    data_mmap = np.memmap(data_pathname, dtype=data_arr.dtype, mode='w+', shape=data_arr.shape)
+    data_mmap[month - 1,:] = data_arr
+    del data_mmap
 
-    return {
-        'id': unit_id,
-        'code': units,
-        'name': unit_name,
-    }
+    if os.path.exists(lat_pathname):
+        lat_mmap = np.memmap(lat_pathname, dtype=lat_arr.dtype, mode='r', shape=lat_arr.shape)
+        if lat_mmap[:] != lat_arr:
+            raise Exception('Expected latitude array to be the same')
+    else:
+        lat_mmap = np.memmap(lat_pathname, dtype=lat_arr.dtype, mode='w+', shape=lat_arr.shape)
+        lat_mmap[:] = lat_arr
+        del lat_mmap
 
-def fetch_measurement(measurement):
+    if os.path.exists(lon_pathname):
+        lon_mmap = np.memmap(lon_pathname, dtype=lon_arr.dtype, mode='r', shape=lon_arr.shape)
+        if lon_mmap[:] != lon_arr:
+            raise Exception('Expected longitude array to be the same')
+    else:
+        lon_mmap = np.memmap(lon_pathname, dtype=lon_arr.dtype, mode='w+', shape=lon_arr.shape)
+        lon_mmap[:] = lon_arr
+        del lon_mmap
+
+    return data_basename, lat_basename, lon_basename
+
+def fetch_monthly_normals(dataset_record, lat, lon):
     '''
-    Fetches the specified measurement
+    Fetches the monthly normals for the specified location.
     '''
-    db.cur.execute('SELECT id, name FROM measurements WHERE code = %s', (measurement,))
-    row = db.cur.fetchone()
+    data_pathname = os.path.join(DATA_DIR, dataset_record['data_filename'])
+    lat_pathname = os.path.join(DATA_DIR, dataset_record['lat_filename'])
+    lon_pathname = os.path.join(DATA_DIR, dataset_record['lon_filename'])
 
-    if row is None:
-        raise NotFoundError('Could not find measurement "%s"' % measurement)
+    data_mmap = np.memmap(data_pathname, mode='r')
+    lat_mmap = np.memmap(lat_pathname, mode='r')
+    lon_mmap = np.memmap(lon_pathname, mode='r')
 
-    measurement_id, measurement_name = row
+    lat_i = int(round((lat - dataset_record['lat_start']) / dataset_record['lat_delta']))
+    lon_i = int(round((lon - dataset_record['lon_start']) / dataset_record['lon_delta']))
 
-    return {
-        'id': measurement_id,
-        'code': measurement,
-        'name': measurement_name,
-    }
+    actual_lat = lat_mmap[lat_i]
+    actual_lon = lon_mmap[lon_i]
+    lat_error = dataset_record['lat_delta'] / 2
+    lon_error = dataset_record['lon_delta'] / 2
 
-def fetch_data_points(dataset_id):
-    '''
-    Fetches all data points in the specified dataset.
-    '''
-    db.cur.execute(
-        '''
-        SELECT id, ST_X(location) AS lon, ST_Y(location) AS lat
-        FROM data_points
-        WHERE dataset_id = %s
-        ORDER BY lat DESC, lon
-        ''',
-        (dataset_id,)
-    )
+    if abs(lat - actual_lat) >= lat_error:
+        raise Exception('Expected latitude %g to be within %g of %g' % (lat, lat_error, actual_lat))
 
-    rows = db.cur.fetchall()
+    if abs(lon - actual_lon) >= lon_error:
+        raise Exception('Expected longitude %g to be within %g of %g' % (lon, lon_error, actual_lon))
 
-    if rows is None:
-        raise Exception('Could not fetch rows for dataset %d' % dataset_id)
-
-    return rows
-
-def fetch_data_point(dataset_id, lat, lon):
-    '''
-    Fetches the data point at the specified location
-    '''
-    db.cur.execute(
-        '''
-        SELECT id FROM data_points
-        WHERE dataset_id = %s AND location = ST_MakePoint(%s, %s)
-        ''',
-        (dataset_id, lon, lat)
-    )
-    row = db.cur.fetchone()
-
-    if row is None:
-        raise NotFoundError('Could not find data point %d, (%.10f, %.10f)' % (dataset_id, lat, lon))
-
-    data_point_id = row[0]
-
-    return data_point_id
-
-def create_data_point_batch(values):
-    '''
-    Creates a data point a the specified location
-    Values must be tuples in the form (dataset_id, lat, lon).
-    '''
-    values_to_insert = ((dataset_id, lon, lat) for dataset_id, lat, lon in values)
-    psycopg2.extras.execute_batch(
-        db.cur,
-        '''
-        INSERT INTO data_points(dataset_id, location)
-        VALUES (%s, ST_MakePoint(%s, %s))
-        ''',
-        values_to_insert
-    )
-
-def fetch_data_point_closest_to(dataset_id, lat, lon, error):
-    '''
-    Fetches the data point closest to the specified location
-    '''
-    db.cur.execute(
-        '''
-        SELECT id, ST_X(location) AS lon, ST_Y(location) AS lat
-        FROM data_points
-        WHERE dataset_id = %s
-        AND location <-> ST_MakePoint(%s, %s) < %s
-        ORDER BY location <-> ST_MakePoint(%s, %s) LIMIT 1
-        ''',
-        (dataset_id, lon, lat, error, lon, lat)
-    )
-    row = db.cur.fetchone()
-
-    if row is None:
-        raise NotFoundError('Could not find data point %d, (%.10f, %.10f)' % (dataset_id, lat, lon))
-
-    data_point_id, actual_lon, actual_lat = row
-
-    return {
-        'id': data_point_id,
-        'dataset_id': dataset_id,
-        'lat': actual_lat,
-        'lon': actual_lon,
-    }
-
-def create_monthly_normal_batch(values):
-    '''
-    Creates a monthly normal value for the specified data point
-    '''
-    psycopg2.extras.execute_values(
-        db.cur,
-        '''
-        INSERT INTO monthly_normals(data_point_id, measurement_id, unit_id, month, value)
-        VALUES %s
-        ''',
-        values
-    )
-
-def fetch_monthly_normals_by_data_point(data_point_id):
-    '''
-    Fetches all monthly normals for the specified data point.
-    '''
-    db.cur.execute(
-        '''
-        SELECT m.code, u.code, n.month, n.value
-        FROM monthly_normals n
-        INNER JOIN measurements m ON m.id = n.measurement_id
-        INNER JOIN units u ON u.id = n.unit_id
-        WHERE n.data_point_id = %s
-        ''',
-        (data_point_id,)
-    )
-
-    normals = {}
-
-    for measurement, units, month, value in db.cur.fetchall():
-        if normals.get(measurement) is None:
-            normals[measurement] = {}
-        normals[measurement][month] = [value, units]
-
-    return normals
+    return actual_lat, actual_lon, data_mmap[:, lat_i, lon_i]
 
 def wait_search(seconds):
     '''

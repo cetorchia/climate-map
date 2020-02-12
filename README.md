@@ -18,9 +18,8 @@ Install the following Ubuntu packages, or equivalent:
 * python3-matplotlib
 * python3-opencv
 * python3-flask
-* python3-psycopg2
-* postgresql-10
-* postgresql-10-postgis-2.4
+* python3-mysqldb
+* mysql-server
 
 ## Database setup
 

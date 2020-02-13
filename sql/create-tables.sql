@@ -34,6 +34,7 @@ CREATE TABLE datasets(
     lat_delta DOUBLE(12, 10) NOT NULL,
     lon_start DOUBLE(13, 10) NOT NULL,
     lon_delta DOUBLE(13, 10) NOT NULL,
+    fill_value INTEGER NOT NULL,
     filename VARCHAR(128) NOT NULL,
     lat_filename VARCHAR(128) NOT NULL,
     lon_filename VARCHAR(128) NOT NULL,

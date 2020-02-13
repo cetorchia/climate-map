@@ -63,7 +63,7 @@ def monthly_normals(data_source, start_year, end_year, lat, lon):
             measurement = climatedb.fetch_measurement_by_id(dataset['measurement_id'])['code']
             units = climatedb.fetch_unit_by_id(dataset['unit_id'])['code']
             actual_lat, actual_lon, normals_arr = climatedb.fetch_monthly_normals(dataset, lat, lon)
-            normals[measurement] = {i + 1: [value.item(), units] for i, value in enumerate(normals_arr)}
+            normals[measurement] = {(i + 1): [value.item(), units] for i, value in enumerate(normals_arr)}
 
         normals.update({
             'lat': actual_lat,

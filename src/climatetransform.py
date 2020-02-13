@@ -783,20 +783,10 @@ def save_db_data(
     lon_start = lon_arr[0].item()
     lon_delta = (lon_arr[lon_arr.size - 1] - lon_arr[0]) / (lon_arr.size - 1)
 
+    fill_value = normals.fill_value
+
     try:
         dataset_record = climatedb.fetch_dataset(data_source_id, measurement_id, unit_id, start_date, end_date)
-
-        data_filename, lat_filename, lon_filename = climatedb.create_monthly_normals(
-            data_source,
-            start_date.year,
-            end_date.year,
-            measurement,
-            units,
-            month,
-            lat_arr,
-            lon_arr,
-            normals
-        )
 
         tolerance = 10**-10
 
@@ -819,6 +809,23 @@ def save_db_data(
             raise Exception('Expected longitude delta %0.11g to be the same as the existing %0.11g' % (
                 lon_delta, dataset_record['lon_delta']
             ))
+
+        if fill_value != dataset_record['fill_value']:
+            raise Exception('Expected fill value %g to be the same as the existing %g' % (
+                fill_value, dataset_record['fill_value']
+            ))
+
+        data_filename, lat_filename, lon_filename = climatedb.create_monthly_normals(
+            data_source,
+            start_date.year,
+            end_date.year,
+            measurement,
+            units,
+            month,
+            lat_arr,
+            lon_arr,
+            normals
+        )
 
         if data_filename != dataset_record['data_filename']:
             raise Exception('Expected data filename "%s" to be the same as the existing "%s"' % (
@@ -857,6 +864,7 @@ def save_db_data(
             lat_delta,
             lon_start,
             lon_delta,
+            fill_value,
             data_filename,
             lat_filename,
             lon_filename

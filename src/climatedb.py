@@ -261,6 +261,7 @@ def fetch_dataset(data_source_id, measurement_id, unit_id, start_date, end_date)
             lat_delta,
             lon_start,
             lon_delta,
+            fill_value,
             data_filename,
             lat_filename,
             lon_filename
@@ -285,6 +286,7 @@ def fetch_dataset(data_source_id, measurement_id, unit_id, start_date, end_date)
         lat_delta,
         lon_start,
         lon_delta,
+        fill_value,
         data_filename,
         lat_filename,
         lon_filename,
@@ -296,6 +298,7 @@ def fetch_dataset(data_source_id, measurement_id, unit_id, start_date, end_date)
         'lat_delta': lat_delta,
         'lon_start': lon_start,
         'lon_delta': lon_delta,
+        'fill_value': fill_value,
         'data_filename': data_filename,
         'lat_filename': lat_filename,
         'lon_filename': lon_filename,
@@ -315,6 +318,7 @@ def fetch_datasets(data_source_id, start_date, end_date):
             lat_delta,
             lon_start,
             lon_delta,
+            fill_value,
             data_filename,
             lat_filename,
             lon_filename
@@ -340,6 +344,7 @@ def fetch_datasets(data_source_id, start_date, end_date):
             'lat_delta': lat_delta,
             'lon_start': lon_start,
             'lon_delta': lon_delta,
+            'fill_value': fill_value,
             'data_filename': data_filename,
             'lat_filename': lat_filename,
             'lon_filename': lon_filename,
@@ -352,6 +357,7 @@ def fetch_datasets(data_source_id, start_date, end_date):
             lat_delta,
             lon_start,
             lon_delta,
+            fill_value,
             data_filename,
             lat_filename,
             lon_filename,
@@ -369,6 +375,7 @@ def create_dataset(
         lat_delta,
         lon_start,
         lon_delta,
+        fill_value,
         data_filename,
         lat_filename,
         lon_filename
@@ -388,11 +395,12 @@ def create_dataset(
             lat_delta,
             lon_start,
             lon_delta,
+            fill_value,
             data_filename,
             lat_filename,
             lon_filename
         )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ''',
         (
             data_source_id,
@@ -404,6 +412,7 @@ def create_dataset(
             lat_delta,
             lon_start,
             lon_delta,
+            fill_value,
             data_filename,
             lat_filename,
             lon_filename
@@ -437,6 +446,11 @@ def create_monthly_normals(
 
     if lon_arr.dtype != LON_DTYPE:
         raise Exception('Expected longitude datatype to be %s, got %s' % (LON_DTYPE, lon_arr.dtype))
+
+    if not isinstance(data_arr, np.ma.masked_array) \
+    or np.any(data_arr.fill_value != data_arr[data_arr.mask]) \
+    or np.any(data_arr.fill_value == data_arr[~data_arr.mask]):
+        raise Exception('Expected masked array with fill value in and only in the masked portion')
 
     base_name = '%s-%d-%d-%s-%s' % (data_source, start_year, end_year, measurement, units)
     data_basename = base_name + '-data.mmap'
@@ -504,7 +518,12 @@ def fetch_monthly_normals(dataset_record, lat, lon):
     data_mmap = np.memmap(data_pathname, dtype=DATA_DTYPE, mode='r',
                           shape=(MONTHS_PER_YEAR, lat_mmap.size, lon_mmap.size))
 
-    return actual_lat, actual_lon, data_mmap[:, lat_i, lon_i]
+    normals_arr = np.ma.masked_values(data_mmap[:, lat_i, lon_i], dataset_record['fill_value'])
+
+    if np.all(normals_arr.mask):
+        raise NotFoundError('No data at %g, %g' % (actual_lat, actual_lon))
+
+    return actual_lat, actual_lon, normals_arr
 
 def wait_search(seconds):
     '''

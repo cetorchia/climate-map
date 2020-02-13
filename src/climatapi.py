@@ -95,9 +95,10 @@ def data_sources_by_date_range(start_year, end_year):
     datasets = climatedb.fetch_datasets_by_date_range(start_date, end_date)
 
     if datasets:
+        data_source_ids = {dataset['data_source_id'] for dataset in datasets}
         data_sources = [
-            climatedb.fetch_data_source_by_id(dataset['data_source_id'])
-            for dataset in datasets
+            climatedb.fetch_data_source_by_id(data_source_id)
+            for data_source_id in data_source_ids
         ]
 
         return jsonify(data_sources)

@@ -132,8 +132,9 @@ to specify which data are of which data source.
 To do load data for all months, you can run the transform-all-months script:
 
 ```
-bin/transform-all-months-png.sh TerraClimate19812010_tmin.nc tmin 1891 2010 TerraClimate
-bin/transform-all-months-png.sh TerraClimate19812010_tmax.nc tmin 1891 2010 TerraClimate
+bin/transform-all-months.sh TerraClimate19812010_tmin.nc tmin 1891 2010 TerraClimate
+bin/transform-all-months.sh TerraClimate19812010_tmax.nc tmax 1891 2010 TerraClimate
+bin/transform-all-months.sh TerraClimate19812010_ppt.nc ppt 1891 2010 TerraClimate
 ```
 
 Or:
@@ -176,15 +177,16 @@ bin/transform-dataset.py TerraClimate19812010_ppt.nc public/data/TerraClimate/19
 To do this for all months, you can run the all-months script:
 
 ```
-bin/transform-all-months-png.sh tmean_5m_bil/ tavg 1960 1990 worldclim
-bin/transform-all-months-png.sh prec_5m_bil/ precip 1960 1990 worldclim
+bin/transform-all-months-tiles.sh tmean_5m_bil/ tavg 1960 1990 worldclim
+bin/transform-all-months-tiles.sh prec_5m_bil/ precip 1960 1990 worldclim
 ...
 ```
 
 Or:
 
 ```
-bin/transform-all-months-png.sh TerraClimate19812010_tmin.nc TerraClimate19812010_tmax.nc tavg 1981 2010 TerraClimate
+bin/transform-all-months-tiles.sh TerraClimate19812010_tmin.nc TerraClimate19812010_tmax.nc tavg 1981 2010 TerraClimate
+bin/transform-all-months-tiles.sh TerraClimate19812010_ppt.nc ppt 1981 2010 TerraClimate
 ```
 
 # Tiling scheme
@@ -204,8 +206,8 @@ For each increase in zoom level, the number of tiles widthwise and lengthwise
 doubles.
 
 To request a given tile for a part of the map, a request that ends with
-`/{z}/{x}/{y}.png` must be made, where `{z}` is the zoom level, and x and y are
+`/{z}/{x}/{y}.jpeg` must be made, where `{z}` is the zoom level, and x and y are
 the tile indexes starting at `0`. For zoom level `z`, the maximum tile index
 for the zoom level is `2^z - 1`. For example, to request the one tile at zoom level
-0, make a request to `/0/0/0.png`. For zoom level 4, you can request tile
-`/4/15/15.png` but x and y cannot be greater than that.
+0, make a request to `/0/0/0.jpeg`. For zoom level 4, you can request tile
+`/4/15/15.jpeg` but x and y cannot be greater than that.

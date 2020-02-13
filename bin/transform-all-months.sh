@@ -25,6 +25,6 @@ OUTPUT_DB=localhost:climate_map:climate_map
 
 # Monthly normals
 for MONTH in $(seq 1 12); do
-    echo $VARIABLE_NAME $START_YEAR $END_YEAR $MONTH
+    echo $VARIABLE_NAME $START_YEAR $END_YEAR $MONTH $DATA_SOURCE
     $SCRIPT $INPUT_FILES $OUTPUT_DB $VARIABLE_NAME $START_YEAR $END_YEAR $MONTH $DATA_SOURCE || exit 1
 done

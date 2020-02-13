@@ -73,7 +73,7 @@ def get_output_fmt(output_file):
     else:
         output_fmt = output_file.split('.')[-1]
 
-        if output_fmt != 'png':
+        if output_fmt not in ('png', 'jpeg'):
             raise Exception('Unsupported output format ' + output_fmt)
 
         return output_fmt
@@ -114,15 +114,15 @@ def main(args):
 
     output_fmt = get_output_fmt(output_file)
 
-    if output_fmt in ('tiles', 'png'):
+    if output_fmt in ('tiles', 'png', 'jpeg'):
         lat_arr, lon_arr, normals = climatetransform.pad_data(lat_arr, lon_arr, normals)
         lat_arr, normals = climatetransform.normalize_latitudes(lat_arr, normals)
 
     # Load normals to storage in the output format
-    if output_fmt == 'png':
+    if output_fmt in ('png', 'jpeg'):
         projected_y_arr = climatetransform.lat2y(lat_arr)
         projected_x_arr = climatetransform.lon2x(lon_arr)
-        climatetransform.save_contours_png(projected_y_arr, projected_x_arr, units, normals, output_file, month,
+        climatetransform.save_contours(projected_y_arr, projected_x_arr, units, normals, output_file, month,
                                            length=8192,
                                            extent=(
                                                -climatetransform.EARTH_CIRCUMFERENCE/2,

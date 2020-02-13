@@ -73,9 +73,9 @@ function climateDataUrl(data_source, date_range, measurement, month, fmt)
 {
     if (fmt == 'tiles') {
         if (month) {
-            return 'data/' + data_source + '/' + date_range + '/' + fmt + '/' + measurement + '-' + month + '/{z}/{x}/{y}.png';
+            return 'data/' + data_source + '/' + date_range + '/' + fmt + '/' + measurement + '-' + month + '/{z}/{x}/{y}.jpeg';
         } else {
-            return 'data/' + data_source + '/' + date_range + '/' + fmt + '/' + measurement + '/{z}/{x}/{y}.png';
+            return 'data/' + data_source + '/' + date_range + '/' + fmt + '/' + measurement + '/{z}/{x}/{y}.jpeg';
         }
     } else {
         if (month) {

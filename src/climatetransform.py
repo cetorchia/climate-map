@@ -17,7 +17,6 @@ from osgeo import gdal
 import json
 import stat
 import re
-import png
 import matplotlib.pyplot as plt
 import cv2
 
@@ -672,12 +671,12 @@ def save_contours_tiles(y_arr, x_arr, units, normals, output_folder, month):
     used by OpenStreetMap to not have to load the whole image. They will be stored
     as such in the specified output folder.
 
-    E.g. /tiles/temperature-avg-01/{z}/{x}/{y}.png
+    E.g. /tiles/temperature-avg-01/{z}/{x}/{y}.jpeg
     '''
     full_output_file = output_folder + '.png'
     tile_length = int(round(EARTH_CIRCUMFERENCE / 1000))
     os.makedirs(os.path.dirname(full_output_file), exist_ok=True)
-    save_contours_png(y_arr, x_arr, units, normals, full_output_file, month, length=16384,
+    save_contours(y_arr, x_arr, units, normals, full_output_file, month, length=16384,
                       extent=(
                           -EARTH_CIRCUMFERENCE/2,
                           EARTH_CIRCUMFERENCE/2,
@@ -712,7 +711,7 @@ def save_contours_tiles(y_arr, x_arr, units, normals, output_folder, month):
 
                 output_parent = os.path.join(output_folder, str(zoom_level), str(x))
                 os.makedirs(output_parent, exist_ok=True)
-                output_file = os.path.join(output_parent, str(y) + '.png')
+                output_file = os.path.join(output_parent, str(y) + '.jpeg')
 
                 cv2.imwrite(output_file, resized_img)
 
@@ -723,7 +722,7 @@ def save_contours_tiles(y_arr, x_arr, units, normals, output_folder, month):
 
     os.remove(full_output_file)
 
-def save_contours_png(y_arr, x_arr, units, normals, output_file, month, length=None, extent=None):
+def save_contours(y_arr, x_arr, units, normals, output_file, month, length=None, extent=None):
     '''
     Saves contours in the data as a PNG file that is displayable over
     the map.
@@ -749,7 +748,7 @@ def save_contours_png(y_arr, x_arr, units, normals, output_file, month, length=N
     cs.cmap.set_over(contour_colours[-1])
     cs.cmap.set_under(contour_colours[0])
     cs.changed()
-    plt.savefig(output_file, dpi=dpi, transparent=True)
+    plt.savefig(output_file, dpi=dpi, transparent=True, quality=75)
     plt.close(fig)
 
 def save_db_data(

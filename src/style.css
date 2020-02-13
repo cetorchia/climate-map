@@ -34,7 +34,7 @@ body {
     top: 11px;
     max-width: 450px;
     left: 50px;
-    max-height: 91vh;
+    bottom: 78px;
 }
 
 #search-expand-button.map-button {
@@ -84,6 +84,7 @@ body {
     position: absolute;
     max-width: 340px;
     width: 75vw;
+    max-height: 91vh;
     padding: 15px;
     border-left: 1px solid #aaa;
     background-color: #fff;

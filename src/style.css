@@ -24,16 +24,17 @@ body {
 
 #close-location-climate-container {
     position: absolute;
-    top: 78px;
+    top: 14px;
     z-index: 1001;
     left: 55px;
     display: none;
 }
 
 #location-climate.map-window {
-    top: 75px;
+    top: 11px;
     max-width: 450px;
     left: 50px;
+    max-height: 91vh;
 }
 
 #search-expand-button.map-button {
@@ -89,6 +90,7 @@ body {
     border: 1px solid #ccc;
     border-radius: 10px;
     z-index: 1000; /* Has to go over the map. */
+    overflow-y: scroll;
 }
 
 .map-button {

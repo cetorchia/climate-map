@@ -61,8 +61,9 @@ def monthly_normals(data_source, start_year, end_year, lat, lon):
 
         for dataset in datasets:
             measurement = climatedb.fetch_measurement_by_id(dataset['measurement_id'])['code']
+            units = climatedb.fetch_unit_by_id(dataset['unit_id'])['code']
             actual_lat, actual_lon, normals_arr = climatedb.fetch_monthly_normals(dataset, lat, lon)
-            normals[measurement] = {i + 1, value.item() for i, value in enumerate(normals_arr)}
+            normals[measurement] = {i + 1: [value.item(), units] for i, value in enumerate(normals_arr)}
 
         normals.update({
             'lat': actual_lat,
@@ -81,7 +82,7 @@ def date_ranges():
     '''
     Gives all available date ranges for which data exist.
     '''
-    return jsonify(climatedb.fetch_date_ranges())
+    return jsonify(list(climatedb.fetch_date_ranges()))
 
 @app.route('/data-sources/<int:start_year>-<int:end_year>')
 def data_sources_by_date_range(start_year, end_year):

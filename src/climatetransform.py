@@ -778,10 +778,10 @@ def save_db_data(
     start_date = date(start_time.year, 1, 1)
     end_date = date(end_time.year, 12, 31)
 
-    lat_start = lat_arr[0]
-    lat_delta = lat_arr[lat_arr.size - 1] - lat_arr[0] / (lat_arr.size - 1)
-    lon_start = lon_arr[0]
-    lon_delta = lon_arr[lon_arr.size - 1] - lon_arr[0] / (lon_arr.size - 1)
+    lat_start = lat_arr[0].item()
+    lat_delta = (lat_arr[lat_arr.size - 1] - lat_arr[0]) / (lat_arr.size - 1)
+    lon_start = lon_arr[0].item()
+    lon_delta = (lon_arr[lon_arr.size - 1] - lon_arr[0]) / (lon_arr.size - 1)
 
     try:
         dataset_record = climatedb.fetch_dataset(data_source_id, measurement_id, unit_id, start_date, end_date)
@@ -797,6 +797,28 @@ def save_db_data(
             lon_arr,
             normals
         )
+
+        tolerance = 10**-10
+
+        if abs(lat_start - dataset_record['lat_start']) >= tolerance:
+            raise Exception('Expected latitude start %0.11g to be the same as the existing %0.11g' % (
+                lat_start, dataset_record['lat_start']
+            ))
+
+        if abs(lat_delta - dataset_record['lat_delta']) >= tolerance:
+            raise Exception('Expected latitude delta %0.11g to be the same as the existing %0.11g' % (
+                lat_delta, dataset_record['lat_delta']
+            ))
+
+        if abs(lon_start - dataset_record['lon_start']) >= tolerance:
+            raise Exception('Expected longitude start %0.11g to be the same as the existing %0.11g' % (
+                lon_start, dataset_record['lon_start']
+            ))
+
+        if abs(lon_delta - dataset_record['lon_delta']) >= tolerance:
+            raise Exception('Expected longitude delta %0.11g to be the same as the existing %0.11g' % (
+                lon_delta, dataset_record['lon_delta']
+            ))
 
         if data_filename != dataset_record['data_filename']:
             raise Exception('Expected data filename "%s" to be the same as the existing "%s"' % (

@@ -11,7 +11,7 @@ import math
 from datetime import datetime
 import time
 import os.path
-import np
+import numpy as np
 
 # Connection string is of the form "<host>:[<port>:]<dbname>:<user>"
 CONN_STR_RE = re.compile('^([^:]+):(?:([0-9]+):)?([^:]+):([^:]+)$')
@@ -22,7 +22,12 @@ db = None
 # Passwords must be stored in config file
 DEFAULT_FILE='~/.my.cnf'
 
-DATA_DIR = os.path.dirname(__file__) + '/data'
+DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+
+DATA_DTYPE = np.int16
+LAT_DTYPE = LON_DTYPE = np.float64
+
+MONTHS_PER_YEAR = 12
 
 def connect(conn_str):
     '''
@@ -74,9 +79,27 @@ class NotFoundError(Exception):
     '''
     pass
 
+def fetch_unit_by_id(unit_id):
+    '''
+    Fetches the specified unit by ID
+    '''
+    db.cur.execute('SELECT code, name FROM units WHERE id = %s', (unit_id,))
+    row = db.cur.fetchone()
+
+    if row is None:
+        raise NotFoundError('Could not find unit %d' % unit_id)
+
+    units, unit_name = row
+
+    return {
+        'id': unit_id,
+        'code': units,
+        'name': unit_name,
+    }
+
 def fetch_unit(units):
     '''
-    Fetches the specified units record using the specified units code (e.g. 'degC', 'mm').
+    Fetches the specified unit record using the specified units code (e.g. 'degC', 'mm').
     '''
     db.cur.execute('SELECT id, name FROM units WHERE code = %s', (units,))
     row = db.cur.fetchone()
@@ -233,7 +256,7 @@ def fetch_dataset(data_source_id, measurement_id, unit_id, start_date, end_date)
     db.cur.execute(
         '''
         SELECT
-            id
+            id,
             lat_start,
             lat_delta,
             lon_start,
@@ -285,7 +308,7 @@ def fetch_datasets(data_source_id, start_date, end_date):
     db.cur.execute(
         '''
         SELECT
-            id
+            id,
             measurement_id,
             unit_id,
             lat_start,
@@ -387,7 +410,7 @@ def create_dataset(
         )
     )
 
-    return fetch_dataset(data_source_id, start_date, end_date)
+    return fetch_dataset(data_source_id, measurement_id, unit_id, start_date, end_date)
 
 def create_monthly_normals(
     data_source,
@@ -403,6 +426,18 @@ def create_monthly_normals(
     '''
     Saves the monthly normal values in the specified data.
     '''
+    if month < 1 or month > MONTHS_PER_YEAR:
+        raise Exception('Expected month to be 1 to 12, got %d. All months (0) are not permitted at the moment.' % month)
+
+    if data_arr.dtype != DATA_DTYPE:
+        raise Exception('Expected datatype to be %s, got %s' % (DATA_DTYPE, data_arr.dtype))
+
+    if lat_arr.dtype != LAT_DTYPE:
+        raise Exception('Expected latitude datatype to be %s, got %s' % (LAT_DTYPE, lat_arr.dtype))
+
+    if lon_arr.dtype != LON_DTYPE:
+        raise Exception('Expected longitude datatype to be %s, got %s' % (LON_DTYPE, lon_arr.dtype))
+
     base_name = '%s-%d-%d-%s-%s' % (data_source, start_year, end_year, measurement, units)
     data_basename = base_name + '-data.mmap'
     lat_basename = base_name + '-lat.mmap'
@@ -412,13 +447,18 @@ def create_monthly_normals(
     lat_pathname = os.path.join(DATA_DIR, lat_basename)
     lon_pathname = os.path.join(DATA_DIR, lon_basename)
 
-    data_mmap = np.memmap(data_pathname, dtype=data_arr.dtype, mode='w+', shape=data_arr.shape)
-    data_mmap[month - 1,:] = data_arr
+    if os.path.exists(data_pathname):
+        data_mmap = np.memmap(data_pathname, dtype=data_arr.dtype, mode='r+', shape=(MONTHS_PER_YEAR,) + data_arr.shape)
+    else:
+        # Bug? 'w+' replaces all contents of the array with 0
+        data_mmap = np.memmap(data_pathname, dtype=data_arr.dtype, mode='w+', shape=(MONTHS_PER_YEAR,) + data_arr.shape)
+
+    data_mmap[month - 1, :] = data_arr
     del data_mmap
 
     if os.path.exists(lat_pathname):
-        lat_mmap = np.memmap(lat_pathname, dtype=lat_arr.dtype, mode='r', shape=lat_arr.shape)
-        if lat_mmap[:] != lat_arr:
+        lat_mmap = np.memmap(lat_pathname, dtype=lat_arr.dtype, mode='r')
+        if np.any(lat_mmap[:] != lat_arr):
             raise Exception('Expected latitude array to be the same')
     else:
         lat_mmap = np.memmap(lat_pathname, dtype=lat_arr.dtype, mode='w+', shape=lat_arr.shape)
@@ -426,8 +466,8 @@ def create_monthly_normals(
         del lat_mmap
 
     if os.path.exists(lon_pathname):
-        lon_mmap = np.memmap(lon_pathname, dtype=lon_arr.dtype, mode='r', shape=lon_arr.shape)
-        if lon_mmap[:] != lon_arr:
+        lon_mmap = np.memmap(lon_pathname, dtype=lon_arr.dtype, mode='r')
+        if np.any(lon_mmap[:] != lon_arr):
             raise Exception('Expected longitude array to be the same')
     else:
         lon_mmap = np.memmap(lon_pathname, dtype=lon_arr.dtype, mode='w+', shape=lon_arr.shape)
@@ -444,23 +484,25 @@ def fetch_monthly_normals(dataset_record, lat, lon):
     lat_pathname = os.path.join(DATA_DIR, dataset_record['lat_filename'])
     lon_pathname = os.path.join(DATA_DIR, dataset_record['lon_filename'])
 
-    data_mmap = np.memmap(data_pathname, mode='r')
-    lat_mmap = np.memmap(lat_pathname, mode='r')
-    lon_mmap = np.memmap(lon_pathname, mode='r')
+    lat_mmap = np.memmap(lat_pathname, dtype=LAT_DTYPE, mode='r')
+    lon_mmap = np.memmap(lon_pathname, dtype=LON_DTYPE, mode='r')
 
     lat_i = int(round((lat - dataset_record['lat_start']) / dataset_record['lat_delta']))
-    lon_i = int(round((lon - dataset_record['lon_start']) / dataset_record['lon_delta']))
-
     actual_lat = lat_mmap[lat_i]
-    actual_lon = lon_mmap[lon_i]
-    lat_error = dataset_record['lat_delta'] / 2
-    lon_error = dataset_record['lon_delta'] / 2
+    lat_error = abs(dataset_record['lat_delta'] / 2)
 
     if abs(lat - actual_lat) >= lat_error:
         raise Exception('Expected latitude %g to be within %g of %g' % (lat, lat_error, actual_lat))
 
+    lon_i = int(round((lon - dataset_record['lon_start']) / dataset_record['lon_delta']))
+    actual_lon = lon_mmap[lon_i]
+    lon_error = abs(dataset_record['lon_delta'] / 2)
+
     if abs(lon - actual_lon) >= lon_error:
         raise Exception('Expected longitude %g to be within %g of %g' % (lon, lon_error, actual_lon))
+
+    data_mmap = np.memmap(data_pathname, dtype=DATA_DTYPE, mode='r',
+                          shape=(MONTHS_PER_YEAR, lat_mmap.size, lon_mmap.size))
 
     return actual_lat, actual_lon, data_mmap[:, lat_i, lon_i]
 

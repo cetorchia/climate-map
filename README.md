@@ -26,25 +26,20 @@ Install the following Ubuntu packages, or equivalent:
 The database is used to store climate data, and for the application
 to look up the climate data and display it to the user.
 
-Run the scripts in the `sql/` folder as the `postgres` user.
+Run the scripts in the `sql/` folder as the `climate_map` user.
 Make sure you change the password of the `climate_map` user.
 
 ```
-sudo -u postgres psql
-\i sql/create-db.sql
-\i sql/create-tables.sql
-\i sql/insert-meta-data.sql
-ALTER USER climate_map WITH PASSWORD 'a_mKWpF60)'; -- Change this!
+mysql -u root
+\. sql/create-db.sql
+
+mysql -u climate_map
+\. sql/create-tables.sql
+\. sql/insert-meta-data.sql
+SET PASSWORD FOR climate_map = PASSWORD('a_mKWpF60'); -- Change this!
 ```
 
-You may need to change the `pg_hba.conf` file to allow the climate map user to
-connect with an md5-hashed password (i.e. not using peer authentication).
-
-```
-local   all             all                                     md5
-```
-
-You then need to import climate data into this database.
+You then need to import climate datasets into this database.
 
 ## Nginx setup
 
@@ -110,7 +105,7 @@ CMIP6 and TerraClimate data are also supported.
 
 ## Transforming to database
 
-Use these commands to load the climate data to the postgres database.
+Use these commands to load the climate data to the database.
 ```
 bin/transform-dataset.py tmean_5m_bil/ localhost:climate_map:climate_map tavg 1960 1990 1 worldclim
 bin/transform-dataset.py tmean_5m_bil/ localhost:climate_map:climate_map tavg 1960 1990 2 worldclim

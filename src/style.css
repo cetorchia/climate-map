@@ -16,6 +16,7 @@ body {
     height: 150px;
     padding-top: 10px;
     height: 100px;
+    z-index: 1001;
 }
 
 #filter-button.map-button {

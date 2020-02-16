@@ -26,7 +26,7 @@ from climatedb import NotFoundError
 # Constants
 ALLOWED_GDAL_EXTENSIONS = ('tif', 'bil')
 TILE_LENGTH = 256
-MAX_ZOOM_LEVEL = 7
+MAX_ZOOM_LEVEL = 6
 EARTH_RADIUS = 6378137
 EARTH_CIRCUMFERENCE = 2 * math.pi * EARTH_RADIUS
 SECONDS_IN_A_DAY = 86400
@@ -313,6 +313,9 @@ def calculate_normals(time_var, value_arr, units, variable_name, start_time, end
     elif re.search('^days since \d{4}-\d{2}-\d{2} \d{1,2}:\d{1,2}:\d{1,2}$', time_var.units):
         oldest_time = datetime.strptime(time_var.units, 'days since %Y-%m-%d %H:%M:%S')
         time_units = 'days'
+    elif re.search('^days since \d{4}-\d{2}-\d{2}$', time_var.units):
+        oldest_time = datetime.strptime(time_var.units, 'days since %Y-%m-%d')
+        time_units = 'days'
     else:
         raise Exception('Don\'t understand the time units "%s"' % time_var.units)
 
@@ -327,8 +330,6 @@ def calculate_normals(time_var, value_arr, units, variable_name, start_time, end
         else:
             filtered_time_indexes = np.array([month - 1])
 
-        # Number of years to divide by is 1 because these data are already averaged.
-        range_years = 1
     else:
         # Determine start and end times in the time units
         start_delta = start_time - oldest_time
@@ -358,8 +359,6 @@ def calculate_normals(time_var, value_arr, units, variable_name, start_time, end
                     filtered_time_indexes.append(time_i)
         else:
             filtered_time_indexes = time_indexes_range
-
-        range_years = end_time.year - start_time.year + 1
 
     # Filter the data by the time indexes
     filtered_values = value_arr[filtered_time_indexes, :, :]

@@ -218,7 +218,7 @@ function createTileLayer()
         {
             attribution: dataSourceAttribution(data_source_select),
             maxZoom: 12,
-            maxNativeZoom: 7,
+            maxNativeZoom: 6,
             opacity: 0.6,
             bounds: [[85.051129, -180], [-85.051129 + DELTA/2, 180 - DELTA/2]],
         }

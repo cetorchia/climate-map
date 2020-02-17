@@ -173,6 +173,7 @@ function updateTileLayer(tile_layer)
     tile_layer.setUrl(
         climateDataUrl(data_source, date_range, measurement, month, 'tiles')
     );
+    tile_layer.options.maxNativeZoom = dataSourceMaxZoomLevel(data_source_select);
 }
 
 /**
@@ -218,7 +219,7 @@ function createTileLayer()
         {
             attribution: dataSourceAttribution(data_source_select),
             maxZoom: 12,
-            maxNativeZoom: 6,
+            maxNativeZoom: dataSourceMaxZoomLevel(data_source_select),
             opacity: 0.6,
             bounds: [[85.051129, -180], [-85.051129 + DELTA/2, 180 - DELTA/2]],
         }
@@ -696,6 +697,7 @@ async function populateDataSources(data_source_select, date_range_select)
         option.setAttribute('data-name', data_sources[i].name);
         option.setAttribute('data-organisation', data_sources[i].organisation);
         option.setAttribute('data-url', data_sources[i].url);
+        option.setAttribute('data-max-zoom-level', data_sources[i].max_zoom_level)
 
         data_source_select.add(option);
 
@@ -773,6 +775,17 @@ function dataSourceAttribution(data_source_select)
     const data_source_url = selected_option.getAttribute('data-url');
 
     return 'Climate data &copy; <a href="' + data_source_url + '">' + data_source_organisation + '</a>';
+}
+
+/**
+ * Gives the max zoom level for the selected data source.
+ */
+function dataSourceMaxZoomLevel(data_source_select)
+{
+    const selected_option = data_source_select.options[data_source_select.selectedIndex];
+    const max_zoom_level = selected_option.getAttribute('data-max-zoom-level');
+
+    return parseInt(max_zoom_level);
 }
 
 /**

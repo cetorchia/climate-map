@@ -36,7 +36,7 @@ def before():
     '''
     Connects to the database in preparation for the request.
     '''
-    climatedb.connect('localhost:climate_map:climate_map')
+    climatedb.connect()
 
 @app.teardown_request
 def teardown(error):

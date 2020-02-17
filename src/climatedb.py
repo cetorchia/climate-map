@@ -13,14 +13,10 @@ import time
 import os.path
 import numpy as np
 
-# Connection string is of the form "<host>:[<port>:]<dbname>:<user>"
-CONN_STR_RE = re.compile('^([^:]+):(?:([0-9]+):)?([^:]+):([^:]+)$')
+import config
 
 # Global database object
 db = None
-
-# Passwords must be stored in config file
-DEFAULT_FILE='~/.my.cnf'
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
 
@@ -29,7 +25,7 @@ LAT_DTYPE = LON_DTYPE = np.float64
 
 MONTHS_PER_YEAR = 12
 
-def connect(conn_str):
+def connect():
     '''
     Connects to the specified db
     '''
@@ -38,7 +34,12 @@ def connect(conn_str):
     if db is not None:
         db.conn.close()
 
-    db = Db(conn_str)
+    db = Db(
+        name=config.database.name,
+        host=config.database.host,
+        user=config.database.user,
+        password=config.database.password
+    )
 
 def rollback():
     '''
@@ -63,13 +64,12 @@ class Db:
     '''
     Represents a database
     '''
-    def __init__(self, conn_str):
-        host, port, dbname, user = CONN_STR_RE.search(conn_str).groups()
+    def __init__(self, host, name, user, password=None, port=None):
 
         if port is None:
-            self.conn = MySQLdb.connect(host=host, db=dbname, user=user, read_default_file=DEFAULT_FILE)
+            self.conn = MySQLdb.connect(host=host, db=name, passwd=password, user=user)
         else:
-            self.conn = MySQLdb.connect(host=host, port=port, db=dbname, user=user, read_default_file=DEFAULT_FILE)
+            self.conn = MySQLdb.connect(host=host, port=port, db=name, user=user, passwd=password)
 
         self.cur = self.conn.cursor()
 
@@ -157,7 +157,7 @@ def fetch_data_source_by_id(data_source_id):
     '''
     db.cur.execute(
         '''
-        SELECT id, code, name, organisation, url, author, year
+        SELECT id, code, name, organisation, url, author, year, max_zoom_level, active
         FROM data_sources
         WHERE id = %s
         ''',
@@ -168,7 +168,7 @@ def fetch_data_source_by_id(data_source_id):
     if row is None:
         raise NotFoundError('Could not find data source %d' % data_source_id)
 
-    data_source_id, code, name, organisation, url, author, year = row
+    data_source_id, code, name, organisation, url, author, year, max_zoom_level, active = row
 
     return {
         'id': data_source_id,
@@ -178,6 +178,8 @@ def fetch_data_source_by_id(data_source_id):
         'url': url,
         'author': author,
         'year': year,
+        'max_zoom_level': max_zoom_level,
+        'active': active,
     }
 
 def fetch_data_source(data_source_code):
@@ -186,7 +188,7 @@ def fetch_data_source(data_source_code):
     '''
     db.cur.execute(
         '''
-        SELECT id, name, organisation, url, author, year
+        SELECT id, name, organisation, url, author, year, max_zoom_level, active
         FROM data_sources
         WHERE code = %s
         ''',
@@ -197,7 +199,7 @@ def fetch_data_source(data_source_code):
     if row is None:
         raise NotFoundError('Could not find data source "%s"' % data_source_code)
 
-    data_source_id, name, organisation, url, author, year = row
+    data_source_id, name, organisation, url, author, year, max_zoom_level, active = row
 
     return {
         'id': data_source_id,
@@ -207,7 +209,22 @@ def fetch_data_source(data_source_code):
         'url': url,
         'author': author,
         'year': year,
+        'max_zoom_level': max_zoom_level,
+        'active': active,
     }
+
+def update_max_zoom_level(data_source_id, max_zoom_level):
+    '''
+    Updates the max zoom level of the specified data source
+    '''
+    db.cur.execute(
+        '''
+        UPDATE data_sources
+        SET max_zoom_level = GREATEST(%s, max_zoom_level)
+        WHERE id = %s
+        ''',
+        (max_zoom_level, data_source_id)
+    )
 
 def fetch_date_ranges():
     '''

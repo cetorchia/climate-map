@@ -26,7 +26,9 @@ from climatedb import NotFoundError
 # Constants
 ALLOWED_GDAL_EXTENSIONS = ('tif', 'bil')
 TILE_LENGTH = 256
-MAX_ZOOM_LEVEL = 6
+MIN_ZOOM_LEVEL = 5
+MAX_ZOOM_LEVEL = 7
+ZOOM_LEVEL_OFFSET = 3
 EARTH_RADIUS = 6378137
 EARTH_CIRCUMFERENCE = 2 * math.pi * EARTH_RADIUS
 SECONDS_IN_A_DAY = 86400
@@ -663,7 +665,7 @@ def lon2x(lon):
     # Source: https://wiki.openstreetmap.org/wiki/Mercator#Python_implementation
     return EARTH_RADIUS*np.radians(lon)
 
-def save_contours_tiles(y_arr, x_arr, units, normals, output_folder, month):
+def save_contours_tiles(y_arr, x_arr, units, normals, output_folder, month, data_source):
     '''
     Saves contours in the data as PNG map tiles that will be displayable over
     the map. These tiles will use the same naming conventions/folder structure
@@ -673,7 +675,6 @@ def save_contours_tiles(y_arr, x_arr, units, normals, output_folder, month):
     E.g. /tiles/temperature-avg-01/{z}/{x}/{y}.jpeg
     '''
     full_output_file = output_folder + '.png'
-    tile_length = int(round(EARTH_CIRCUMFERENCE / 1000))
     os.makedirs(os.path.dirname(full_output_file), exist_ok=True)
     save_contours(y_arr, x_arr, units, normals, full_output_file, month, length=16384,
                       extent=(
@@ -684,9 +685,12 @@ def save_contours_tiles(y_arr, x_arr, units, normals, output_folder, month):
                       ))
     img = cv2.imread(full_output_file)
 
-    max_zoom_level = min(int(math.log2(x_arr.size)), MAX_ZOOM_LEVEL)
+    max_zoom_level = min(max(MIN_ZOOM_LEVEL, int(math.log2(y_arr.size)) - ZOOM_LEVEL_OFFSET), MAX_ZOOM_LEVEL)
+    data_source_id = climatedb.fetch_data_source(data_source)['id']
+    climatedb.update_max_zoom_level(data_source_id, max_zoom_level)
+    climatedb.commit();
 
-    for zoom_level in range(0, max_zoom_level + 1):
+    for zoom_level in range(6, max_zoom_level + 1):
         print('Zoom level %d: ' % zoom_level, end='', flush=True)
 
         num_tiles = 2**zoom_level
@@ -766,8 +770,6 @@ def save_db_data(
     Saves the data into the specified database.
     '''
     measurement = to_standard_variable_name(variable_name)
-    climatedb.connect(db_conn_str)
-
     unit_id = climatedb.fetch_unit(units)['id']
     measurement_id = climatedb.fetch_measurement(measurement)['id']
     data_source_id = climatedb.fetch_data_source(data_source)['id']
@@ -840,6 +842,8 @@ def save_db_data(
                 data_filename, dataset_record['lon_filename']
             ))
 
+        climatedb.commit()
+
     except NotFoundError:
         data_filename, lat_filename, lon_filename = climatedb.create_monthly_normals(
             data_source,
@@ -870,5 +874,3 @@ def save_db_data(
         new_dataset = True
 
         climatedb.commit()
-
-    climatedb.close()

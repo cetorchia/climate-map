@@ -1,0 +1,5 @@
+database:
+  name: climate_map
+  host: localhost
+  user: climate_map
+  password: change_me

@@ -20,6 +20,7 @@ CREATE TABLE data_sources(
     author VARCHAR(128),
     year VARCHAR(64),
     url VARCHAR(2000) NOT NULL,
+    max_zoom_level SMALLINT NOT NULL DEFAULT 5,
     active BOOLEAN NOT NULL DEFAULT TRUE
 );
 

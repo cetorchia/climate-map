@@ -7,8 +7,8 @@
 #
 import os
 import sys
-dir_path = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), 'src')
-sys.path.append(dir_path)
+_dir_path = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), 'src')
+sys.path.append(_dir_path)
 
 from datetime import timedelta
 from datetime import datetime
@@ -68,7 +68,7 @@ def get_output_fmt(output_file):
     '''
     if output_file.find(os.path.sep + 'tiles' + os.path.sep) != - 1 or output_file.startswith('tiles' + os.path.sep):
         return 'tiles'
-    elif climatedb.CONN_STR_RE.search(output_file):
+    elif output_file == 'db':
         return 'db'
     else:
         output_fmt = output_file.split('.')[-1]
@@ -118,6 +118,8 @@ def main(args):
         lat_arr, lon_arr, normals = climatetransform.pad_data(lat_arr, lon_arr, normals)
         lat_arr, normals = climatetransform.normalize_latitudes(lat_arr, normals)
 
+    climatedb.connect()
+
     # Load normals to storage in the output format
     if output_fmt in ('png', 'jpeg'):
         projected_y_arr = climatetransform.lat2y(lat_arr)
@@ -134,7 +136,15 @@ def main(args):
     elif output_fmt == 'tiles':
         projected_y_arr = climatetransform.lat2y(lat_arr)
         projected_x_arr = climatetransform.lon2x(lon_arr)
-        climatetransform.save_contours_tiles(projected_y_arr, projected_x_arr, units, normals, output_file, month)
+        climatetransform.save_contours_tiles(
+            projected_y_arr,
+            projected_x_arr,
+            units,
+            normals,
+            output_file,
+            month,
+            data_source
+        )
 
     elif output_fmt == 'db':
         climatetransform.save_db_data(
@@ -152,6 +162,8 @@ def main(args):
 
     else:
         raise Exception('Unexpected output format "%s"' % output_fmt)
+
+    climatedb.close()
 
     return 0
 

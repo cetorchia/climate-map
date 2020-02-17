@@ -690,7 +690,7 @@ def save_contours_tiles(y_arr, x_arr, units, normals, output_folder, month, data
     climatedb.update_max_zoom_level(data_source_id, max_zoom_level)
     climatedb.commit();
 
-    for zoom_level in range(6, max_zoom_level + 1):
+    for zoom_level in range(0, max_zoom_level + 1):
         print('Zoom level %d: ' % zoom_level, end='', flush=True)
 
         num_tiles = 2**zoom_level

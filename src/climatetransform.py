@@ -315,7 +315,7 @@ def calculate_normals(time_var, value_arr, units, variable_name, start_time, end
     elif re.search('^days since \d{4}-\d{2}-\d{2} \d{1,2}:\d{1,2}:\d{1,2}$', time_var.units):
         oldest_time = datetime.strptime(time_var.units, 'days since %Y-%m-%d %H:%M:%S')
         time_units = 'days'
-    elif re.search('^days since \d{4}-\d{2}-\d{2}$', time_var.units):
+    elif re.search('^days since \d{4}-\d{1,2}-\d{1,2}$', time_var.units):
         oldest_time = datetime.strptime(time_var.units, 'days since %Y-%m-%d')
         time_units = 'days'
     else:

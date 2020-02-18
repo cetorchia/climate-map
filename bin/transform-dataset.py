@@ -110,6 +110,7 @@ def main(args):
 
     # Transform the climate normals to standard form.
     units, normals = climatetransform.data_to_standard_units(units, normals, month)
+    normals = climatetransform.pack_array_as_int16(normals, units)
     lon_arr, normals = climatetransform.normalize_longitudes(lon_arr, normals)
 
     output_fmt = get_output_fmt(output_file)

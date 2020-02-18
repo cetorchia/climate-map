@@ -34,6 +34,7 @@ EARTH_CIRCUMFERENCE = 2 * math.pi * EARTH_RADIUS
 SECONDS_IN_A_DAY = 86400
 AVERAGE_MONTH_DAYS = 30.436875
 AVERAGE_FEB_DAYS = 28.2425
+SCALE_FACTOR = 10
 
 # Max latitude in OpenStreetMap, about 85.0511
 # https://en.wikipedia.org/wiki/Web_Mercator_projection#Formulas
@@ -147,63 +148,74 @@ def normals_from_folder(input_folder, variable_name, month=0):
 
     return (lat_arr, lon_arr, units, normals.astype(normals_for_month.dtype))
 
-def mask_array_as_int16(data_arr, missing_value, units=None):
+def pack_array_as_int16(data_arr, units=None):
     '''
     Masks the specified array with the specified missing value
     as a int16 array. If the numbers won't fit as int16, this
-    will fail.
+    will fail. Multiplies by 10 to not lose decimal points.
     '''
+    if not isinstance(data_arr, np.ma.masked_array):
+        raise Exception('Expected masked array in pack_array_as_int16()')
+
     if units == 'kg m-2 s-1':
-        data_arr *= SECONDS_IN_A_DAY
         dtype = np.int32
     else:
         dtype = np.int16
 
+    data_arr *= SCALE_FACTOR
+
     MIN_DTYPE = np.iinfo(dtype).min
     MAX_DTYPE = np.iinfo(dtype).max
 
-    if missing_value < MIN_DTYPE or missing_value > MAX_DTYPE:
+    missing_value = data_arr.fill_value
+
+    if np.any(data_arr.mask) and (missing_value < MIN_DTYPE or missing_value > MAX_DTYPE):
         new_missing_value = MIN_DTYPE
 
         if np.any(data_arr.base == new_missing_value):
             raise Exception('Data cannot contain %d as this is needed for missing values' % new_missing_value)
 
-        if isinstance(data_arr, np.ma.masked_array):
-            np.place(data_arr.base, data_arr.mask, new_missing_value)
-            data_arr.set_fill_value(new_missing_value)
-            data_arr.mask = (data_arr.base == new_missing_value)
-        else:
-            np.place(data_arr, data_arr == missing_value, new_missing_value)
+        np.place(data_arr.base, data_arr.mask, new_missing_value)
+        data_arr.set_fill_value(new_missing_value)
 
-        missing_value = new_missing_value
+        if np.any(data_arr.mask != (data_arr.base == new_missing_value)):
+            raise Exception('Expected mask to all and only contain new missing value')
 
     if np.any((data_arr < MIN_DTYPE) | (data_arr > MAX_DTYPE)):
         raise Exception('Data contains values out of range (%d..%d) for a %s' % (MIN_DTYPE, MAX_DTYPE, dtype))
 
-    data_arr = data_arr.astype(dtype, copy=False)
+    return np.round(data_arr).astype(dtype)
 
-    if not isinstance(data_arr, np.ma.masked_array):
-        return np.ma.masked_values(data_arr, missing_value)
-    else:
-        return data_arr
+def unpack_normals(normals):
+    '''
+    Divides each normal by 10.
+    This would be done assuming all normals are stored as themselves
+    multiplied by 10 in order to store them as an int16 and save space.
+    '''
+    new_normals = normals.copy()
 
-def scale_array_to_integers(data_arr, scale_factor=None, offset=None):
+    for measurement, measurement_normals in new_normals.items():
+        if type(measurement_normals) is dict:
+            for month, month_normals in measurement_normals.items():
+                month_normals[0] /= SCALE_FACTOR
+
+    return new_normals
+
+def scale_array(data_arr, scale_factor=None, offset=None):
     '''
     This scales the array using the specified scale factor and offset.
     In the case of large datasets, we multiply by 10 to preserve
     one decimal and we convert to integers.
     '''
     if scale_factor is not None and scale_factor != 1:
-        if scale_factor == 0.1:
-            # Data is already multiplied by 10
-            pass
-        else:
-            raise Exception('Scale factor of %g currently not supported' % scale_factor)
-    else:
-        data_arr *= 10
+        data_arr *= scale_factor
 
-    offset = int(round(offset * 10)) if offset is not None else 0
-    data_arr += offset
+    if offset is not None:
+        data_arr += offset * 10
+
+    if isinstance(data_arr, np.ma.masked_array):
+        if np.any(data_arr[~data_arr.mask] == data_arr.fill_value):
+            raise Exception('Fill value is present in data after scaling')
 
     return data_arr
 
@@ -225,14 +237,15 @@ def normals_from_geotiff(input_file, input_fmt):
     # We do not calculate the normals. Because the shape is two-dimensional, the
     # values can be assumed to be normals already.
     band = dataset.GetRasterBand(1)
-    band_arr = band.ReadAsArray()
+    normals = band.ReadAsArray()
 
-    normals = mask_array_as_int16(band_arr, band.GetNoDataValue())
+    if not isinstance(normals, np.ma.masked_array):
+        normals = np.ma.masked_values(normals, band.GetNoDataValue())
 
     if input_fmt == 'bil' and units == 'degC':
-        normals = scale_array_to_integers(normals, 0.1)
+        normals = scale_array(normals, 0.1)
     else:
-        normals = scale_array_to_integers(normals, band.GetScale(), band.GetOffset())
+        normals = scale_array(normals, band.GetScale(), band.GetOffset())
 
     if len(normals.shape) != 2:
         raise Exception('Expected two dimensional raster band, got ' + len(normals.shape))
@@ -290,12 +303,14 @@ def normals_from_netcdf4(input_file, variable_name, start_time, end_time, month)
 
     units = value_var.units
 
-    value_arr = mask_array_as_int16(value_arr, value_var.missing_value, units)
-    scale_factor = value_var.scale_factor if hasattr(value_var, 'scale_factor') else None
-    add_offset = value_var.add_offset if hasattr(value_var, 'add_offset') else None
-    value_arr = scale_array_to_integers(value_arr, scale_factor, add_offset)
+    if not isinstance(value_arr, np.ma.masked_array):
+        value_arr = np.ma.masked_values(value_arr, value_var.missing_value)
 
     normals = calculate_normals(time_var, value_arr, units, variable_name, start_time, end_time, month)
+
+    scale_factor = value_var.scale_factor if hasattr(value_var, 'scale_factor') else None
+    add_offset = value_var.add_offset if hasattr(value_var, 'add_offset') else None
+    normals = scale_array(normals, scale_factor, add_offset)
 
     return (lat_arr, lon_arr, units, normals)
 
@@ -366,26 +381,7 @@ def calculate_normals(time_var, value_arr, units, variable_name, start_time, end
     filtered_values = value_arr[filtered_time_indexes, :, :]
 
     # Compute the average for each coordinate through time axis
-    means = filtered_values.mean(axis = 0, dtype=np.int32)
-    if np.any(means.mask):
-        np.place(means.base, means.mask, filtered_values.fill_value)
-    means.set_fill_value(filtered_values.fill_value)
-    return means.astype(filtered_values.dtype)
-
-def unpack_normals(normals):
-    '''
-    Divides each normal by 10.
-    This would be done assuming all normals are stored as themselves
-    multiplied by 10 in order to store them as an int16 and save space.
-    '''
-    new_normals = normals.copy()
-
-    for measurement, measurement_normals in new_normals.items():
-        if type(measurement_normals) is dict:
-            for month, month_normals in measurement_normals.items():
-                month_normals[0] /= 10
-
-    return new_normals
+    return filtered_values.mean(axis = 0)
 
 def pad_data(lat_arr, lon_arr, data_arr):
     '''
@@ -494,7 +490,7 @@ def to_standard_units(value, units, month):
     Value can be a masked numpy array.
     '''
     if units in ('deg K', 'degK', 'K'):
-        new_value = np.int16(np.round(value - 2731.5))
+        new_value = value - 273.15
         new_units = 'degC'
     elif units in ('deg C', 'C'):
         new_value = value
@@ -504,8 +500,7 @@ def to_standard_units(value, units, month):
         new_units = 'mm'
     elif units == 'kg m-2 s-1':
         days = days_in_month(month)
-        # Already multiplied by the number of seconds in a day in mask_array_as_int16()
-        new_value = np.int16(np.round(value * days))
+        new_value = value * SECONDS_IN_A_DAY * days
         new_units = 'mm'
     else:
         new_value = value

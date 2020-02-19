@@ -44,6 +44,6 @@ CREATE TABLE datasets(
 
 CREATE TABLE search_queue(
     id INTEGER AUTO_INCREMENT PRIMARY KEY,
-    timestamp FLOAT NOT NULL,
+    timestamp DOUBLE(16, 6) NOT NULL,
     UNIQUE(timestamp)
 );

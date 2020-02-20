@@ -91,6 +91,7 @@ body {
     background-color: #fff;
     border: 1px solid #ccc;
     border-radius: 10px;
+    box-shadow: 2px 2px 4px #888;
     z-index: 1000; /* Has to go over the map. */
     overflow-y: scroll;
 }

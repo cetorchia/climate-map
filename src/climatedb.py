@@ -157,7 +157,7 @@ def fetch_data_source_by_id(data_source_id):
     '''
     db.cur.execute(
         '''
-        SELECT id, code, name, organisation, url, author, year, max_zoom_level, active
+        SELECT id, code, name, organisation, url, author, year, max_zoom_level, baseline, active
         FROM data_sources
         WHERE id = %s
         ''',
@@ -168,7 +168,7 @@ def fetch_data_source_by_id(data_source_id):
     if row is None:
         raise NotFoundError('Could not find data source %d' % data_source_id)
 
-    data_source_id, code, name, organisation, url, author, year, max_zoom_level, active = row
+    data_source_id, code, name, organisation, url, author, year, max_zoom_level, baseline, active = row
 
     return {
         'id': data_source_id,
@@ -179,6 +179,7 @@ def fetch_data_source_by_id(data_source_id):
         'author': author,
         'year': year,
         'max_zoom_level': max_zoom_level,
+        'baseline': baseline,
         'active': active,
     }
 
@@ -188,7 +189,7 @@ def fetch_data_source(data_source_code):
     '''
     db.cur.execute(
         '''
-        SELECT id, name, organisation, url, author, year, max_zoom_level, active
+        SELECT id, name, organisation, url, author, year, max_zoom_level, baseline, active
         FROM data_sources
         WHERE code = %s
         ''',
@@ -199,7 +200,7 @@ def fetch_data_source(data_source_code):
     if row is None:
         raise NotFoundError('Could not find data source "%s"' % data_source_code)
 
-    data_source_id, name, organisation, url, author, year, max_zoom_level, active = row
+    data_source_id, name, organisation, url, author, year, max_zoom_level, baseline, active = row
 
     return {
         'id': data_source_id,
@@ -210,6 +211,7 @@ def fetch_data_source(data_source_code):
         'author': author,
         'year': year,
         'max_zoom_level': max_zoom_level,
+        'baseline': baseline,
         'active': active,
     }
 
@@ -266,7 +268,7 @@ def fetch_datasets_by_date_range(start_date, end_date):
         for dataset_id, data_source_id in rows
     )
 
-def fetch_dataset(data_source_id, measurement_id, unit_id, start_date, end_date):
+def fetch_dataset(data_source_id, measurement_id, unit_id, start_date, end_date, calibrated):
     '''
     Fetches the specified dataset.
     '''
@@ -286,8 +288,9 @@ def fetch_dataset(data_source_id, measurement_id, unit_id, start_date, end_date)
         WHERE data_source_id = %s
         AND measurement_id = %s AND unit_id = %s
         AND start_date = %s AND end_date = %s
+        AND calibrated = %s
         ''',
-        (data_source_id, measurement_id, unit_id, start_date, end_date)
+        (data_source_id, measurement_id, unit_id, start_date, end_date, calibrated)
     )
     row = db.cur.fetchone()
 
@@ -321,7 +324,7 @@ def fetch_dataset(data_source_id, measurement_id, unit_id, start_date, end_date)
         'lon_filename': lon_filename,
     }
 
-def fetch_datasets(data_source_id, start_date, end_date):
+def fetch_datasets(data_source_id, start_date, end_date, calibrated):
     '''
     Fetches the datasets with the specified data source, start date, and end date.
     '''
@@ -338,12 +341,14 @@ def fetch_datasets(data_source_id, start_date, end_date):
             fill_value,
             data_filename,
             lat_filename,
-            lon_filename
+            lon_filename,
+            calibrated
         FROM datasets
         WHERE data_source_id = %s
         AND start_date = %s AND end_date = %s
+        AND calibrated = %s
         ''',
-        (data_source_id, start_date, end_date)
+        (data_source_id, start_date, end_date, calibrated)
     )
     rows = db.cur.fetchall()
 
@@ -365,6 +370,7 @@ def fetch_datasets(data_source_id, start_date, end_date):
             'data_filename': data_filename,
             'lat_filename': lat_filename,
             'lon_filename': lon_filename,
+            'calibrated': calibrated,
         }
         for (
             dataset_id,
@@ -378,6 +384,7 @@ def fetch_datasets(data_source_id, start_date, end_date):
             data_filename,
             lat_filename,
             lon_filename,
+            calibrated,
         )
         in rows
     )
@@ -395,7 +402,8 @@ def create_dataset(
         fill_value,
         data_filename,
         lat_filename,
-        lon_filename
+        lon_filename,
+        calibrated
 ):
     '''
     Creates a new dataset for the specified data source, start date, and end date.
@@ -415,9 +423,10 @@ def create_dataset(
             fill_value,
             data_filename,
             lat_filename,
-            lon_filename
+            lon_filename,
+            calibrated
         )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ''',
         (
             data_source_id,
@@ -432,28 +441,35 @@ def create_dataset(
             fill_value,
             data_filename,
             lat_filename,
-            lon_filename
+            lon_filename,
+            calibrated
         )
     )
 
-    return fetch_dataset(data_source_id, measurement_id, unit_id, start_date, end_date)
+    return fetch_dataset(data_source_id, measurement_id, unit_id, start_date, end_date, calibrated)
 
 def create_monthly_normals(
-    data_source,
-    start_year,
-    end_year,
-    measurement,
-    units,
-    month,
-    lat_arr,
-    lon_arr,
-    data_arr
+        data_source,
+        start_year,
+        end_year,
+        measurement,
+        units,
+        lat_arr,
+        lon_arr,
+        data_arr,
+        month,
+        calibrated
 ):
     '''
-    Saves the monthly normal values in the specified data.
+    Saves the specified monthly normal values.
+    This can be either a 2-D array for a specific month or a 3-D array
+    containing all months as axis 0.
     '''
     if month < 1 or month > MONTHS_PER_YEAR:
-        raise Exception('Expected month to be 1 to 12, got %d. All months (0) are not permitted at the moment.' % month)
+        raise Exception('Expected month to be 1 to 12, got %d' % month)
+
+    if data_arr.ndim != 2:
+        raise Exception('Expected 2-D array')
 
     if data_arr.dtype != DATA_DTYPE:
         raise Exception('Expected datatype to be %s, got %s' % (DATA_DTYPE, data_arr.dtype))
@@ -470,6 +486,9 @@ def create_monthly_normals(
         raise Exception('Expected masked array with fill value in and only in the masked portion')
 
     base_name = '%s-%d-%d-%s-%s' % (data_source, start_year, end_year, measurement, units)
+    if calibrated:
+        base_name += '-calibrated'
+
     data_basename = base_name + '-data.mmap'
     lat_basename = base_name + '-lat.mmap'
     lon_basename = base_name + '-lon.mmap'
@@ -485,6 +504,7 @@ def create_monthly_normals(
         data_mmap = np.memmap(data_pathname, dtype=data_arr.dtype, mode='w+', shape=(MONTHS_PER_YEAR,) + data_arr.shape)
 
     data_mmap[month - 1, :] = data_arr
+
     del data_mmap
 
     if os.path.exists(lat_pathname):
@@ -541,6 +561,27 @@ def fetch_monthly_normals(dataset_record, lat, lon):
         raise NotFoundError('No data at %g, %g' % (actual_lat, actual_lon))
 
     return actual_lat, actual_lon, normals_arr
+
+def fetch_normals_from_dataset(dataset_record, month):
+    '''
+    Fetches the data from the specified dataset record.
+    '''
+    data_pathname = os.path.join(DATA_DIR, dataset_record['data_filename'])
+    lat_pathname = os.path.join(DATA_DIR, dataset_record['lat_filename'])
+    lon_pathname = os.path.join(DATA_DIR, dataset_record['lon_filename'])
+
+    lat_mmap = np.memmap(lat_pathname, dtype=LAT_DTYPE, mode='r')
+    lon_mmap = np.memmap(lon_pathname, dtype=LON_DTYPE, mode='r')
+
+    data_mmap = np.memmap(data_pathname, dtype=DATA_DTYPE, mode='r',
+                          shape=(MONTHS_PER_YEAR, lat_mmap.size, lon_mmap.size))
+
+    if np.any(data_mmap == dataset_record['fill_value']):
+        data = np.ma.masked_values(data_mmap[month - 1, :], dataset_record['fill_value'])
+    else:
+        data = data_mmap[month - 1, :]
+
+    return lat_mmap, lon_mmap, data
 
 def wait_search(seconds):
     '''

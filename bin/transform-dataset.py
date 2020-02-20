@@ -3,7 +3,7 @@
 # Transforms dataset files to various data formats for use
 # as climate data.
 #
-# Copyright (c) 2019 Carlos Torchia
+# Copyright (c) 2020 Carlos Torchia
 #
 import os
 import sys
@@ -23,7 +23,7 @@ def get_args(arguments):
     num_arguments = len(arguments)
     if num_arguments < 8:
         print('Usage: ' + arguments[0] + ' <dataset-filename1> [dataset-filename2] ... <output-filename> <var> <start-year> <end-year> <month|0> <data-source>', file=sys.stderr)
-        print('0 means all months')
+        print('0 means all months', file=sys.stderr)
         sys.exit(1)
 
     input_files = arguments[1:-6]
@@ -110,7 +110,7 @@ def main(args):
 
     # Transform the climate normals to standard form.
     units, normals = climatetransform.data_to_standard_units(units, normals, month)
-    normals = climatetransform.pack_array_as_int16(normals, units)
+    normals = climatetransform.pack_array(normals, units)
     lon_arr, normals = climatetransform.normalize_longitudes(lon_arr, normals)
 
     output_fmt = get_output_fmt(output_file)
@@ -153,7 +153,6 @@ def main(args):
             lon_arr,
             units,
             normals,
-            output_file,
             variable_name,
             start_time,
             end_time,

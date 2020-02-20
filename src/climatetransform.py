@@ -6,6 +6,7 @@
 # Copyright (c) 2020 Carlos Torchia
 #
 import os
+import sys
 from datetime import timedelta
 from datetime import datetime
 from datetime import date
@@ -35,6 +36,8 @@ SECONDS_IN_A_DAY = 86400
 AVERAGE_MONTH_DAYS = 30.436875
 AVERAGE_FEB_DAYS = 28.2425
 SCALE_FACTOR = 10
+ABSOLUTE_DIFFERENCE_MEASUREMENTS = 'tavg', 'tmin', 'tmax'
+OUTPUT_DTYPE = np.int16
 
 # Max latitude in OpenStreetMap, about 85.0511
 # https://en.wikipedia.org/wiki/Web_Mercator_projection#Formulas
@@ -45,6 +48,9 @@ def to_standard_variable_name(variable_name):
     Determines the standard variable name from the given variable name.
     This is useful when datasets use different variable names like "tmean" or "air"
     as we want to store everything under one variable name "tavg".
+    This should be the same as the "measurements" table in the database
+    and probably that table should have this information instead of
+    here in this function.
     '''
     if variable_name in ('air', 'tmean', 'tas'):
         return 'tavg'
@@ -67,6 +73,21 @@ def to_standard_variable_name(variable_name):
     else:
         return variable_name
 
+def standard_units_from_measurement(measurement):
+    '''
+    Gives the standard units for a specified measurement.
+    '''
+    if measurement in ('tavg', 'tmin', 'tmax'):
+        units = 'degC'
+    elif measurement == 'precip':
+        units = 'mm'
+    else:
+        raise Exception('Do not know standard units of %s' % measurement)
+
+    new_value, standard_units = to_standard_units(0, units, 1)
+
+    return standard_units
+
 def units_from_filename(input_file):
     '''
     Determines the units of measurement for the specified filename.
@@ -74,11 +95,15 @@ def units_from_filename(input_file):
     have to guess based on information in the filename.
     '''
     if re.search('tmax|tmin|tavg|tmean|tas', input_file):
-        return 'degC'
+        units = 'degC'
     elif input_file.find('prec') != -1:
-        return 'mm'
+        units = 'mm'
     else:
         raise Exception('Do not know the measurement units of ' + input_file)
+
+    new_value, standard_units = to_standard_units(0, units, 1)
+
+    return standard_units
 
 def aggregate_normals(input_files, get_normals):
     '''
@@ -99,7 +124,7 @@ def aggregate_normals(input_files, get_normals):
         else:
             aggregated_normals += next_normals / number
 
-    return (lat_arr, lon_arr, units, aggregated_normals.astype(next_normals.dtype))
+    return lat_arr, lon_arr, units, aggregated_normals
 
 def normals_from_folder(input_folder, variable_name, month=0):
     '''
@@ -146,24 +171,20 @@ def normals_from_folder(input_folder, variable_name, month=0):
     elif month == 0 and num_months < 12:
         raise Exception('Could not find data for all months in %s' % input_folder)
 
-    return (lat_arr, lon_arr, units, normals.astype(normals_for_month.dtype))
+    return (lat_arr, lon_arr, units, normals)
 
-def pack_array_as_int16(data_arr, units=None):
+def pack_array(data_arr, units=None):
     '''
     Masks the specified array with the specified missing value
     as a int16 array. If the numbers won't fit as int16, this
     will fail. Multiplies by 10 to not lose decimal points.
     '''
     if not isinstance(data_arr, np.ma.masked_array):
-        raise Exception('Expected masked array in pack_array_as_int16()')
-
-    if units == 'kg m-2 s-1':
-        dtype = np.int32
-    else:
-        dtype = np.int16
+        raise Exception('Expected masked array in pack_array()')
 
     data_arr *= SCALE_FACTOR
 
+    dtype = OUTPUT_DTYPE
     MIN_DTYPE = np.iinfo(dtype).min
     MAX_DTYPE = np.iinfo(dtype).max
 
@@ -362,6 +383,12 @@ def calculate_normals(time_var, value_arr, units, variable_name, start_time, end
             time_delta = lambda time_value: timedelta(days=time_value)
         else:
             raise Exception('Unexpected time units "%s"' % time_units)
+
+        earliest_time = oldest_time + time_delta(time_var[0])
+        if earliest_time.month != 1:
+            print('Warning: Models that do not start in January (starting on %s) seem to contain errors sometimes. '
+                  'Double check the output and make sure to calibrate.' % earliest_time,
+                  file=sys.stderr)
 
         # Determine the time indexes that correspond for this range and month
         time_arr = time_var[:]
@@ -754,12 +781,12 @@ def save_db_data(
         lon_arr,
         units,
         normals,
-        db_conn_str,
         variable_name,
         start_time,
         end_time,
         month,
-        data_source
+        data_source,
+        calibrated=False
 ):
     '''
     Saves the data into the specified database.
@@ -781,7 +808,8 @@ def save_db_data(
     fill_value = normals.fill_value
 
     try:
-        dataset_record = climatedb.fetch_dataset(data_source_id, measurement_id, unit_id, start_date, end_date)
+        dataset_record = climatedb.fetch_dataset(data_source_id, measurement_id, unit_id, start_date, end_date,
+                                                 calibrated)
 
         tolerance = 10**-10
 
@@ -816,10 +844,11 @@ def save_db_data(
             end_date.year,
             measurement,
             units,
-            month,
             lat_arr,
             lon_arr,
-            normals
+            normals,
+            month,
+            calibrated
         )
 
         if data_filename != dataset_record['data_filename']:
@@ -846,12 +875,14 @@ def save_db_data(
             end_date.year,
             measurement,
             units,
-            month,
             lat_arr,
             lon_arr,
-            normals
+            normals,
+            month,
+            calibrated
         )
-        dataset_id = climatedb.create_dataset(
+
+        climatedb.create_dataset(
             data_source_id,
             measurement_id,
             unit_id,
@@ -864,8 +895,136 @@ def save_db_data(
             fill_value,
             data_filename,
             lat_filename,
-            lon_filename
-        )['id']
-        new_dataset = True
+            lon_filename,
+            calibrated
+        )
 
         climatedb.commit()
+
+def calibrate(
+        baseline_data_source_code,
+        historical_data_source_code,
+        projection_data_source_code,
+        measurement,
+        units,
+        baseline_start_date,
+        baseline_end_date,
+        projection_start_date,
+        projection_end_date,
+        month
+):
+    '''
+    Adds projected differences to the baseline data.
+    '''
+    unit_id = climatedb.fetch_unit(units)['id']
+    measurement_id = climatedb.fetch_measurement(measurement)['id']
+
+    baseline_data_source = climatedb.fetch_data_source(baseline_data_source_code)
+    if not baseline_data_source['baseline']:
+        raise Exception('Expected data source %s to be flagged as "baseline"' % baseline_data_source_code)
+
+    historical_data_source = climatedb.fetch_data_source(historical_data_source_code)
+    projection_data_source = climatedb.fetch_data_source(projection_data_source_code)
+
+    print('Using historical dataset %s-%d-%d-%s-%s' % (
+        historical_data_source_code,
+        baseline_start_date.year,
+        baseline_end_date.year,
+        measurement,
+        units
+    ))
+    historical_dataset = climatedb.fetch_dataset(
+        historical_data_source['id'],
+        measurement_id,
+        unit_id,
+        baseline_start_date,
+        baseline_end_date,
+        calibrated=False
+    )
+    historical_lat, historical_lon, historical_data = climatedb.fetch_normals_from_dataset(historical_dataset, month)
+
+    print('And projection dataset %s-%d-%d-%s-%s' % (
+        projection_data_source_code,
+        projection_start_date.year,
+        projection_end_date.year,
+        measurement,
+        units
+    ))
+    projection_dataset = climatedb.fetch_dataset(
+        projection_data_source['id'],
+        measurement_id,
+        unit_id,
+        projection_start_date,
+        projection_end_date,
+        calibrated=False
+    )
+    projection_lat, projection_lon, projection_data = climatedb.fetch_normals_from_dataset(projection_dataset, month)
+
+    if projection_data.shape != historical_data.shape:
+        raise Exception('Expected historical data to have the same shape as projection')
+
+    if measurement in ABSOLUTE_DIFFERENCE_MEASUREMENTS:
+        print('Using absolute difference')
+        differences = np.float(projection_data - historical_data)
+    else:
+        print('Using relative difference')
+        differences = projection_data / historical_data
+        extreme_differences = (differences >= 5)
+        differences[extreme_differences] = projection_data[extreme_differences] - historical_data[extreme_differences]
+
+    print('Against baseline dataset %s-%d-%d-%s-%s' % (
+        baseline_data_source_code,
+        baseline_start_date.year,
+        baseline_end_date.year,
+        measurement,
+        units
+    ))
+    baseline_dataset = climatedb.fetch_dataset(
+        baseline_data_source['id'],
+        measurement_id,
+        unit_id,
+        baseline_start_date,
+        baseline_end_date,
+        calibrated=False
+    )
+    baseline_lat, baseline_lon, baseline_data = climatedb.fetch_normals_from_dataset(baseline_dataset, month)
+
+    baseline_height, baseline_width = baseline_data.shape
+
+    downscaled_differences = cv2.resize(differences, (baseline_width, baseline_height), interpolation=cv2.INTER_NEAREST)
+
+    if downscaled_differences.shape != baseline_data.shape:
+        raise Exception('Expected downscaled differences to have the same shape as baseline data')
+
+    if measurement in ABSOLUTE_DIFFERENCE_MEASUREMENTS:
+        calibrated_data = baseline_data + downscaled_differences
+    else:
+        calibrated_data = np.round(baseline_data * downscaled_differences)
+        extreme_differences = (downscaled_differences >= 5)
+        calibrated_data[extreme_differences] = baseline_data[extreme_differences] + downscaled_differences[extreme_differences]
+
+    if np.any(calibrated_data > np.iinfo(OUTPUT_DTYPE).max):
+        raise Exception('Calibrated data is out of bounds for %s' % OUTPUT_DTYPE)
+    else:
+        calibrated_data = calibrated_data.astype(OUTPUT_DTYPE)
+
+    save_db_data(
+        baseline_lat,
+        baseline_lon,
+        units,
+        calibrated_data,
+        measurement,
+        projection_start_date,
+        projection_end_date,
+        month,
+        projection_data_source['code'],
+        calibrated=True
+    )
+
+    print('Created calibrated dataset %s-%d-%d-%s-%s-calibrated' % (
+        projection_data_source_code,
+        projection_start_date.year,
+        projection_end_date.year,
+        measurement,
+        units
+    ))

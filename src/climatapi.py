@@ -54,8 +54,15 @@ def monthly_normals(data_source, start_year, end_year, lat, lon):
     end_date = date(end_year, 12, 31)
 
     try:
-        data_source_id = climatedb.fetch_data_source(data_source)['id']
-        datasets = climatedb.fetch_datasets(data_source_id, start_date, end_date)
+        data_source_record = climatedb.fetch_data_source(data_source)
+        data_source_id = data_source_record['id']
+
+        if data_source_record['baseline']:
+            calibrated = False
+        else:
+            calibrated = True
+
+        datasets = climatedb.fetch_datasets(data_source_id, start_date, end_date, calibrated)
 
         normals = {}
 

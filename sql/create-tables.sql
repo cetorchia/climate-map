@@ -21,6 +21,7 @@ CREATE TABLE data_sources(
     year VARCHAR(64),
     url VARCHAR(2000) NOT NULL,
     max_zoom_level SMALLINT NOT NULL DEFAULT 5,
+    baseline BOOLEAN NOT NULL DEFAULT FALSE,
     active BOOLEAN NOT NULL DEFAULT TRUE
 );
 
@@ -39,7 +40,8 @@ CREATE TABLE datasets(
     filename VARCHAR(128) NOT NULL,
     lat_filename VARCHAR(128) NOT NULL,
     lon_filename VARCHAR(128) NOT NULL,
-    UNIQUE(data_source_id, measurement_id, unit_id, start_date, end_date)
+    calibrated BOOLEAN NOT NULL DEFAULT FALSE,
+    UNIQUE(data_source_id, measurement_id, unit_id, start_date, end_date, calibrated)
 );
 
 CREATE TABLE search_queue(

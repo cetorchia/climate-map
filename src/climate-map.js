@@ -69,20 +69,12 @@ async function fetchDataSources(date_range)
 /**
  * Returns the URL for the specified climate data.
  */
-function climateDataUrl(data_source, date_range, measurement, month, fmt)
+function tileUrl(data_source, date_range, measurement, month)
 {
-    if (fmt == 'tiles') {
-        if (month) {
-            return 'data/' + data_source + '/' + date_range + '/' + fmt + '/' + measurement + '-' + month + '/{z}/{x}/{y}.jpeg';
-        } else {
-            return 'data/' + data_source + '/' + date_range + '/' + fmt + '/' + measurement + '/{z}/{x}/{y}.jpeg';
-        }
+    if (month) {
+        return 'tiles/' + data_source + '/' + date_range + '/' + measurement + '-' + month + '/{z}/{x}/{y}.jpeg';
     } else {
-        if (month) {
-            return 'data/' + data_source + '/' + date_range + '/' + measurement + '-' + month + '.' + fmt;
-        } else {
-            return 'data/' + data_source + '/' + date_range + '/' + measurement + '.' + fmt;
-        }
+        return 'tiles/' + data_source + '/' + date_range + '/' + measurement + '-year/{z}/{x}/{y}.jpeg';
     }
 }
 
@@ -171,29 +163,9 @@ function updateTileLayer(tile_layer)
     const month = month_select.value;
 
     tile_layer.setUrl(
-        climateDataUrl(data_source, date_range, measurement, month, 'tiles')
+        tileUrl(data_source, date_range, measurement, month, 'tiles')
     );
     tile_layer.options.maxNativeZoom = dataSourceMaxZoomLevel(data_source_select);
-}
-
-/**
- * Updates the image layer for the climate filters in the document.
- */
-function updateImageLayer(image_layer)
-{
-    const data_source_select = document.getElementById('data-source');
-    const date_range_select = document.getElementById('date-range');
-    const measurement_select = document.getElementById('measurement');
-    const month_select = document.getElementById('month');
-
-    const data_source = data_source_select.value;
-    const date_range = date_range_select.value;
-    const measurement = measurement_select.value;
-    const month = month_select.value;
-
-    image_layer.setUrl(
-        climateDataUrl(data_source, date_range, measurement, month, 'png'),
-    );
 }
 
 /**
@@ -215,40 +187,13 @@ function createTileLayer()
     const month = month_select.value;
 
     return L.tileLayer(
-        climateDataUrl(data_source, date_range, measurement, month, 'tiles'),
+        tileUrl(data_source, date_range, measurement, month, 'tiles'),
         {
             attribution: dataSourceAttribution(data_source_select),
             maxZoom: 12,
             maxNativeZoom: dataSourceMaxZoomLevel(data_source_select),
             opacity: 0.6,
             bounds: [[85.051129, -180], [-85.051129 + DELTA/2, 180 - DELTA/2]],
-        }
-    );
-}
-
-/**
- * Creates an image layer with climate data based on the inputs.
- * This shows the differences between different regions' climates in a visual way.
- *
- * @return map layer
- */
-function createImageLayer()
-{
-    const data_source_select = document.getElementById('data-source');
-    const date_range_select = document.getElementById('date-range');
-    const measurement_select = document.getElementById('measurement');
-    const month_select = document.getElementById('month');
-
-    const data_source = data_source_select.value;
-    const date_range = date_range_select.value;
-    const measurement = measurement_select.value;
-    const month = month_select.value;
-
-    return L.imageOverlay(
-        climateDataUrl(data_source, date_range, measurement, month, 'png'),
-        [[85.051129, -180], [-85.051129 + DELTA/2, 180 - DELTA/2]],
-        {
-            'opacity': 0.6
         }
     );
 }
@@ -299,7 +244,6 @@ function colourForValueAndUnits(value, units)
             }
 
             return 'rgb(' + red + ',' + green + ',' + blue + ')';
-            return colours;
 
         default:
             return '#22b';
@@ -646,14 +590,14 @@ function highlightMeasurementButton(measurement)
     let selected_button, unselected_buttons;
 
     switch (measurement) {
-        case 'temperature-avg':
+        case 'tavg':
             selected_button = document.getElementById('temperature-button');
             unselected_buttons = [
                 document.getElementById('precipitation-button'),
             ];
             break;
 
-        case 'precipitation':
+        case 'precip':
             selected_button = document.getElementById('precipitation-button');
             unselected_buttons = [
                 document.getElementById('temperature-button'),
@@ -682,8 +626,13 @@ async function populateDataSources(data_source_select, date_range_select)
     const data_sources = await fetchDataSources(date_range);
 
     /* Try to preserve the already selected data source, if any. */
-    const selected_option = data_source_select.options[data_source_select.selectedIndex];
-    const selected_data_source = selected_option.value;
+    let selected_data_source;
+    if (data_source_select.selectedIndex == -1) {
+        selected_data_source = null;
+    } else {
+        const selected_option = data_source_select.options[data_source_select.selectedIndex];
+        selected_data_source = selected_option.value;
+    }
 
     /* Remove all existing options. */
     data_source_select.innerHTML = '';
@@ -850,7 +799,7 @@ window.onload = function() {
         });
     });
 
-    highlightMeasurementButton('temperature-avg');
+    highlightMeasurementButton('tavg');
 
     /**
      * Handle changes to the filters. We will update the map's colours.
@@ -966,15 +915,15 @@ window.onload = function() {
     };
 
     document.getElementById('temperature-button').onclick = function() {
-        setDropDown('measurement', 'temperature-avg');
+        setDropDown('measurement', 'tavg');
         updateTileLayer(climate_tile_layer);
-        highlightMeasurementButton('temperature-avg');
+        highlightMeasurementButton('tavg');
     };
 
     document.getElementById('precipitation-button').onclick = function() {
-        setDropDown('measurement', 'precipitation');
+        setDropDown('measurement', 'precip');
         updateTileLayer(climate_tile_layer);
-        highlightMeasurementButton('precipitation');
+        highlightMeasurementButton('precip');
     };
 
     document.getElementById('about-button').onclick = function() {

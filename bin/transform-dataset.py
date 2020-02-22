@@ -22,19 +22,18 @@ def get_args(arguments):
     '''
     num_arguments = len(arguments)
     if num_arguments < 8:
-        print('Usage: ' + arguments[0] + ' <dataset-filename1> [dataset-filename2] ... <output-filename> <var> <start-year> <end-year> <month|0> <data-source>', file=sys.stderr)
+        print('Usage: ' + arguments[0] + ' <dataset-filename1> [dataset-filename2] ... <var> <start-year> <end-year> <month|0> <data-source>', file=sys.stderr)
         print('0 means all months', file=sys.stderr)
         sys.exit(1)
 
     input_files = arguments[1:-6]
     rest_of_arguments = arguments[-6:]
 
-    output_file = rest_of_arguments[0]
-    variable_name = rest_of_arguments[1]
-    start_year = int(rest_of_arguments[2])
-    end_year = int(rest_of_arguments[3])
-    month = int(rest_of_arguments[4])
-    data_source = rest_of_arguments[5]
+    variable_name = rest_of_arguments[0]
+    start_year = int(rest_of_arguments[1])
+    end_year = int(rest_of_arguments[2])
+    month = int(rest_of_arguments[3])
+    data_source = rest_of_arguments[4]
 
     if month > 0:
         start_time = datetime(start_year, month, 1)
@@ -46,7 +45,7 @@ def get_args(arguments):
         start_time = datetime(start_year, 1, 1)
         end_time = datetime(end_year + 1, 1, 1) - timedelta(seconds=1)
 
-    return (input_files, output_file, variable_name, month, start_time, end_time, data_source)
+    return (input_files, variable_name, month, start_time, end_time, data_source)
 
 def get_input_fmt(input_file):
     '''
@@ -62,27 +61,11 @@ def get_input_fmt(input_file):
 
         return input_fmt
 
-def get_output_fmt(output_file):
-    '''
-    Gives the format of the specified output file.
-    '''
-    if output_file.find(os.path.sep + 'tiles' + os.path.sep) != - 1 or output_file.startswith('tiles' + os.path.sep):
-        return 'tiles'
-    elif output_file == 'db':
-        return 'db'
-    else:
-        output_fmt = output_file.split('.')[-1]
-
-        if output_fmt not in ('png', 'jpeg'):
-            raise Exception('Unsupported output format ' + output_fmt)
-
-        return output_fmt
-
 def main(args):
     '''
     The main function
     '''
-    input_files, output_file, variable_name, month, start_time, end_time, data_source = get_args(args)
+    input_files, variable_name, month, start_time, end_time, data_source = get_args(args)
 
     # Extract normals from datasets
     def get_normals(input_file):
@@ -112,56 +95,21 @@ def main(args):
     units, normals = climatetransform.data_to_standard_units(units, normals, month)
     normals = climatetransform.pack_array(normals, units)
     lon_arr, normals = climatetransform.normalize_longitudes(lon_arr, normals)
-
-    output_fmt = get_output_fmt(output_file)
-
-    if output_fmt in ('tiles', 'png', 'jpeg'):
-        lat_arr, lon_arr, normals = climatetransform.pad_data(lat_arr, lon_arr, normals)
-        lat_arr, normals = climatetransform.normalize_latitudes(lat_arr, normals)
+    lat_arr, normals = climatetransform.normalize_latitudes(lat_arr, normals)
 
     climatedb.connect()
 
-    # Load normals to storage in the output format
-    if output_fmt in ('png', 'jpeg'):
-        projected_y_arr = climatetransform.lat2y(lat_arr)
-        projected_x_arr = climatetransform.lon2x(lon_arr)
-        climatetransform.save_contours(projected_y_arr, projected_x_arr, units, normals, output_file, month,
-                                           length=8192,
-                                           extent=(
-                                               -climatetransform.EARTH_CIRCUMFERENCE/2,
-                                               climatetransform.EARTH_CIRCUMFERENCE/2,
-                                               -climatetransform.EARTH_CIRCUMFERENCE/2,
-                                               climatetransform.EARTH_CIRCUMFERENCE/2
-                                           ))
-
-    elif output_fmt == 'tiles':
-        projected_y_arr = climatetransform.lat2y(lat_arr)
-        projected_x_arr = climatetransform.lon2x(lon_arr)
-        climatetransform.save_contours_tiles(
-            projected_y_arr,
-            projected_x_arr,
-            units,
-            normals,
-            output_file,
-            month,
-            data_source
-        )
-
-    elif output_fmt == 'db':
-        climatetransform.save_db_data(
-            lat_arr,
-            lon_arr,
-            units,
-            normals,
-            variable_name,
-            start_time,
-            end_time,
-            month,
-            data_source
-        )
-
-    else:
-        raise Exception('Unexpected output format "%s"' % output_fmt)
+    climatetransform.save_db_data(
+        lat_arr,
+        lon_arr,
+        units,
+        normals,
+        variable_name,
+        start_time,
+        end_time,
+        month,
+        data_source
+    )
 
     climatedb.close()
 

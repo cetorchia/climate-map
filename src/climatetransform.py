@@ -27,7 +27,6 @@ from climatedb import NotFoundError
 # Constants
 ALLOWED_GDAL_EXTENSIONS = ('tif', 'bil')
 TILE_LENGTH = 256
-MIN_ZOOM_LEVEL = 5
 MAX_ZOOM_LEVEL = 7
 ZOOM_LEVEL_OFFSET = 3
 EARTH_RADIUS = 6378137
@@ -692,14 +691,14 @@ def lon2x(lon):
     # Source: https://wiki.openstreetmap.org/wiki/Mercator#Python_implementation
     return EARTH_RADIUS*np.radians(lon)
 
-def save_contours_tiles(y_arr, x_arr, units, normals, output_folder, month, data_source):
+def save_contours_tiles(y_arr, x_arr, units, normals, output_folder, month, data_source_id):
     '''
     Saves contours in the data as PNG map tiles that will be displayable over
     the map. These tiles will use the same naming conventions/folder structure
     used by OpenStreetMap to not have to load the whole image. They will be stored
     as such in the specified output folder.
 
-    E.g. /tiles/temperature-avg-01/{z}/{x}/{y}.jpeg
+    E.g. /tiles/tavg-01/{z}/{x}/{y}.jpeg
     '''
     full_output_file = output_folder + '.png'
     os.makedirs(os.path.dirname(full_output_file), exist_ok=True)
@@ -712,8 +711,7 @@ def save_contours_tiles(y_arr, x_arr, units, normals, output_folder, month, data
                       ))
     img = cv2.imread(full_output_file)
 
-    max_zoom_level = min(max(MIN_ZOOM_LEVEL, int(math.log2(y_arr.size)) - ZOOM_LEVEL_OFFSET), MAX_ZOOM_LEVEL)
-    data_source_id = climatedb.fetch_data_source(data_source)['id']
+    max_zoom_level = MAX_ZOOM_LEVEL
     climatedb.update_max_zoom_level(data_source_id, max_zoom_level)
     climatedb.commit();
 

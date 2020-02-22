@@ -102,13 +102,18 @@ def data_sources_by_date_range(start_year, end_year):
     datasets = climatedb.fetch_datasets_by_date_range(start_date, end_date)
 
     if datasets:
-        data_source_ids = {dataset['data_source_id'] for dataset in datasets}
+        data_source_ids = {(dataset['data_source_id'], dataset['calibrated']) for dataset in datasets}
         data_sources = [
-            climatedb.fetch_data_source_by_id(data_source_id)
-            for data_source_id in data_source_ids
+            (climatedb.fetch_data_source_by_id(data_source_id), calibrated)
+            for data_source_id, calibrated in data_source_ids
+        ]
+        selected_data_sources = [
+            data_source_record
+            for data_source_record, calibrated in data_sources
+            if calibrated or data_source_record['baseline']
         ]
 
-        return jsonify(data_sources)
+        return jsonify(selected_data_sources)
 
     else:
         return jsonify({'error': 'Could not find date range %d-%d in the datasets' % (start_year, end_year)}), 404

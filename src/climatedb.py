@@ -253,7 +253,7 @@ def fetch_datasets_by_date_range(start_date, end_date):
     '''
     db.cur.execute(
         '''
-        SELECT id, data_source_id FROM datasets
+        SELECT id, data_source_id, calibrated FROM datasets
         WHERE start_date = %s AND end_date = %s
         ''',
         (start_date, end_date)
@@ -264,8 +264,9 @@ def fetch_datasets_by_date_range(start_date, end_date):
         {
             'id': dataset_id,
             'data_source_id': data_source_id,
+            'calibrated': calibrated,
         }
-        for dataset_id, data_source_id in rows
+        for dataset_id, data_source_id, calibrated in rows
     )
 
 def fetch_dataset(data_source_id, measurement_id, unit_id, start_date, end_date, calibrated):
@@ -565,6 +566,7 @@ def fetch_monthly_normals(dataset_record, lat, lon):
 def fetch_normals_from_dataset(dataset_record, month):
     '''
     Fetches the data from the specified dataset record.
+    Gives the data for the specified  month, returning a 2-D array indexed by latitude and longitude.
     '''
     data_pathname = os.path.join(DATA_DIR, dataset_record['data_filename'])
     lat_pathname = os.path.join(DATA_DIR, dataset_record['lat_filename'])
@@ -580,6 +582,31 @@ def fetch_normals_from_dataset(dataset_record, month):
         data = np.ma.masked_values(data_mmap[month - 1, :], dataset_record['fill_value'])
     else:
         data = data_mmap[month - 1, :]
+
+    return lat_mmap, lon_mmap, data
+
+def fetch_normals_from_dataset_mean(dataset_record):
+    '''
+    Fetches the data from the specified dataset record.
+    Averages the data over all months to return a 2-D array indexed by latitude and longitude
+    with the means for the entire year.
+    '''
+    data_pathname = os.path.join(DATA_DIR, dataset_record['data_filename'])
+    lat_pathname = os.path.join(DATA_DIR, dataset_record['lat_filename'])
+    lon_pathname = os.path.join(DATA_DIR, dataset_record['lon_filename'])
+
+    lat_mmap = np.memmap(lat_pathname, dtype=LAT_DTYPE, mode='r')
+    lon_mmap = np.memmap(lon_pathname, dtype=LON_DTYPE, mode='r')
+
+    data_mmap = np.memmap(data_pathname, dtype=DATA_DTYPE, mode='r',
+                          shape=(MONTHS_PER_YEAR, lat_mmap.size, lon_mmap.size))
+
+    data_mean = np.round(data_mmap.mean(axis = 0)).astype(DATA_DTYPE)
+
+    if np.any(data_mmap == dataset_record['fill_value']):
+        data = np.ma.masked_values(data_mean, dataset_record['fill_value'])
+    else:
+        data = data_mean
 
     return lat_mmap, lon_mmap, data
 

@@ -35,7 +35,7 @@ SECONDS_IN_A_DAY = 86400
 AVERAGE_MONTH_DAYS = 30.436875
 AVERAGE_FEB_DAYS = 28.2425
 SCALE_FACTOR = 10
-ABSOLUTE_DIFFERENCE_MEASUREMENTS = 'tavg', 'tmin', 'tmax'
+ABSOLUTE_DIFFERENCE_MEASUREMENTS = 'tavg', 'tmin', 'tmax', 'precip'
 OUTPUT_DTYPE = np.int16
 OUTPUT_DTYPE_MIN = np.iinfo(OUTPUT_DTYPE).min
 OUTPUT_DTYPE_MAX = np.iinfo(OUTPUT_DTYPE).max
@@ -1153,17 +1153,7 @@ def calibrate(
         differences = np.float64(projection_data - historical_data)
     else:
         print('Using relative difference')
-        differences = projection_data.copy()
-
-        historically_nonzero = (historical_data != 0)
-        differences[historically_nonzero] = \
-            projection_data[historically_nonzero] / historical_data[historically_nonzero]
-
-        extreme_differences = (differences >= 5) & historically_nonzero
-        differences[extreme_differences] = projection_data[extreme_differences] - historical_data[extreme_differences]
-
-        if np.any(np.isnan(differences)):
-            raise Exception('Unexpected NaN value(s) after dividing')
+        differences = projection_data / historical_data
 
     print('Against baseline dataset %s-%d-%d-%s-%s' % (
         baseline_data_source_code,
@@ -1199,8 +1189,6 @@ def calibrate(
         calibrated_data = baseline_data + downscaled_differences
     else:
         calibrated_data = np.round(baseline_data * downscaled_differences)
-        extreme_differences = (downscaled_differences >= 5)
-        calibrated_data[extreme_differences] = baseline_data[extreme_differences] + downscaled_differences[extreme_differences]
 
     if np.any(calibrated_data > OUTPUT_DTYPE_MAX):
         raise Exception('Calibrated data is out of bounds for %s' % OUTPUT_DTYPE)

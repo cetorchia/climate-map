@@ -2,6 +2,13 @@
 
 (c) 2020 Carlos Torchia
 
+# System requirements
+
+* RAM: You probably need at least 2 GB of RAM, at least 4 GB is probably preferable.
+* CPU: Probably at least 2 GHz and 2 cores or more.
+* Disk space: depending on how many different models you allow the user to select
+for 3 models and historical data you may need at least 20 GB of disk space.
+
 # Installation
 
 To install the climate map, first use npm to build the javascript.
@@ -38,6 +45,9 @@ mysql -u climate_map
 \. sql/insert-meta-data.sql
 SET PASSWORD FOR climate_map = PASSWORD('a_mKWpF60'); -- Change this!
 ```
+
+Specify the database connection details in the `config/config.yaml`
+file. See `config/config.yaml.example`.
 
 You then need to import climate datasets into this database.
 
@@ -103,91 +113,69 @@ be used.
 
 CMIP6 and TerraClimate data are also supported.
 
-## Transforming to database
+## Transforming datasets into the database
 
-Use these commands to load the climate data to the database.
-```
-bin/transform-dataset.py tmean_5m_bil/ localhost:climate_map:climate_map tavg 1960 1990 1 worldclim
-bin/transform-dataset.py tmean_5m_bil/ localhost:climate_map:climate_map tavg 1960 1990 2 worldclim
-...
-bin/transform-dataset.py tmean_5m_bil/ localhost:climate_map:climate_map tavg 1960 1990 12 worldclim
-
-bin/transform-dataset.py tmin_5m_bil/ localhost:climate_map:climate_map tmin 1960 1990 1 worldclim
-...
-
-bin/transform-dataset.py tmax_5m_bil/ localhost:climate_map:climate_map tmax 1960 1990 1 worldclim
-...
-
-bin/transform-dataset.py precip_5m_bil/ localhost:climate_map:climate_map precip 1960 1990 1 worldclim
-...
-```
-
-The 2nd argument is the connection string and is of the form `<host>:<db>:<user>`.
-You could put the password in `.pgpass` or specify it as `<host>:<db>:<user>:<password>`.
-
-The last argument is the data source and is required to identify the data source of all
-values. For example, we can provide both NOAA data and WorldClim data! But we'll need
-to specify which data are of which data source.
-
-To do load data for all months, you can run the transform-all-months script:
+Use this command to load the climate data to the database as in the following
+example.
 
 ```
-bin/transform-all-months.sh TerraClimate19812010_tmin.nc tmin 1891 2010 TerraClimate
-bin/transform-all-months.sh TerraClimate19812010_tmax.nc tmax 1891 2010 TerraClimate
-bin/transform-all-months.sh TerraClimate19812010_ppt.nc ppt 1891 2010 TerraClimate
+bin/transform-dataset.py TerraClimate19812010_tavg.nc tavg 1981 2010 TerraClimate
+bin/transform-dataset.py TerraClimate19812010_tmin.nc tmin 1981 2010 TerraClimate
+bin/transform-dataset.py TerraClimate19812010_ppt.nc precip 1981 2010 TerraClimate
+
+bin/transform-dataset.py tas_day_CanESM5_historical_r1i1p1f1_gn_18500101-20141231.nc tas 2015 2045 CanESM5.historical
+bin/transform-dataset.py tasmin_day_CanESM5_historical_r1i1p1f1_gn_18500101-20141231.nc tasmin 2015 2045 CanESM5.historical
+bin/transform-dataset.py pr_day_CanESM5_historical_r1i1p1f1_gn_18500101-20141231.nc pr 2015 2045 CanESM5.historical
+
+bin/transform-dataset.py tas_day_CanESM5_ssp245_r1i1p1f1_gn_20150101-21001231.nc tas 2015 2045 CanESM5.ssp245
+bin/transform-dataset.py tasmin_day_CanESM5_ssp245_r1i1p1f1_gn_20150101-21001231.nc tasmin 2015 2045 CanESM5.ssp245
+bin/transform-dataset.py pr_day_CanESM5_ssp245_r1i1p1f1_gn_20150101-21001231.nc pr 2015 2045 CanESM5.ssp245
 ```
 
-Or:
+Note that maximum temperature datasets do not need to be loaded as it can be
+calculated using average and minimum temperature.
+
+## Calibrating projection datasets against historical data
+
+After loading projections for the future, you can calibrate this data so that
+the user is comparing "apples to apples". This means adding the projected changes
+to the baseline historical data (e.g. TerraClimate, WorldClim) in order to derive
+a high-resolution projection dataset. This allows the user to visualize the changes
+much more effectively, but involves deviating from what the model actually says.
+
+When you run the calibration script, you need to specify both the baseline historical
+dataset as well as the historical model output in order for the script to know
+the projected differences and add those to the baseline data.
+
 ```
-bin/transform-all-months.sh tmean_5m_bil/ tavg 1960 1990 worldclim
-bin/transform-all-months.sh prec_5m_bil/ precip 1960 1990 worldclim
-...
+bin/calibrate-dataset.py TerraClimate CanESM5.historical CanESM5.ssp245 tavg 1981-2010 2015-2045
+bin/calibrate-dataset.py TerraClimate CanESM5.historical CanESM5.ssp245 tmin 1981-2010 2015-2045
+bin/calibrate-dataset.py TerraClimate CanESM5.historical CanESM5.ssp245 precip 1981-2010 2015-2045
 ```
 
-## Transforming to PNG tiles
+This will generate a new dataset with the same data source name with a "calibrated"
+flag. This flag distinguishes that dataset so it can be identified separately in
+the application.
 
-To improve efficiency, tiles can be generated that divide the map so that Leaflet
+## Generating PNG tiles
+
+To improve efficiency, tiles are generated that divide the map so that Leaflet
 does not have to load the entire contour map. We use the same map tiling system
 that OSM uses as Leaflet has built-in support for it. These are stored in a folder
-structure similar to the above, and can be created by transform script by
-specifying that the output folder ends with `/tiles/{full_variable_name}`:
+structure that allows lookup by zoom level, and X and Y tile positions.
+
+Once you have loaded a dataset into the database, you can generate tiles for it
+using the script used in the following example.
 
 ```
-bin/transform-dataset.py tmean_5m_bil/ public/data/worldclim/1960-1990/tiles/temperature-avg-01 tavg 1960 1990 0 worldclim
-bin/transform-dataset.py tmean_5m_bil/ public/data/worldclim/1960-1990/tiles/temperature-avg-01 tavg 1960 1990 1 worldclim
-...
+bin/tiles-from-dataset.py TerraClimate tavg 2015 2045 0
+bin/tiles-from-dataset.py TerraClimate precip 2015 2045 0
 
-bin/transform-dataset.py precip_5m_bil/ public/data/worldclim/1960-1990/tiles/precipitation-01 precip 1960 1990 1 worldclim
-...
+bin/tiles-from-dataset.py MRI-ESM2-0.ssp245 tavg 2015 2045 1
+bin/tiles-from-dataset.py MRI-ESM2-0.ssp245 precip 2015 2045 1
 ```
 
-Month `0` is all-months so you can have a map that shows annual average temperature
-or precipitation.
-
-You can also specify minimum and maximum temperature datasets if you do not have
-average temperature in a dataset (useful for saving space as these files
-can be quite large):
-
-```
-bin/transform-dataset.py TerraClimate19812010_tmin.nc TerraClimate19812010_tmax.nc public/data/TerraClimate/1981-2010/tiles/temperature-avg-01 tavg 1981 2010 1 TerraClimate
-
-bin/transform-dataset.py TerraClimate19812010_ppt.nc public/data/TerraClimate/1981-2010/tiles/precipitation-01 ppt 1981 2010 1 TerraClimate
-```
-
-To do this for all months, you can run the all-months script:
-
-```
-bin/transform-all-months-tiles.sh tmean_5m_bil/ tavg 1960 1990 worldclim
-bin/transform-all-months-tiles.sh prec_5m_bil/ precip 1960 1990 worldclim
-...
-```
-
-Or:
-
-```
-bin/transform-all-months-tiles.sh TerraClimate19812010_tmin.nc TerraClimate19812010_tmax.nc tavg 1981 2010 TerraClimate
-bin/transform-all-months-tiles.sh TerraClimate19812010_ppt.nc ppt 1981 2010 TerraClimate
-```
+You have to specify whether the script is calibrated using the last parameter.
 
 # Tiling scheme
 

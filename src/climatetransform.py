@@ -1041,11 +1041,13 @@ def downscale_array(baseline_lat_arr, baseline_lon_arr, lat_arr, lat_delta, lon_
     or (lat_decreasing and baseline_lat_increasing):
         lat_arr = lat_arr[::-1]
         lat_delta = -lat_delta
+        data_arr = data_arr[::-1]
 
     if (lon_increasing and baseline_lon_decreasing) \
     or (lon_decreasing and baseline_lon_increasing):
         lon_arr = lon_arr[::-1]
         lon_delta = -lon_delta
+        data_arr = data_arr[:, ::-1]
 
     left_lat_limit_arr, right_lat_limit_arr = axis_limit_arrays(lat_arr, lat_delta)
     lat_mask_left, lat_mask_right, downscaled_lat_arr, lat_repeats = downscale_axis_arr(baseline_lat_arr, lat_arr,

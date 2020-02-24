@@ -76,8 +76,9 @@ body {
 }
 
 #about.map-window {
-    top: 73px;
+    top: 10px;
     padding-top: 10px;
+    bottom: 78px;
 }
 
 .map-window {
@@ -85,7 +86,7 @@ body {
     position: absolute;
     max-width: 340px;
     width: 75vw;
-    max-height: 91vh;
+    max-height: 90vh;
     padding: 15px;
     border-left: 1px solid #aaa;
     background-color: #fff;

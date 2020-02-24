@@ -4,17 +4,20 @@ Copyright (c) 2020 Carlos Emilio Torchia
 
 # System requirements
 
-* RAM: You probably need at least 2 GB of RAM, at least 4 GB is probably preferable.
-* CPU: Probably at least 2 GHz and 2 cores or more.
+The following system specifications are recommended.
+
+* RAM: At least 2 GB of RAM, preferably at least 4 GB
+* CPU: At least 2 GHz and 2 cores or more
 * Disk space: depending on how many different models you allow the user to select
-for 3 models and historical data you may need at least 20 GB of disk space.
+you may need 40 GB of disk space.
 
 # Installation
 
 To install the climate map, first use npm to build the javascript.
 
 ```
-npm run build
+npm run build-dev       # Development environment (your local machine)
+npm run build           # Production environment (your web host)
 ```
 
 Install the following Ubuntu packages, or equivalent:

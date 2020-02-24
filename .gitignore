@@ -1,6 +1,7 @@
 /public/tiles/*
 /node_modules/
 /public/bundle.js
+/public/*.bundle.js
 /npm-debug.log
 .*.swp
 __pycache__/

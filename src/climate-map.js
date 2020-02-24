@@ -4,30 +4,38 @@
  * Copyright (c) 2020 Carlos Torchia
  */
 
-import L from 'leaflet';
-import Chart from 'chart.js';
-import './style.css';
-import 'leaflet/dist/leaflet.css';
+let L, Chart;
 
-// Hack so that leaflet's images work after going through webpack
-// @ see https://github.com/PaulLeCam/react-leaflet/issues/255#issuecomment-388492108
-import marker from 'leaflet/dist/images/marker-icon.png';
-import marker2x from 'leaflet/dist/images/marker-icon-2x.png';
-import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+async function importDependencies()
+{
+    const {default: L} = await import(/* webpackChunkName: "leaflet" */ 'leaflet/dist/leaflet-src.js');
+    const {default: Chart} = await import(/* webpackChunkName: "chartjs" */ 'chart.js/dist/Chart.bundle.js');
 
-delete L.Icon.Default.prototype._getIconUrl;
+    await import('./style.css');
+    await import('leaflet/dist/leaflet.css');
 
-L.Icon.Default.mergeOptions({
-    iconRetinaUrl: marker2x,
-    iconUrl: marker,
-    shadowUrl: markerShadow
-});
+    // Hack so that leaflet's images work after going through webpack
+    // @ see https://github.com/PaulLeCam/react-leaflet/issues/255#issuecomment-388492108
+    const {default: marker} = await import('leaflet/dist/images/marker-icon.png');
+    const {default: marker2x} = await import('leaflet/dist/images/marker-icon-2x.png');
+    const {default: markerShadow} = await import('leaflet/dist/images/marker-shadow.png');
+
+    delete L.Icon.Default.prototype._getIconUrl;
+
+    L.Icon.Default.mergeOptions({
+        iconRetinaUrl: marker2x,
+        iconUrl: marker,
+        shadowUrl: markerShadow
+    });
+
+    return [L, Chart];
+}
 
 /**
  * Climate data resolution. Offset is used in case each data point does not
  * start at some multiple of the delta.
  */
-const DELTA = 1/12, DELTA_OFFSET = 0;
+const DELTA = 1/24, DELTA_OFFSET = 0;
 
 /**
  * Does a search using the API.
@@ -79,19 +87,6 @@ function tileUrl(data_source, date_range, measurement, month)
 }
 
 /**
- * Rounds a number to the nearest resolution in degrees.
- *
- * If offset is not zero, the number will be rounded to the
- * nearest resolution plus the offset. If you set offset to 0.25,
- * this would allow you to round to the nearest 0.25 or 0.75 in
- * the case of the gridded NOAA data.
- */
-function roundCoordinateToResolution(coord)
-{
-    return Math.round((coord - DELTA_OFFSET) / DELTA) * DELTA + DELTA_OFFSET;
-}
-
-/**
  * Maps a coordinate to the range -180 to 180.
  */
 function mapCoordinateWithin180(coord)
@@ -127,7 +122,6 @@ async function fetchClimateDataForCoords(data_source, date_range, lat, lon)
 
     data = populateMissingTemperatureData(data);
 
-    /* The WorldClim data doesn't have the annual measurements but NOAA does. */
     if (data['tavg'][0] === undefined) {
         data['tavg'][0] = getAverageTemperature(data['tavg']);
     }
@@ -774,8 +768,9 @@ function setDropDown(element_id, desired_option_value)
 /**
  * Loads the climate map.
  */
-window.onload = function() {
-    /* Fetch GeoJSON */
+window.onload = async function() {
+    [L, Chart] = await importDependencies();
+
     var climate_map = L.map('climate-map').setView([0, 0], 2);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -804,7 +799,7 @@ window.onload = function() {
     /**
      * Handle changes to the filters. We will update the map's colours.
      */
-    const update_tiles_and_chart = function() {
+    function update_tiles_and_chart() {
         updateTileLayer(climate_tile_layer);
 
         if (clicked_lat && clicked_lon) {

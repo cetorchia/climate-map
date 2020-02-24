@@ -1,9 +1,11 @@
 const path = require('path');
 
 module.exports = {
-    entry: './src/climate-map.js',
+    entry: {
+        "climate-map": './src/climate-map.js',
+    },
     output: {
-        filename: 'bundle.js',
+        filename: '[name].bundle.js',
         path: path.resolve(__dirname, 'public'),
     },
     module: {
@@ -27,5 +29,10 @@ module.exports = {
                 ],
             }
         ],
+    },
+    optimization: {
+        splitChunks: {
+            chunks: 'all',
+        },
     },
 };

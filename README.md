@@ -1,6 +1,6 @@
 # Climate map
 
-(c) 2020 Carlos Torchia
+Copyright (c) 2020 Carlos Emilio Torchia
 
 # System requirements
 
@@ -67,6 +67,16 @@ server {
         proxy_set_header    X-Forwarded-For $remote_addr;
         proxy_set_header    Host $http_host;
         proxy_pass          "http://127.0.0.1:5000";
+    }
+
+    # Credit to https://serverfault.com/a/571403
+    # Credit to https://serverfault.com/a/319657
+    location ~ ^/.+\.(?:ico|css|js|gif|jpe?g|png)$ {
+        expires 7d;
+        add_header Pragma "public";
+        add_header Cache-Control "public";
+        try_files $uri 404;
+        access_log /dev/null;
     }
 }
 ```

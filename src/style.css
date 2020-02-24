@@ -49,6 +49,7 @@ body {
     height: 40px;
     max-width: 290px;
     padding: 5px;
+    z-index: 1001;
 }
 
 #temperature-button.map-button {
@@ -79,6 +80,7 @@ body {
     top: 10px;
     padding-top: 10px;
     bottom: 78px;
+    z-index: 1001;
 }
 
 .map-window {

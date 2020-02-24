@@ -59,6 +59,9 @@ You then need to import climate datasets into this database.
 Use the following nginx config to serve the climate map.
 
 ```
+proxy_cache_path /tmp/api_cache levels=1:2 keys_zone=api_cache:10m max_size=1g 
+                 inactive=60m use_temp_path=off;
+
 server {
     listen              80;
     server_name         climatemap;
@@ -69,6 +72,8 @@ server {
         rewrite             ^/api/(.*)      /$1 break;
         proxy_set_header    X-Forwarded-For $remote_addr;
         proxy_set_header    Host $http_host;
+        proxy_cache         api_cache;
+        proxy_cache_valid   200 10m;
         proxy_pass          "http://127.0.0.1:5000";
     }
 
@@ -78,8 +83,8 @@ server {
         expires 7d;
         add_header Pragma "public";
         add_header Cache-Control "public";
-        try_files $uri 404;
         access_log /dev/null;
+        error_log /dev/null;
     }
 }
 ```

@@ -38,19 +38,19 @@ def get_args(arguments):
 
     return data_source, variable_name, start_date, end_date, calibrated
 
-def tile_folder(data_source, variable_name, start_date, end_date, month=None):
+def tile_folder(data_source, variable_name, start_date, end_date, months=None):
     '''
     Gives the directory where tiles will be stored.
     '''
     repo = os.path.dirname(os.path.dirname(__file__))
-    date_range = str(start_date.year) + '-' + str(end_date.year)
+    date_range = '%d-%d' % (start_date.year, end_date.year)
 
-    if month:
-        var_period = '%s-%02d' % (variable_name, month)
+    if months:
+        period = '%02d_%02d_%02d' % months
     else:
-        var_period = '%s-year' % variable_name
+        period = 'year'
 
-    tile_folder = os.path.join(repo, 'public', 'tiles', data_source, date_range, var_period)
+    tile_folder = os.path.join(repo, 'public', 'tiles', data_source, date_range, variable_name + '-' + period)
 
     return tile_folder
 
@@ -91,22 +91,32 @@ def main(args):
         units,
         normals,
         output_folder,
-        0,
         data_source_record['id']
     )
 
-    for month in range(1, climatedb.MONTHS_PER_YEAR + 1):
-        print(data_source, measurement, start_date.year, end_date.year, month)
-        lat_arr, lon_arr, normals = climatedb.fetch_normals_from_dataset(dataset, month)
+    for start_month in (12, 3, 6, 9):
+        months = start_month, (start_month + 1) % 12, (start_month + 2) % 12
+        print(data_source, measurement, start_date.year, end_date.year, months)
 
-        output_folder = tile_folder(data_source, variable_name, start_date, end_date, month)
+        aggregated_normals = None
+
+        for month in months:
+            lat_arr, lon_arr, normals = climatedb.fetch_normals_from_dataset(dataset, month)
+            if aggregated_normals is None:
+                aggregated_normals = normals
+            else:
+                aggregated_normals += normals
+
+        aggregated_normals = aggregated_normals / len(months)
+
+        output_folder = tile_folder(data_source, variable_name, start_date, end_date, months)
+
         climatetransform.save_contours_tiles(
             projected_y_arr,
             projected_x_arr,
             units,
-            normals,
+            aggregated_normals,
             output_folder,
-            month,
             data_source_record['id']
         )
 

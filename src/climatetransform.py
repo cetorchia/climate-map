@@ -108,24 +108,20 @@ def units_from_filename(input_file):
 
 def aggregate_normals(input_files, get_normals):
     '''
-    Computes the running average of the next normals with the
-    already-aggregated normals given the number of datasets.
+    Gives the average of the normals in each of the datasets.
     '''
     aggregated_normals = None
-    number = len(input_files)
-
-    if number == 1:
-        return get_normals(input_files[0])
 
     for input_file in input_files:
         lat_arr, lon_arr, units, next_normals = get_normals(input_file)
 
         if aggregated_normals is None:
-            aggregated_normals = next_normals / number
+            aggregated_normals = next_normals
         else:
-            aggregated_normals += next_normals / number
+            aggregated_normals += next_normals
 
-    return lat_arr, lon_arr, units, aggregated_normals
+    number = len(input_files)
+    return lat_arr, lon_arr, units, aggregated_normals / number
 
 def normals_from_folder(input_folder, variable_name, month=0):
     '''
@@ -539,7 +535,7 @@ def to_standard_units(value, units, month):
 
     return new_value, new_units
 
-def get_contour_levels(units, month):
+def get_contour_levels(units):
     '''
     Returns a list of the contour levels for use with pyplot.contourf()
     '''
@@ -581,26 +577,26 @@ def get_contour_levels(units, month):
     else:
         raise Exception('Unknown units: ' + units)
 
-def get_contour_colours(levels, units, month):
+def get_contour_colours(levels, units):
     '''
     Returns a list of the contour colours for use with pyplot.contourf()
     '''
-    return ['#%02X%02X%02X' % tuple(colour_for_amount(amount, units, month)) for amount in levels]
+    return ['#%02X%02X%02X' % tuple(colour_for_amount(amount, units)) for amount in levels]
 
-def colour_for_amount(amount, units, month):
+def colour_for_amount(amount, units):
     '''
-    Returns the colour for the specified amount, units, and month.
+    Returns the colour for the specified amount and units
     '''
     if units == 'degC':
-        return degrees_celsius_colour(amount, month)
+        return degrees_celsius_colour(amount)
 
     elif units == 'mm':
-        return precipitation_millimetres_colour(amount, month)
+        return precipitation_millimetres_colour(amount)
 
     else:
         raise Exception('Unknown units: ' + units)
 
-def degrees_celsius_colour(amount, month):
+def degrees_celsius_colour(amount):
     '''
     Returns the colour for the specified degrees Celsius.
     '''
@@ -639,7 +635,7 @@ def degrees_celsius_colour(amount, month):
     else:
         return 238, 238, 255
 
-def precipitation_millimetres_colour(amount, month):
+def precipitation_millimetres_colour(amount):
     '''
     Returns the colour for the specified mm of precipitation.
     '''
@@ -691,7 +687,7 @@ def lon2x(lon):
     # Source: https://wiki.openstreetmap.org/wiki/Mercator#Python_implementation
     return EARTH_RADIUS*np.radians(lon)
 
-def save_contours_tiles(y_arr, x_arr, units, normals, output_folder, month, data_source_id):
+def save_contours_tiles(y_arr, x_arr, units, normals, output_folder, data_source_id):
     '''
     Saves contours in the data as PNG map tiles that will be displayable over
     the map. These tiles will use the same naming conventions/folder structure
@@ -702,7 +698,7 @@ def save_contours_tiles(y_arr, x_arr, units, normals, output_folder, month, data
     '''
     full_output_file = output_folder + '.png'
     os.makedirs(os.path.dirname(full_output_file), exist_ok=True)
-    save_contours(y_arr, x_arr, units, normals, full_output_file, month, length=16384,
+    save_contours(y_arr, x_arr, units, normals, full_output_file, length=16384,
                       extent=(
                           -EARTH_CIRCUMFERENCE/2,
                           EARTH_CIRCUMFERENCE/2,
@@ -750,7 +746,7 @@ def save_contours_tiles(y_arr, x_arr, units, normals, output_folder, month, data
 
     os.remove(full_output_file)
 
-def save_contours(y_arr, x_arr, units, normals, output_file, month, length=None, extent=None):
+def save_contours(y_arr, x_arr, units, normals, output_file, length=None, extent=None):
     '''
     Saves contours in the data as a PNG file that is displayable over
     the map.
@@ -769,8 +765,8 @@ def save_contours(y_arr, x_arr, units, normals, output_file, month, length=None,
     ax.set_axis_off()
     fig.add_axes(ax)
 
-    contour_levels = get_contour_levels(units, month)
-    contour_colours = get_contour_colours(contour_levels, units, month)
+    contour_levels = get_contour_levels(units)
+    contour_colours = get_contour_colours(contour_levels, units)
 
     cs = ax.contourf(x_arr, y_arr, normals, levels=contour_levels, colors=contour_colours, extend='both')
     cs.cmap.set_over(contour_colours[-1])

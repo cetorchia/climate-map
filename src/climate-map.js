@@ -77,13 +77,9 @@ async function fetchDataSources(date_range)
 /**
  * Returns the URL for the specified climate data.
  */
-function tileUrl(data_source, date_range, measurement, month)
+function tileUrl(data_source, date_range, measurement, period)
 {
-    if (month) {
-        return 'tiles/' + data_source + '/' + date_range + '/' + measurement + '-' + month + '/{z}/{x}/{y}.jpeg';
-    } else {
-        return 'tiles/' + data_source + '/' + date_range + '/' + measurement + '-year/{z}/{x}/{y}.jpeg';
-    }
+    return 'tiles/' + data_source + '/' + date_range + '/' + measurement + '-' + period + '/{z}/{x}/{y}.jpeg';
 }
 
 /**
@@ -149,15 +145,15 @@ function updateTileLayer(tile_layer)
     const data_source_select = document.getElementById('data-source');
     const date_range_select = document.getElementById('date-range');
     const measurement_select = document.getElementById('measurement');
-    const month_select = document.getElementById('month');
+    const period_select = document.getElementById('period');
 
     const data_source = data_source_select.value;
     const date_range = date_range_select.value;
     const measurement = measurement_select.value;
-    const month = month_select.value;
+    const period = period_select.value;
 
     tile_layer.setUrl(
-        tileUrl(data_source, date_range, measurement, month, 'tiles')
+        tileUrl(data_source, date_range, measurement, period, 'tiles')
     );
     tile_layer.options.maxNativeZoom = dataSourceMaxZoomLevel(data_source_select);
 }
@@ -173,15 +169,15 @@ function createTileLayer()
     const data_source_select = document.getElementById('data-source');
     const date_range_select = document.getElementById('date-range');
     const measurement_select = document.getElementById('measurement');
-    const month_select = document.getElementById('month');
+    const period_select = document.getElementById('period');
 
     const data_source = data_source_select.value;
     const date_range = date_range_select.value;
     const measurement = measurement_select.value;
-    const month = month_select.value;
+    const period = period_select.value;
 
     return L.tileLayer(
-        tileUrl(data_source, date_range, measurement, month, 'tiles'),
+        tileUrl(data_source, date_range, measurement, period, 'tiles'),
         {
             attribution: dataSourceAttribution(data_source_select),
             maxZoom: 12,
@@ -786,7 +782,7 @@ window.onload = async function() {
     const data_source_select = document.getElementById('data-source');
     const date_range_select = document.getElementById('date-range');
     const measurement_select = document.getElementById('measurement');
-    const month_select = document.getElementById('month');
+    const period_select = document.getElementById('period');
 
     populateDateRanges(date_range_select).then(function() {
         populateDataSources(data_source_select, date_range_select).then(function() {
@@ -832,7 +828,7 @@ window.onload = async function() {
         highlightMeasurementButton(measurement_select.value);
     };
 
-    month_select.onchange = function() {
+    period_select.onchange = function() {
         updateTileLayer(climate_tile_layer);
     };
 

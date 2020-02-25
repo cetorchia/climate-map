@@ -38,15 +38,39 @@ async function importDependencies()
 const DELTA = 1/24, DELTA_OFFSET = 0;
 
 /**
+ * Default error message.
+ */
+const DEFAULT_ERROR_MESSAGE = 'An error occurred. Please try again later.';
+
+/**
+ * Makes a request to the API.
+ */
+async function fetchFromAPI(url)
+{
+    try {
+        const response = await fetch(url).then((response) => {
+            // Credit: https://stackoverflow.com/a/54164027
+            if (response.status >= 400 && response.status < 600) {
+                throw new Error('Error occurred fetching from API');
+            }
+
+            return response;
+        });
+        return response.json();
+    } catch (err) {
+        showError();
+        throw err;
+    }
+}
+
+/**
  * Does a search using the API.
  */
 async function search(query)
 {
     const url = 'api/search/' + encodeURIComponent(query);
 
-    const response = await fetch(url);
-
-    return response.json();
+    return fetchFromAPI(url);
 }
 
 /**
@@ -57,9 +81,7 @@ async function fetchDateRanges()
 {
     const url = 'api/date-ranges';
 
-    const response = await fetch(url);
-
-    return response.json();
+    return fetchFromAPI(url);
 }
 
 /**
@@ -69,9 +91,7 @@ async function fetchDataSources(date_range)
 {
     const url = 'api/data-sources/' + date_range;
 
-    const response = await fetch(url);
-
-    return response.json();
+    return fetchFromAPI(url);
 }
 
 /**
@@ -113,8 +133,7 @@ async function fetchClimateDataForCoords(data_source, date_range, lat, lon)
 {
     const url = climateDataUrlForCoords(data_source, date_range, lat, lon);
 
-    const response = await fetch(url);
-    let data = await response.json();
+    let data = await fetchFromAPI(url);
 
     data = populateMissingTemperatureData(data);
 
@@ -759,6 +778,61 @@ function setDropDown(element_id, desired_option_value)
             return;
         }
     }
+}
+
+/**
+ * Displays an error message on the screen.
+ */
+function showError(message)
+{
+    if (message === undefined) {
+        message = DEFAULT_ERROR_MESSAGE;
+    }
+
+    const error_container = document.createElement('div');
+    error_container.setAttribute('id', 'error-container');
+    error_container.setAttribute('class', 'map-window');
+    error_container.textContent = escapeHtmlTags(message);
+
+    const error_close = document.createElement('div');
+    error_close.setAttribute('id', 'error-container-close');
+    error_close.setAttribute('class', 'container-close');
+    error_close.textContent = 'X';
+    error_close.onclick = hideError;
+    error_container.append(error_close);
+
+    const body = document.getElementsByTagName('body')[0];
+    body.append(error_container);
+
+    return error_container;
+}
+
+/**
+ * Hides the error message.
+ */
+function hideError()
+{
+    const error_container = document.getElementById('error-container');
+    error_container.parentNode.removeChild(error_container);
+}
+
+/**
+ * Strips tags from input.
+ * See https://stackoverflow.com/a/5499821
+ */
+function escapeHtmlTags(str)
+{
+    const tags_to_replace = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+    };
+
+    function replace_tag(tag) {
+        return tags_to_replace[tag] || tag;
+    }
+
+    return str.replace(/[&<>]/g, replace_tag);
 }
 
 /**

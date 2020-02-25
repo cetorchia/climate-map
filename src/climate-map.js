@@ -996,6 +996,11 @@ window.onload = async function() {
         about_div.style.display = (about_div.style.display == 'none') ? 'block' : 'none';
     };
 
+    document.getElementById('close-about').onclick = function() {
+        const about_div = document.getElementById('about');
+        about_div.style.display = 'none';
+    };
+
     const date_range_slider = document.getElementById('date-range-slider');
 
     date_range_slider.onchange = function(e) {

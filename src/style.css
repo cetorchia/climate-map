@@ -20,16 +20,6 @@ body {
     top: 75px;
 }
 
-#close-location-climate.container-close {
-    z-index: 1001;
-    font-size: 13px;
-    background: #f4f4f4;
-    right: 0;
-}
-#close-location-climate.container-close:hover {
-    background: #eee;
-}
-
 #location-climate.map-window {
     top: 11px;
     max-width: 450px;
@@ -141,6 +131,7 @@ body {
 }
 
 .container-close {
+    z-index: 1001;
     position: absolute;
     right: 4px;
     top: 2px;
@@ -148,6 +139,16 @@ body {
     border: 1px solid #444;
     border-radius: 3px;
     cursor: pointer;
+    background: #f4f4f4;
+}
+
+.container-close:hover {
+    background: #eee;
+}
+
+.container-close-large.container-close {
+    font-size: 13px;
+    right: 0;
 }
 
 /**

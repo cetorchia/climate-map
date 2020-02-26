@@ -1023,8 +1023,13 @@ function goToPageState(state)
     if (state.lat !== null && state.lon !== null) {
         loadLocationClimate(state.lat, state.lon, state.location);
         APP.climate_map.setView([state.lat, state.lon], 8);
+        APP.clicked_lat = state.lat;
+        APP.clicked_lon = state.lon;
     } else if (state.location !== null) {
-        doSearch(state.location);
+        doSearch(state.location).then(([lat, lon, display_name]) => {
+            APP.clicked_lat = lat;
+            APP.clicked_lon = lon;
+        });
     } else {
         hideLocationClimate();
     }

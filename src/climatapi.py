@@ -142,14 +142,18 @@ def search(query):
     response = f.read()
     data = json.loads(response)
 
-    if type(data) is list and len(data) == 1:
-        new_data = data[0]
-        new_data['lat'] = float(new_data['lat'])
-        new_data['lon'] = float(new_data['lon'])
+    if type(data) is list:
+        if len(data) == 1:
+            new_data = data[0]
+            new_data['lat'] = float(new_data['lat'])
+            new_data['lon'] = float(new_data['lon'])
 
-        return jsonify(new_data)
-    else:
-        return jsonify({'error': 'Unexpected result from Nominatim API'}), 500
+            return jsonify(new_data)
+
+        elif len(data) == 0:
+            return jsonify({'error': 'Search found no results'}), 404
+
+    return jsonify({'error': 'Unexpected result from Nominatim API'}), 500
 
 if __name__ == '__main__':
     app.run(processes=3)

@@ -41,6 +41,11 @@ const DELTA = 1/24, DELTA_OFFSET = 0;
  * Default error message.
  */
 const DEFAULT_ERROR_MESSAGE = 'An error occurred. Please try again later.';
+const NOT_FOUND_ERROR_MESSAGE = 'Could not find the specified resource.';
+const API_ERROR_MESSAGE = 'An error occurred while fetching from the API.';
+const SEARCH_NOT_FOUND = 'Could not find the specified location.';
+const LOCATION_NOT_FOUND = 'Data at the specified location is unavailable.';
+const TILE_ERROR_MESSAGE = 'Could not fetch climate map overlay. Please try again later.';
 
 /**
  * Makes a request to the API.
@@ -51,14 +56,17 @@ async function fetchFromAPI(url)
         const response = await fetch(url).then((response) => {
             // Credit: https://stackoverflow.com/a/54164027
             if (response.status >= 400 && response.status < 600) {
-                throw new Error('Error occurred fetching from API');
+                if (response.status == 404) {
+                    throw new Error(NOT_FOUND_ERROR_MESSAGE);
+                } else {
+                    throw new Error(API_ERROR_MESSAGE);
+                }
             }
 
             return response;
         });
         return response.json();
     } catch (err) {
-        showError();
         throw err;
     }
 }
@@ -70,7 +78,16 @@ async function search(query)
 {
     const url = 'api/search/' + encodeURIComponent(query);
 
-    return fetchFromAPI(url);
+    try {
+        return await fetchFromAPI(url);
+    } catch(err) {
+        if (err.message == NOT_FOUND_ERROR_MESSAGE) {
+            showError(SEARCH_NOT_FOUND);
+        } else {
+            showError();
+        }
+        throw err;
+    }
 }
 
 /**
@@ -81,7 +98,12 @@ async function fetchDateRanges()
 {
     const url = 'api/date-ranges';
 
-    return fetchFromAPI(url);
+    try {
+        return await fetchFromAPI(url);
+    } catch(err) {
+        showError();
+        throw err;
+    }
 }
 
 /**
@@ -91,7 +113,12 @@ async function fetchDataSources(date_range)
 {
     const url = 'api/data-sources/' + date_range;
 
-    return fetchFromAPI(url);
+    try {
+        return await fetchFromAPI(url);
+    } catch(err) {
+        showError();
+        throw err;
+    }
 }
 
 /**
@@ -132,8 +159,18 @@ function climateDataUrlForCoords(data_source, date_range, lat, lon)
 async function fetchClimateDataForCoords(data_source, date_range, lat, lon)
 {
     const url = climateDataUrlForCoords(data_source, date_range, lat, lon);
+    let data;
 
-    let data = await fetchFromAPI(url);
+    try {
+        data = await fetchFromAPI(url);
+    } catch(err) {
+        if (err.message == NOT_FOUND_ERROR_MESSAGE) {
+            showError(LOCATION_NOT_FOUND);
+        } else {
+            showError();
+        }
+        throw err;
+    }
 
     data = populateMissingTemperatureData(data);
 
@@ -195,7 +232,7 @@ function createTileLayer()
     const measurement = measurement_select.value;
     const period = period_select.value;
 
-    return L.tileLayer(
+    const tile_layer = L.tileLayer(
         tileUrl(data_source, date_range, measurement, period, 'tiles'),
         {
             attribution: dataSourceAttribution(data_source_select),
@@ -205,6 +242,12 @@ function createTileLayer()
             bounds: [[85.051129, -180], [-85.051129 + DELTA/2, 180 - DELTA/2]],
         }
     );
+
+    tile_layer.on('tileerror', function() {
+        showError(TILE_ERROR_MESSAGE);
+    });
+
+    return tile_layer;
 }
 
 /**
@@ -752,7 +795,6 @@ function dataSourceMaxZoomLevel(data_source_select)
 function showLocationClimate()
 {
     document.getElementById('location-climate').style.display = 'block';
-    document.getElementById('close-location-climate-container').style.display = 'block';
 }
 
 /**
@@ -761,7 +803,6 @@ function showLocationClimate()
 function hideLocationClimate()
 {
     document.getElementById('location-climate').style.display = 'none';
-    document.getElementById('close-location-climate-container').style.display = 'none';
 }
 
 /**
@@ -789,20 +830,32 @@ function showError(message)
         message = DEFAULT_ERROR_MESSAGE;
     }
 
-    const error_container = document.createElement('div');
-    error_container.setAttribute('id', 'error-container');
-    error_container.setAttribute('class', 'map-window');
-    error_container.textContent = escapeHtmlTags(message);
+    let error_container = document.getElementById('error-container');
 
-    const error_close = document.createElement('div');
-    error_close.setAttribute('id', 'error-container-close');
-    error_close.setAttribute('class', 'container-close');
-    error_close.textContent = 'X';
-    error_close.onclick = hideError;
-    error_container.append(error_close);
+    if (error_container) {
+        error_container.style.display = 'block';
+        message_span = document.getElementById('error-span');
+        message_span.textContent = escapeHtmlTags(message);
+    } else {
+        error_container = document.createElement('div');
+        error_container.setAttribute('id', 'error-container');
+        error_container.setAttribute('class', 'map-window');
 
-    const body = document.getElementsByTagName('body')[0];
-    body.append(error_container);
+        const message_span = document.createElement('span');
+        message_span.setAttribute('id', 'error-span');
+        message_span.textContent = escapeHtmlTags(message);
+        error_container.append(message_span);
+
+        const error_close = document.createElement('div');
+        error_close.setAttribute('id', 'error-container-close');
+        error_close.setAttribute('class', 'container-close');
+        error_close.textContent = 'X';
+        error_close.onclick = hideError;
+        error_container.append(error_close);
+
+        const body = document.getElementsByTagName('body')[0];
+        body.append(error_container);
+    }
 
     return error_container;
 }
@@ -813,7 +866,7 @@ function showError(message)
 function hideError()
 {
     const error_container = document.getElementById('error-container');
-    error_container.parentNode.removeChild(error_container);
+    error_container.style.display = 'none';
 }
 
 /**

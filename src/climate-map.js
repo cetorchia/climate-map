@@ -79,7 +79,9 @@ async function search(query)
     const url = 'api/search/' + encodeURIComponent(query);
 
     try {
-        return await fetchFromAPI(url);
+        const data = await fetchFromAPI(url);
+        hideError();
+        return data;
     } catch(err) {
         if (err.message == NOT_FOUND_ERROR_MESSAGE) {
             showError(SEARCH_NOT_FOUND);
@@ -163,6 +165,7 @@ async function fetchClimateDataForCoords(data_source, date_range, lat, lon)
 
     try {
         data = await fetchFromAPI(url);
+        hideError();
     } catch(err) {
         if (err.message == NOT_FOUND_ERROR_MESSAGE) {
             showError(LOCATION_NOT_FOUND);

@@ -47,6 +47,12 @@ const SEARCH_NOT_FOUND = 'Could not find the specified location.';
 const LOCATION_NOT_FOUND = 'Data at the specified location is unavailable.';
 const TILE_ERROR_MESSAGE = 'Could not fetch climate map overlay. Please try again later.';
 
+const DEFAULT_PAGE_TITLE = 'Climate Map';
+
+const API_URL = '/api';
+const TILE_URL = '/tiles';
+const APP_URL = '/';
+
 /**
  * Makes a request to the API.
  */
@@ -76,7 +82,7 @@ async function fetchFromAPI(url)
  */
 async function search(query)
 {
-    const url = 'api/search/' + encodeURIComponent(query);
+    const url = API_URL + '/search/' + encodeURIComponent(query);
 
     try {
         const data = await fetchFromAPI(url);
@@ -98,7 +104,7 @@ async function search(query)
  */
 async function fetchDateRanges()
 {
-    const url = 'api/date-ranges';
+    const url = API_URL + '/date-ranges';
 
     try {
         return await fetchFromAPI(url);
@@ -113,7 +119,7 @@ async function fetchDateRanges()
  */
 async function fetchDataSources(date_range)
 {
-    const url = 'api/data-sources/' + date_range;
+    const url = API_URL + '/data-sources/' + encodeURIComponent(date_range);
 
     try {
         return await fetchFromAPI(url);
@@ -128,7 +134,11 @@ async function fetchDataSources(date_range)
  */
 function tileUrl(data_source, date_range, measurement, period)
 {
-    return 'tiles/' + data_source + '/' + date_range + '/' + measurement + '-' + period + '/{z}/{x}/{y}.jpeg';
+    return TILE_URL + '/' +
+        encodeURIComponent(data_source) + '/' +
+        encodeURIComponent(date_range) + '/' +
+        encodeURIComponent(measurement + '-' + period) +
+        '/{z}/{x}/{y}.jpeg';
 }
 
 /**
@@ -152,7 +162,7 @@ function climateDataUrlForCoords(data_source, date_range, lat, lon)
     lat = mapCoordinateWithin180(lat);
     lon = mapCoordinateWithin180(lon);
 
-    return 'api/monthly-normals/' + data_source + '/' + date_range + '/' + lat + '/' + lon;
+    return API_URL + '/monthly-normals/' + data_source + '/' + date_range + '/' + lat + '/' + lon;
 }
 
 /**
@@ -805,6 +815,7 @@ function showLocationClimate()
  */
 function hideLocationClimate()
 {
+    updatePageState();
     document.getElementById('location-climate').style.display = 'none';
 }
 
@@ -869,7 +880,10 @@ function showError(message)
 function hideError()
 {
     const error_container = document.getElementById('error-container');
-    error_container.style.display = 'none';
+
+    if (error_container !== null) {
+        error_container.style.display = 'none';
+    }
 }
 
 /**
@@ -889,6 +903,95 @@ function escapeHtmlTags(str)
     }
 
     return str.replace(/[&<>]/g, replace_tag);
+}
+
+function showLocationTitle(location_title)
+{
+    const location_title_span = document.getElementById('location-title');
+
+    if (location_title) {
+        location_title_span.innerHTML = location_title + ' <a href="">&#128279;</a>';
+        location_title_span.style.display = 'block';
+    } else {
+        location_title_span.style.display = 'none';
+    }
+}
+
+/**
+ * Updates the state of the page. This will update the
+ * URL given the current "location" in the app.
+ */
+function updatePageState(lat, lon, location, page_title)
+{
+    const state = {
+        location: location !== undefined ? location : null,
+        page_title: page_title ? page_title : (location ? 'Climate of ' + location : DEFAULT_PAGE_TITLE),
+        lat: lat !== undefined ? lat : null,
+        lon: lon !== undefined ? lon : null,
+    };
+
+    let url_path;
+
+    if (state.location !== null) {
+        url_path = APP_URL + 'location/' + encodeURIComponent(state.location);
+    } else if (state.lat !== null && state.lon !== null) {
+        url_path = APP_URL + 'location/' + encodeURIComponent(state.lat) + '/' + encodeURIComponent(state.lon);
+    } else {
+        url_path = APP_URL;
+    }
+
+    document.title = state.page_title;
+    window.history.pushState(state, '', url_path);
+}
+
+/**
+ * Goes to the specified URL in the app.
+ */
+function goToURL(url)
+{
+    const state = pageStateFromURL(url);
+    goToPageState(state);
+}
+
+function goToPageState(state)
+{
+    if (state.location !== null) {
+    }
+}
+
+function pageStateFromURL(url)
+{
+    const url_without_app = url.replace(APP_URL, '');
+    const path_parts = url_without_app.split('/');
+
+    if (path_parts.length == 0) {
+        return {
+            location: null,
+            page_title: DEFAULT_PAGE_TITLE,
+            lat: null,
+            lon: null,
+        };
+    } else if (path_parts[0] == 'location') {
+        if (path_parts.length == 3) {
+            return {
+                location: null,
+                page_title: DEFAULT_PAGE_TITLE,
+                lat: parseFloat(path_parts[1]),
+                lon: parseFloat(path_parts[2]),
+            };
+        } else if (path_parts.length == 2) {
+            return {
+                location: path_parts[1],
+                page_title: 'Climate of ' + path_parts[1],
+                lat: null,
+                lon: null,
+            };
+        } else {
+            throw Error('Unexpected URL ' + url);
+        }
+    } else {
+        throw Error('Unexpected URL ' + url);
+    }
 }
 
 /**
@@ -967,16 +1070,24 @@ window.onload = async function() {
      * about that particular location's climate.
      */
 
-    function show_climate_chart(lat, lon) {
+    function show_climate_chart(lat, lon, location_title) {
         const data_source = data_source_select.value;
         const date_range = date_range_select.value;
 
         fetchClimateDataForCoords(data_source, date_range, lat, lon).then(function(data) {
-            location_marker.setLatLng([lat, lon]).addTo(climate_map).on('click', showLocationClimate);
+            location_marker.setLatLng([lat, lon]).addTo(climate_map).on('click', function() {
+                showLocationClimate();
+
+                updatePageState(lat, lon, location_title);
+                showLocationTitle(location_title);
+            });
 
             [temp_chart, precip_chart] = updateClimateChart(data, temp_chart, precip_chart);
 
             showLocationClimate();
+
+            updatePageState(lat, lon, location_title);
+            showLocationTitle(location_title);
         });
     }
 
@@ -1002,8 +1113,12 @@ window.onload = async function() {
 
             document.getElementById('search-container').style.display = 'none';
 
-            climate_map.setView([lat, lon], 8);
-            show_climate_chart(lat, lon);
+            //climate_map.setView([lat, lon], 8);
+            climate_map.fitBounds([
+                [data.boundingbox[0], data.boundingbox[2]],
+                [data.boundingbox[1], data.boundingbox[3]],
+            ]);
+            show_climate_chart(lat, lon, data['display_name']);
         }
     }
 
@@ -1069,4 +1184,14 @@ window.onload = async function() {
     date_range_slider.onmouseup = hideDateRangeSliderTooltip;
     date_range_slider.oninput = updateDateRangeSliderTooltip;
     date_range_slider.onkeydown = updateDateRangeSliderTooltip;
+
+    /**
+     * Make the back button work.
+     */
+    window.onpopstate = function(e) {
+        if (e.state) {
+            updatePageState(e.state.lat, e.state.lon, e.state.location, e.state.page_title);
+            goToPageState(e.state);
+        }
+    };
 };

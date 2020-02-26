@@ -28,6 +28,13 @@ body {
     overflow-y: scroll;
 }
 
+#location-title {
+    font-size: 15pt;
+}
+#location-title a:last-child {
+    text-decoration: none;
+}
+
 #search-expand-button.map-button {
     top: 110px;
     height: 26px;

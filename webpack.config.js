@@ -2,11 +2,12 @@ const path = require('path');
 
 module.exports = {
     entry: {
-        "climate-map": './src/climate-map.js',
+        'climate-map': './src/climate-map.js',
     },
     output: {
         filename: '[name].bundle.js',
         path: path.resolve(__dirname, 'public'),
+        publicPath: '/',
     },
     module: {
         rules: [

@@ -53,6 +53,8 @@ const API_URL = '/api';
 const TILE_URL = '/tiles';
 const APP_URL = '/';
 
+let APP = {};
+
 /**
  * Makes a request to the API.
  */
@@ -607,17 +609,19 @@ function getTotalPrecipitation(precipitations)
 /**
  * Updates the climate chart.
  */
-function updateClimateChart(data, temp_chart, precip_chart)
+function updateClimateChart(data)
 {
     const average_temperature = Math.round(data['tavg'][0][0] * 10) / 10;
     const total_precipitation = Math.round(data['precip'][0][0] * 10) / 10;
+
     document.getElementById('average-temperature').textContent = average_temperature;
     document.getElementById('total-precipitation').textContent = total_precipitation;
 
-    if (temp_chart !== undefined) {
-        temp_chart.destroy();
+    if (APP.temp_chart !== undefined) {
+        APP.temp_chart.destroy();
     }
-    temp_chart = createClimateChart(
+
+    APP.temp_chart = createClimateChart(
         [
             data['tavg'],
             ('tmin' in data ? data['tmin'] : {}),
@@ -633,19 +637,36 @@ function updateClimateChart(data, temp_chart, precip_chart)
         'location-temperature-chart'
     );
 
-    if (precip_chart !== undefined) {
-        precip_chart.destroy();
+    if (APP.precip_chart !== undefined) {
+        APP.precip_chart.destroy();
     }
-    precip_chart = createClimateChart(
+    APP.precip_chart = createClimateChart(
         [data['precip']],
         'mm',
         ['Precipitation (mm)'],
         'bar',
         'location-precipitation-chart'
     );
-
-    return [temp_chart, precip_chart];
 }
+
+/**
+ * Handle changes to the filters. We will update the map's colours.
+ */
+function updateTilesAndChart()
+{
+    updateTileLayer(APP.climate_tile_layer);
+
+    if (APP.clicked_lat && APP.clicked_lon) {
+        const data_source_select = document.getElementById('data-source');
+        const date_range_select = document.getElementById('date-range');
+        const data_source = data_source_select.value;
+        const date_range = date_range_select.value;
+
+        fetchClimateDataForCoords(data_source, date_range, APP.clicked_lat, APP.clicked_lon).then(
+            updateClimateChart);
+    }
+}
+
 
 /**
  * Highlights the correct measurement button.
@@ -803,6 +824,30 @@ function dataSourceMaxZoomLevel(data_source_select)
 }
 
 /**
+ * Handle clicks on the climate map. We will show a bunch of information
+ * about that particular location's climate.
+ */
+function loadLocationClimate(lat, lon, location_title)
+{
+    const data_source_select = document.getElementById('data-source');
+    const date_range_select = document.getElementById('date-range');
+    const data_source = data_source_select.value;
+    const date_range = date_range_select.value;
+
+    return fetchClimateDataForCoords(data_source, date_range, lat, lon).then(function(data) {
+        APP.location_marker.setLatLng([lat, lon]).addTo(APP.climate_map).on('click', function() {
+            showLocationTitle(location_title);
+            showLocationClimate();
+            updatePageState(lat, lon, location_title);
+        });
+
+        updateClimateChart(data);
+        showLocationTitle(location_title);
+        showLocationClimate();
+    });
+}
+
+/**
  * Shows the location climate container.
  */
 function showLocationClimate()
@@ -815,8 +860,28 @@ function showLocationClimate()
  */
 function hideLocationClimate()
 {
-    updatePageState();
     document.getElementById('location-climate').style.display = 'none';
+}
+
+/**
+ * Searches for the location specified in the search box
+ * and shows the climate of the location.
+ */
+async function doSearch(search_query) {
+    const data = await search(search_query);
+    const lat = data['lat'];
+    const lon = data['lon'];
+
+    document.getElementById('search-container').style.display = 'none';
+
+    APP.climate_map.fitBounds([
+        [data.boundingbox[0], data.boundingbox[2]],
+        [data.boundingbox[1], data.boundingbox[3]],
+    ]);
+
+    await loadLocationClimate(lat, lon, data['display_name']);
+
+    return [lat, lon, data['display_name']];
 }
 
 /**
@@ -941,7 +1006,7 @@ function updatePageState(lat, lon, location, page_title)
     }
 
     document.title = state.page_title;
-    window.history.pushState(state, '', url_path);
+    window.history.pushState(state, state.page_title, url_path);
 }
 
 /**
@@ -955,8 +1020,15 @@ function goToURL(url)
 
 function goToPageState(state)
 {
-    if (state.location !== null) {
+    if (state.lat !== null && state.lon !== null) {
+        loadLocationClimate(state.lat, state.lon, state.location);
+        APP.climate_map.setView([state.lat, state.lon], 8);
+    } else if (state.location !== null) {
+        doSearch(state.location);
+    } else {
+        hideLocationClimate();
     }
+    document.title = state.page_title;
 }
 
 function pageStateFromURL(url)
@@ -964,7 +1036,7 @@ function pageStateFromURL(url)
     const url_without_app = url.replace(APP_URL, '');
     const path_parts = url_without_app.split('/');
 
-    if (path_parts.length == 0) {
+    if (path_parts.length == 0 || url_without_app == '') {
         return {
             location: null,
             page_title: DEFAULT_PAGE_TITLE,
@@ -976,13 +1048,13 @@ function pageStateFromURL(url)
             return {
                 location: null,
                 page_title: DEFAULT_PAGE_TITLE,
-                lat: parseFloat(path_parts[1]),
-                lon: parseFloat(path_parts[2]),
+                lat: parseFloat(decodeURIComponent(path_parts[1])),
+                lon: parseFloat(decodeURIComponent(path_parts[2])),
             };
         } else if (path_parts.length == 2) {
             return {
-                location: path_parts[1],
-                page_title: 'Climate of ' + path_parts[1],
+                location: decodeURIComponent(path_parts[1]),
+                page_title: 'Climate of ' + decodeURIComponent(path_parts[1]),
                 lat: null,
                 lon: null,
             };
@@ -1000,53 +1072,35 @@ function pageStateFromURL(url)
 window.onload = async function() {
     [L, Chart] = await importDependencies();
 
-    var climate_map = L.map('climate-map').setView([0, 0], 2);
+    APP.climate_map = L.map('climate-map').setView([0, 0], 2);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: 'Map tiles &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-    }).addTo(climate_map);
+    }).addTo(APP.climate_map);
 
-    var climate_tile_layer;
-    const location_marker = L.marker([0, 0]);
-
-    var temp_chart, precip_chart;
-    var clicked_lat, clicked_lon;
+    APP.location_marker = L.marker([0, 0]);
 
     const data_source_select = document.getElementById('data-source');
     const date_range_select = document.getElementById('date-range');
     const measurement_select = document.getElementById('measurement');
     const period_select = document.getElementById('period');
+    const search_input = document.getElementById('search');
 
     populateDateRanges(date_range_select).then(function() {
         populateDataSources(data_source_select, date_range_select).then(function() {
-            climate_tile_layer = createTileLayer().addTo(climate_map);
+            APP.climate_tile_layer = createTileLayer().addTo(APP.climate_map);
+            goToURL(document.location.pathname); 
         });
     });
 
     highlightMeasurementButton('tavg');
 
-    /**
-     * Handle changes to the filters. We will update the map's colours.
-     */
-    function update_tiles_and_chart() {
-        updateTileLayer(climate_tile_layer);
-
-        if (clicked_lat && clicked_lon) {
-            const data_source = data_source_select.value;
-            const date_range = date_range_select.value;
-
-            fetchClimateDataForCoords(data_source, date_range, clicked_lat, clicked_lon).then(function(data) {
-                [temp_chart, precip_chart] = updateClimateChart(data, temp_chart, precip_chart);
-            });
-        }
-    };
-
     function change_data_source() {
-        update_tiles_and_chart();
+        updateTilesAndChart();
 
-        climate_tile_layer.remove();
-        climate_tile_layer.options.attribution = dataSourceAttribution(data_source_select);
-        climate_tile_layer.addTo(climate_map);
+        APP.climate_tile_layer.remove();
+        APP.climate_tile_layer.options.attribution = dataSourceAttribution(data_source_select);
+        APP.climate_tile_layer.addTo(APP.climate_map);
     }
 
     data_source_select.onchange = change_data_source;
@@ -1057,78 +1111,45 @@ window.onload = async function() {
     };
 
     measurement_select.onchange = function() {
-        updateTileLayer(climate_tile_layer);
+        updateTileLayer(APP.climate_tile_layer);
         highlightMeasurementButton(measurement_select.value);
     };
 
     period_select.onchange = function() {
-        updateTileLayer(climate_tile_layer);
+        updateTileLayer(APP.climate_tile_layer);
     };
 
-    /**
-     * Handle clicks on the climate map. We will show a bunch of information
-     * about that particular location's climate.
-     */
+    APP.climate_map.on('click', function(e) {
+        APP.clicked_lat = e.latlng.lat;
+        APP.clicked_lon = e.latlng.lng;
 
-    function show_climate_chart(lat, lon, location_title) {
-        const data_source = data_source_select.value;
-        const date_range = date_range_select.value;
-
-        fetchClimateDataForCoords(data_source, date_range, lat, lon).then(function(data) {
-            location_marker.setLatLng([lat, lon]).addTo(climate_map).on('click', function() {
-                showLocationClimate();
-
-                updatePageState(lat, lon, location_title);
-                showLocationTitle(location_title);
-            });
-
-            [temp_chart, precip_chart] = updateClimateChart(data, temp_chart, precip_chart);
-
-            showLocationClimate();
-
-            updatePageState(lat, lon, location_title);
-            showLocationTitle(location_title);
-        });
-    }
-
-    climate_map.on('click', function(e) {
-        clicked_lat = e.latlng.lat;
-        clicked_lon = e.latlng.lng;
-
-        show_climate_chart(clicked_lat, clicked_lon);
+        loadLocationClimate(APP.clicked_lat, APP.clicked_lon);
+        updatePageState(APP.clicked_lat, APP.clicked_lon);
     });
 
     document.getElementById('close-location-climate').onclick = function() {
         hideLocationClimate();
+        updatePageState();
     };
 
-    async function doSearch() {
-        const search_input = document.getElementById('search');
-        const search_query = search_input.value;
-
-        if (search_query) {
-            const data = await search(search_query);
-            const lat = data['lat'];
-            const lon = data['lon'];
-
-            document.getElementById('search-container').style.display = 'none';
-
-            //climate_map.setView([lat, lon], 8);
-            climate_map.fitBounds([
-                [data.boundingbox[0], data.boundingbox[2]],
-                [data.boundingbox[1], data.boundingbox[3]],
-            ]);
-            show_climate_chart(lat, lon, data['display_name']);
+    document.getElementById('search-button').onclick = function() {
+        if (search_input.value) {
+            doSearch(search_input.value).then(([lat, lon, display_name]) => {
+                updatePageState(lat, lon, display_name);
+            });
         }
-    }
+    };
 
-    document.getElementById('search-button').onclick = doSearch;
-    document.getElementById('search').addEventListener("keyup", function(event) {
+    document.getElementById('search').addEventListener('keyup', function(event) {
         /* Credit: https://www.w3schools.com/howto/howto_js_trigger_button_enter.asp */
         event.preventDefault();
         if (event.keyCode === 13) {
-            doSearch();
-        };
+            if (search_input.value) {
+                doSearch(search_input.value).then(([lat, lon, display_name]) => {
+                    updatePageState(lat, lon, display_name);
+                });
+            }
+        }
     });
 
     document.getElementById('filter-button').onclick = function() {
@@ -1152,13 +1173,13 @@ window.onload = async function() {
 
     document.getElementById('temperature-button').onclick = function() {
         setDropDown('measurement', 'tavg');
-        updateTileLayer(climate_tile_layer);
+        updateTileLayer(APP.climate_tile_layer);
         highlightMeasurementButton('tavg');
     };
 
     document.getElementById('precipitation-button').onclick = function() {
         setDropDown('measurement', 'precip');
-        updateTileLayer(climate_tile_layer);
+        updateTileLayer(APP.climate_tile_layer);
         highlightMeasurementButton('precip');
     };
 
@@ -1186,11 +1207,10 @@ window.onload = async function() {
     date_range_slider.onkeydown = updateDateRangeSliderTooltip;
 
     /**
-     * Make the back button work.
+     * Handle the back button.
      */
     window.onpopstate = function(e) {
         if (e.state) {
-            updatePageState(e.state.lat, e.state.lon, e.state.location, e.state.page_title);
             goToPageState(e.state);
         }
     };

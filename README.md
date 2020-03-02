@@ -100,6 +100,7 @@ server {
             set $title "Climate Map";
         }
         sub_filter "<title>Climate Map</title>" "<title>$title</title>";
+        sub_filter "<meta name=\"description\" content=\"Climate map showing past and future temperature and precipitation\">" "<meta name=\"description\" content=\"$title\">";
     }
 }
 ```

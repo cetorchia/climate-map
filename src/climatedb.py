@@ -706,14 +706,14 @@ def delete_geonames():
     '''
     db.cur.execute('TRUNCATE geonames')
 
-def create_geoname(geonameid, name, alternatenames, lat, lon, country, population, elevation):
+def create_geoname(geonameid, name, lat, lon, country, population, elevation):
     '''
     Creates a geoname entry.
     '''
     db.cur.execute(
         '''
-        INSERT INTO geonames(geonameid, name, alternatenames, latitude, longitude, country, population, elevation)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO geonames(geonameid, name, latitude, longitude, country, population, elevation)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
         ''',
-        (geonameid, name, alternatenames, lat, lon, country, population, elevation)
+        (geonameid, name, lat, lon, country, population, elevation)
     )

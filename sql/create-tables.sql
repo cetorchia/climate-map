@@ -53,7 +53,6 @@ CREATE TABLE search_queue(
 CREATE TABLE geonames(
     geonameid INTEGER PRIMARY KEY,
     name VARCHAR(200) NOT NULL,
-    alternatenames VARCHAR(1000) NOT NULL,
     latitude DECIMAL(12, 10) NOT NULL,
     longitude DECIMAL(13, 10) NOT NULL,
     country CHAR(2),
@@ -62,4 +61,3 @@ CREATE TABLE geonames(
 ) CHARACTER SET=utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 CREATE INDEX name ON geonames(name);
-CREATE FULLTEXT INDEX alternatenames ON geonames(alternatenames);

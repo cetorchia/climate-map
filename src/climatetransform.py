@@ -1251,7 +1251,6 @@ def load_geonames(filename):
             climatedb.create_geoname(
                 geonameid,
                 name,
-                alternatenames,
                 latitude,
                 longitude,
                 country,

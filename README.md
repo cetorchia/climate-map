@@ -250,4 +250,32 @@ The deploy script is used to send files to the server. SSH is used.
 
 ```
 bin/deploy.sh myclimatemap.org
+bin/deploy.sh myclimatemap.org --tiles
+bin/deploy.sh myclimatemap.org --data
+bin/deploy.sh myclimatemap.org --config
 ```
+
+To configure the climate map, you must update the config file on the server.
+
+```
+ssh myclimatemap.org
+cd climate-map
+vim config/config.yaml
+```
+
+To copy your local database to the server (assuming all transformations were
+done locally and not on the server), you can run the following.
+
+```
+localhost$ mysqldump climate_map > climate_map.sql
+localhost$ scp climate_map.sql myclimatemap.org:climate-map/
+localhost$ ssh myclimatemap.org
+myclimatemap.org$ cd climate-map
+myclimatemap.org$ mysql -u root
+mysql> \. sql/create-db.sql
+mysql> SET PASSWORD FOR climate_map = PASSWORD('a_mKWpF60'); -- Change this!
+myclimatemap.org$ mysql -u climate_map
+mysql> \. climate_map.sql
+```
+
+Again, make sure to **change the password** of the climate_map user for security!

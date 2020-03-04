@@ -22,12 +22,15 @@ See [README-server.md](README-server.md)
 To install the climate map, first use npm to build the javascript.
 
 ```
+npm install
 npm run build-dev       # Development environment (your local machine)
 npm run build           # Production environment (your web host)
 ```
 
 Install the following Ubuntu packages, or equivalent:
 
+* npm
+* python3
 * python3-numpy
 * python3-netcdf4
 * python3-gdal

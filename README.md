@@ -8,8 +8,14 @@ The following system specifications are recommended.
 
 * RAM: At least 2 GB of RAM, preferably at least 4 GB
 * CPU: At least 2 GHz and 2 cores or more
-* Disk space: depending on how many different models you allow the user to select
-you may need 40 GB of disk space.
+* Disk space: Depending on how many different climate models you provide the user,
+you may need 40 GB of disk space, or more, or less. Check the disk usage of the data/
+folder and the public/ folder after the transformations below have been completed.
+* OS: Ubuntu 18.04
+
+# Server setup
+
+See [README-server.md](README-server.md)
 
 # Installation
 
@@ -30,6 +36,7 @@ Install the following Ubuntu packages, or equivalent:
 * python3-flask
 * python3-mysqldb
 * mysql-server
+* nginx
 
 ## Database setup
 
@@ -233,3 +240,11 @@ the tile indexes starting at `0`. For zoom level `z`, the maximum tile index
 for the zoom level is `2^z - 1`. For example, to request the one tile at zoom level
 0, make a request to `/0/0/0.jpeg`. For zoom level 4, you can request tile
 `/4/15/15.jpeg` but x and y cannot be greater than that.
+
+# Server Deployment
+
+The deploy script is used to send files to the server. SSH is used.
+
+```
+bin/deploy.sh myclimatemap.org
+```

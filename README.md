@@ -279,3 +279,24 @@ mysql> \. climate_map.sql
 ```
 
 Again, make sure to **change the password** of the climate_map user for security!
+
+## Nginx
+
+As described above, nginx is needed so copy the nginx config to the
+server in sites-available and then link from sites-enabled/.
+
+```
+vim /etc/nginx/sites-available/climate-map.conf
+ln -s /etc/nginx/sites-available/climate-map.conf /etc/nginx/sites-enabled/climate-map.conf
+sudo service nginx restart
+```
+
+## Running the server
+
+Build the javascript and run the API server:
+
+```
+cd climate-map
+npm run build
+nohup python3 src/climatapi.py &
+```

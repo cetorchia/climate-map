@@ -25,6 +25,8 @@ LAT_DTYPE = LON_DTYPE = np.float64
 
 MONTHS_PER_YEAR = 12
 
+CHARSET = 'utf8mb4'
+
 def connect():
     '''
     Connects to the specified db
@@ -64,12 +66,12 @@ class Db:
     '''
     Represents a database
     '''
-    def __init__(self, host, name, user, password=None, port=None):
+    def __init__(self, host, name, user, password=None, port=None, charset=CHARSET):
 
         if port is None:
-            self.conn = MySQLdb.connect(host=host, db=name, passwd=password, user=user)
+            self.conn = MySQLdb.connect(host=host, db=name, passwd=password, user=user, charset=charset)
         else:
-            self.conn = MySQLdb.connect(host=host, port=port, db=name, user=user, passwd=password)
+            self.conn = MySQLdb.connect(host=host, port=port, db=name, user=user, passwd=password, charset=charset)
 
         self.cur = self.conn.cursor()
 
@@ -696,4 +698,22 @@ def delete_search_queue(queue_id):
         WHERE id = %s
         ''',
         (queue_id,)
+    )
+
+def delete_geonames():
+    '''
+    Deletes all geonames.
+    '''
+    db.cur.execute('TRUNCATE geonames')
+
+def create_geoname(geonameid, name, alternatenames, lat, lon, country, population, elevation):
+    '''
+    Creates a geoname entry.
+    '''
+    db.cur.execute(
+        '''
+        INSERT INTO geonames(geonameid, name, alternatenames, latitude, longitude, country, population, elevation)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        ''',
+        (geonameid, name, alternatenames, lat, lon, country, population, elevation)
     )

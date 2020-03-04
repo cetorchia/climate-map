@@ -1,7 +1,7 @@
 -- Sets up the relational database
 
 -- First create the databse
-CREATE DATABASE climate_map;
+CREATE DATABASE climate_map CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE climate_map;
 
 -- Create the main user who will access the database

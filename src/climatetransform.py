@@ -1213,3 +1213,48 @@ def calibrate(
         measurement,
         units
     ))
+
+def load_geonames(filename):
+    '''
+    Loads the geonames from the specified file.
+    See https://download.geonames.org/export/dump/ for export and documentation.
+    '''
+    with open(filename, encoding='utf-8') as f:
+        climatedb.delete_geonames()
+        for line in f:
+            row = line[:-1].split('\t')
+            (
+                geonameid,
+                name,
+                asciiname,
+                alternatenames,
+                latitude,
+                longitude,
+                feature_class,
+                feature_code,
+                country,
+                cc2,
+                admin1_code,
+                admin2_code,
+                admin3_code,
+                admin4_code,
+                population,
+                elevation,
+                dem,
+                timezone,
+                modification_date,
+            ) = row
+
+            population = None if population == '' else int(population)
+            elevation = None if elevation == '' else int(elevation)
+
+            climatedb.create_geoname(
+                geonameid,
+                name,
+                alternatenames,
+                latitude,
+                longitude,
+                country,
+                population,
+                elevation
+            )

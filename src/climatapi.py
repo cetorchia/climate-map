@@ -6,6 +6,7 @@
 #
 
 from datetime import date
+import numpy as np
 import math
 import json
 import urllib
@@ -69,7 +70,31 @@ def monthly_normals(data_source, start_year, end_year, lat, lon):
         for dataset in datasets:
             measurement = climatedb.fetch_measurement_by_id(dataset['measurement_id'])['code']
             units = climatedb.fetch_unit_by_id(dataset['unit_id'])['code']
-            actual_lat, actual_lon, normals_arr = climatedb.fetch_monthly_normals(dataset, lat, lon)
+
+            if calibrated:
+                calibrated_lat, calibrated_lon, calibrated_normals_arr = climatetransform.calibrate_location(
+                    dataset,
+                    lat,
+                    lon
+                )
+
+            try:
+                actual_lat, actual_lon, normals_arr = climatedb.fetch_monthly_normals(dataset, lat, lon)
+
+            except FileNotFoundError as e:
+                if calibrated:
+                    actual_lat, actual_lon, normals_arr = calibrated_lat, calibrated_lon, calibrated_normals_arr
+                else:
+                    raise e
+
+            if calibrated:
+                if (actual_lat, actual_lon) != (calibrated_lat, calibrated_lon):
+                    raise Exception('Expected calibrated coordinates to match those from on-the-fly calibration')
+
+                if np.any(normals_arr != calibrated_normals_arr):
+                    print(normals_arr, calibrated_normals_arr)
+                    raise Exception('Expected calibrated normals to correspond with on-the-fly calibration')
+
             normals[measurement] = {(i + 1): [value.item(), units] for i, value in enumerate(normals_arr)}
 
         normals.update({

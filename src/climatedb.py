@@ -217,6 +217,74 @@ def fetch_data_source(data_source_code):
         'active': active,
     }
 
+def fetch_baseline_data_source():
+    '''
+    Fetches the baseline data source
+    '''
+    db.cur.execute(
+        '''
+        SELECT id
+        FROM data_sources
+        WHERE baseline
+        LIMIT 1
+        '''
+    )
+    row = db.cur.fetchone()
+
+    if row is None:
+        raise NotFoundError('Could not find baseline data source %d' % data_source_id)
+
+    (data_source_id,) = row
+
+    return data_source_id
+
+def fetch_historical_data_source(data_source_id):
+    '''
+    Fetches the historical data source for the specified
+    projection data source ID.
+    '''
+    db.cur.execute(
+        '''
+        SELECT id
+        FROM data_sources
+        WHERE SUBSTR(code, 1, LOCATE('.', code) - 1) = (
+            SELECT SUBSTR(code, 1, LOCATE('.', code) - 1)
+            FROM data_sources
+            WHERE id = %s
+        )
+        AND SUBSTR(code, LOCATE('.', code) + 1) = 'historical'
+        ''',
+        (data_source_id,)
+    )
+    row = db.cur.fetchone()
+
+    if row is None:
+        raise NotFoundError('Could not find historical data source %d' % data_source_id)
+
+    (data_source_id,) = row
+
+    return data_source_id
+
+def fetch_date_ranges_by_data_source_id(data_source_id):
+    '''
+    Fetches the start and end date for the specified data source.
+    '''
+    db.cur.execute(
+        '''
+        SELECT start_date, end_date FROM datasets
+        WHERE data_source_id = %s
+        LIMIT 1
+        ''',
+        (data_source_id,)
+    )
+
+    rows = db.cur.fetchall()
+
+    if not rows:
+        raise NotFoundError('Could not find date range for data source %d' % data_source_id)
+
+    return ((start_date, end_date) for start_date, end_date in rows)
+
 def update_max_zoom_level(data_source_id, max_zoom_level):
     '''
     Updates the max zoom level of the specified data source
@@ -317,6 +385,11 @@ def fetch_dataset(data_source_id, measurement_id, unit_id, start_date, end_date,
 
     return {
         'id': dataset_id,
+        'data_source_id': data_source_id,
+        'measurement_id': measurement_id,
+        'unit_id': unit_id,
+        'start_date': start_date,
+        'end_date': end_date,
         'lat_start': lat_start,
         'lat_delta': lat_delta,
         'lon_start': lon_start,
@@ -325,6 +398,7 @@ def fetch_dataset(data_source_id, measurement_id, unit_id, start_date, end_date,
         'data_filename': data_filename,
         'lat_filename': lat_filename,
         'lon_filename': lon_filename,
+        'calibrated': calibrated,
     }
 
 def fetch_datasets(data_source_id, start_date, end_date, calibrated):
@@ -363,8 +437,11 @@ def fetch_datasets(data_source_id, start_date, end_date, calibrated):
     return (
         {
             'id': dataset_id,
+            'data_source_id': data_source_id,
             'measurement_id': measurement_id,
             'unit_id': unit_id,
+            'start_date': start_date,
+            'end_date': end_date,
             'lat_start': lat_start,
             'lat_delta': lat_delta,
             'lon_start': lon_start,

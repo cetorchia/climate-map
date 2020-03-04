@@ -1148,7 +1148,7 @@ def calibrate(
 
     if measurement in ABSOLUTE_DIFFERENCE_MEASUREMENTS:
         print('Using absolute difference')
-        differences = np.float64(projection_data - historical_data)
+        differences = np.float64(projection_data) - np.float64(historical_data)
     else:
         print('Using relative difference')
         differences = projection_data / historical_data
@@ -1184,7 +1184,7 @@ def calibrate(
         raise Exception('Expected downscaled differences to have the same shape as baseline data')
 
     if measurement in ABSOLUTE_DIFFERENCE_MEASUREMENTS:
-        calibrated_data = baseline_data + downscaled_differences
+        calibrated_data = np.float64(baseline_data) + downscaled_differences
     else:
         calibrated_data = np.round(baseline_data * downscaled_differences)
 
@@ -1213,6 +1213,53 @@ def calibrate(
         measurement,
         units
     ))
+
+def calibrate_location(dataset, lat, lon):
+    '''
+    Calibrates the climate normals at a specific location
+    against historical data.
+    '''
+    measurement = climatedb.fetch_measurement_by_id(dataset['measurement_id'])['code']
+    baseline_data_source_id = climatedb.fetch_baseline_data_source()
+    baseline_start_date, baseline_end_date = list(climatedb.fetch_date_ranges_by_data_source_id(baseline_data_source_id))[0]
+    baseline_dataset = climatedb.fetch_dataset(
+        baseline_data_source_id,
+        dataset['measurement_id'],
+        dataset['unit_id'],
+        baseline_start_date,
+        baseline_end_date,
+        calibrated=False
+    )
+
+    historical_data_source_id = climatedb.fetch_historical_data_source(dataset['data_source_id'])
+    historical_dataset = climatedb.fetch_dataset(
+        historical_data_source_id,
+        dataset['measurement_id'],
+        dataset['unit_id'],
+        baseline_start_date,
+        baseline_end_date,
+        calibrated=False
+    )
+
+    projection_dataset = climatedb.fetch_dataset(
+        dataset['data_source_id'],
+        dataset['measurement_id'],
+        dataset['unit_id'],
+        dataset['start_date'],
+        dataset['end_date'],
+        calibrated=False
+    )
+
+    actual_lat, actual_lon, historical_normals_arr = climatedb.fetch_monthly_normals(historical_dataset, lat, lon)
+    actual_lat, actual_lon, projection_normals_arr = climatedb.fetch_monthly_normals(projection_dataset, lat, lon)
+    actual_lat, actual_lon, baseline_normals_arr = climatedb.fetch_monthly_normals(baseline_dataset, lat, lon)
+
+    if measurement in ABSOLUTE_DIFFERENCE_MEASUREMENTS:
+        normals_arr = np.float64(baseline_normals_arr) + np.float64(projection_normals_arr) - np.float64(historical_normals_arr)
+    else:
+        normals_arr = np.float64(baseline_normals_arr) * np.float64(projection_normals_arr) / np.float64(historical_normals_arr)
+
+    return actual_lat, actual_lon, normals_arr
 
 def load_geonames(filename):
     '''

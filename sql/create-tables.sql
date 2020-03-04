@@ -32,10 +32,10 @@ CREATE TABLE datasets(
     unit_id INTEGER NOT NULL REFERENCES units(id),
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
-    lat_start DECIMAL(12, 10) NOT NULL,
-    lat_delta DECIMAL(12, 10) NOT NULL,
-    lon_start DECIMAL(13, 10) NOT NULL,
-    lon_delta DECIMAL(13, 10) NOT NULL,
+    lat_start DOUBLE(12, 10) NOT NULL,
+    lat_delta DOUBLE(12, 10) NOT NULL,
+    lon_start DOUBLE(13, 10) NOT NULL,
+    lon_delta DOUBLE(13, 10) NOT NULL,
     fill_value INTEGER NOT NULL,
     filename VARCHAR(128) NOT NULL,
     lat_filename VARCHAR(128) NOT NULL,
@@ -46,15 +46,15 @@ CREATE TABLE datasets(
 
 CREATE TABLE search_queue(
     id INTEGER AUTO_INCREMENT PRIMARY KEY,
-    timestamp DECIMAL(16, 6) NOT NULL,
+    timestamp DOUBLE(16, 6) NOT NULL,
     UNIQUE(timestamp)
 ) CHARACTER SET=utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 CREATE TABLE geonames(
     geonameid INTEGER PRIMARY KEY,
     name VARCHAR(200) NOT NULL,
-    latitude DECIMAL(12, 10) NOT NULL,
-    longitude DECIMAL(13, 10) NOT NULL,
+    latitude DOUBLE(12, 10) NOT NULL,
+    longitude DOUBLE(13, 10) NOT NULL,
     country CHAR(2),
     population INTEGER,
     elevation INTEGER

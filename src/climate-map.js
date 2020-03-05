@@ -869,19 +869,18 @@ function hideLocationClimate()
  */
 async function doSearch(search_query) {
     const data = await search(search_query);
-    const lat = data['lat'];
-    const lon = data['lon'];
+    const lat = data['latitude'];
+    const lon = data['longitude'];
 
     document.getElementById('search-container').style.display = 'none';
 
-    APP.climate_map.fitBounds([
-        [data.boundingbox[0], data.boundingbox[2]],
-        [data.boundingbox[1], data.boundingbox[3]],
-    ]);
+    APP.climate_map.setView([lat, lon], 8);
 
-    await loadLocationClimate(lat, lon, data['display_name']);
+    const place_name = data['name'] + ', ' + data['country'];
 
-    return [lat, lon, data['display_name']];
+    await loadLocationClimate(lat, lon, place_name);
+
+    return [lat, lon, place_name];
 }
 
 /**

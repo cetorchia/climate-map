@@ -44,12 +44,6 @@ CREATE TABLE datasets(
     UNIQUE(data_source_id, measurement_id, unit_id, start_date, end_date, calibrated)
 ) CHARACTER SET=utf8mb4 COLLATE utf8mb4_unicode_ci;
 
-CREATE TABLE search_queue(
-    id INTEGER AUTO_INCREMENT PRIMARY KEY,
-    timestamp DOUBLE(16, 6) NOT NULL,
-    UNIQUE(timestamp)
-) CHARACTER SET=utf8mb4 COLLATE utf8mb4_unicode_ci;
-
 CREATE TABLE geonames(
     geonameid INTEGER PRIMARY KEY,
     name VARCHAR(200) NOT NULL,

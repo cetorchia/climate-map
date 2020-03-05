@@ -1304,3 +1304,5 @@ def load_geonames(filename):
                 population,
                 elevation
             )
+
+    climatedb.commit()

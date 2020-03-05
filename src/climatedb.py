@@ -689,94 +689,6 @@ def fetch_normals_from_dataset_mean(dataset_record):
 
     return lat_mmap, lon_mmap, data
 
-def wait_search(seconds):
-    '''
-    Waits the specified number of seconds to do another search.
-    If other users are already requesting a search, we must wait
-    the specified amount of time after ALL users have made the
-    request.
-    '''
-    original_timestamp = timestamp = datetime.now().timestamp()
-    total_delay = current_delay = 0
-    queue_id = insert_search_queue(timestamp)
-    commit()
-    last_queue_id = next_queue_id = fetch_search_queue()
-
-    while (next_queue_id != queue_id) or current_delay < seconds:
-        time.sleep(seconds / 4)
-        next_queue_id = fetch_search_queue()
-
-        if total_delay >= 10:
-            delete_search_queue(queue_id)
-            raise Exception('Search queue timed out')
-
-        if last_queue_id != next_queue_id:
-            last_queue_id = next_queue_id
-            timestamp = datetime.now().timestamp()
-
-        current_delay = datetime.now().timestamp() - timestamp
-        total_delay = datetime.now().timestamp() - original_timestamp
-
-    delete_search_queue(queue_id)
-    commit()
-
-def insert_search_queue(timestamp):
-    '''
-    Inserts a search queue item with the specified timestamp.
-    '''
-    db.cur.execute(
-        '''
-        INSERT INTO search_queue(timestamp)
-        VALUES (%s)
-        ''',
-        (timestamp,)
-    )
-
-    db.cur.execute(
-        '''
-        SELECT id FROM search_queue
-        WHERE timestamp = %s
-        ''',
-        (timestamp,)
-    )
-
-    row = db.cur.fetchone()
-
-    if row is None:
-        raise Exception('Could not retrieve queue item with timestamp %g we just inserted' % timestamp)
-
-    return row[0]
-
-def fetch_search_queue():
-    '''
-    Fetches the id of the oldest item on the queue, or None if there are none.
-    '''
-    db.cur.execute(
-        '''
-        SELECT id FROM search_queue
-        ORDER BY timestamp LIMIT 1
-        '''
-    )
-
-    row = db.cur.fetchone()
-
-    if row is None:
-        return None
-    else:
-        return row[0]
-
-def delete_search_queue(queue_id):
-    '''
-    Deletes the queue item with the specified id
-    '''
-    db.cur.execute(
-        '''
-        DELETE FROM search_queue
-        WHERE id = %s
-        ''',
-        (queue_id,)
-    )
-
 def delete_geonames():
     '''
     Deletes all geonames.
@@ -794,3 +706,42 @@ def create_geoname(geonameid, name, lat, lon, country, population, elevation):
         ''',
         (geonameid, name, lat, lon, country, population, elevation)
     )
+
+def fetch_geoname(name):
+    '''
+    Fetches the most populous geoname with the specified name.
+    '''
+    db.cur.execute(
+        '''
+        SELECT geonameid, name, latitude, longitude, country, population, elevation FROM geonames
+        WHERE name = %s
+        ORDER BY population DESC, country ASC, geonameid ASC
+        LIMIT 1
+        ''',
+        (name,)
+    )
+
+    row = db.cur.fetchone()
+
+    if not row:
+        raise NotFoundError('Could not fetch geoname')
+
+    (
+        geonameid,
+        name,
+        latitude,
+        longitude,
+        country,
+        population,
+        elevation
+    ) = row
+
+    return {
+        'geonameid': geonameid,
+        'name': name,
+        'latitude': latitude,
+        'longitude': longitude,
+        'country': country,
+        'population': population,
+        'elevation': elevation
+    }

@@ -3,7 +3,7 @@
 # Loads geonames from the specified file.
 #
 # See https://download.geonames.org/export/dump/readme.txt
-# See https://download.geonames.org/export/dump/allCountries.zip
+# See https://download.geonames.org/export/dump/alternateNames.zip
 #
 # Copyright (c) 2020 Carlos Torchia
 #
@@ -36,7 +36,7 @@ def main(args):
 
     climatedb.connect()
 
-    geonames.load_geonames(filename)
+    geonames.load_alternate_names(filename)
 
     climatedb.close()
 

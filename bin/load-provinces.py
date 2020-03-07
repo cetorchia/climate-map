@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 #
-# Loads geonames from the specified file.
-#
-# See https://download.geonames.org/export/dump/readme.txt
-# See https://download.geonames.org/export/dump/allCountries.zip
+# Loads provinces from the specified file.
+# See https://download.geonames.org/export/dump/admin1CodesASCII.txt
 #
 # Copyright (c) 2020 Carlos Torchia
 #
@@ -36,7 +34,7 @@ def main(args):
 
     climatedb.connect()
 
-    geonames.load_geonames(filename)
+    geonames.load_provinces(filename)
 
     climatedb.close()
 

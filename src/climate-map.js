@@ -876,7 +876,13 @@ async function doSearch(search_query) {
 
     APP.climate_map.setView([lat, lon], 8);
 
-    const place_name = data['name'] + ', ' + data['country'];
+    let place_name = data['name'];
+
+    if (data['province']) {
+        place_name += ', ' + data['province'];
+    } else if (data['country']) {
+        place_name += ', ' + data['country'];
+    }
 
     await loadLocationClimate(lat, lon, place_name);
 
@@ -997,7 +1003,7 @@ function updatePageState(lat, lon, location, page_title)
     let url_path;
 
     if (state.location !== null) {
-        url_path = APP_URL + 'location/' + encodeURIComponent(state.location);
+        url_path = APP_URL + 'location/' + encodeURIComponent(state.location.replace(',', ''));
     } else if (state.lat !== null && state.lon !== null) {
         url_path = APP_URL + 'location/' + encodeURIComponent(state.lat) + '/' + encodeURIComponent(state.lon);
     } else {

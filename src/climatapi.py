@@ -15,6 +15,7 @@ from flask import jsonify
 from werkzeug.routing import FloatConverter as BaseFloatConverter
 
 import climatedb
+import geonamedb
 import climatetransform
 
 app = Flask(__name__)
@@ -145,20 +146,33 @@ def search(query):
     Searches for the place specified in the query.
     '''
     try:
-        geoname = climatedb.fetch_geoname(query)
-    except climatedb.NotFoundError as e:
-        names = set(query.split(' '))
-        for name in names:
-            try:
-                geoname = climatedb.fetch_geoname(name)
-                break
-            except climatedb.NotFoundError as e:
-                pass
+        geoname = geonamedb.search_geoname(query)
+    except climatedb.NotFoundError:
+        return jsonify({'error': 'Search found no results for "%s"' % query}), 404
 
-    if geoname:
-        return jsonify(geoname)
-    else:
-        return jsonify({'error': 'Search found no results'}), 404
+    if geoname['province']:
+        try:
+            province_geoname = geonamedb.fetch_geoname_by_province(geoname['province'], geoname['country'])
+
+            try:
+                geoname['province'] = geonamedb.fetch_abbreviation_by_geoname(province_geoname['geonameid'])
+            except climatedb.NotFoundError:
+                geoname['province'] = None
+
+        except climatedb.NotFoundError:
+            geoname['province'] = None
+
+    if geoname['country']:
+        try:
+            country_geoname = geonamedb.fetch_geoname_by_country(geoname['country'])
+
+            if country_geoname['geonameid'] == geoname['geonameid']:
+                geoname['country'] = None
+
+        except climatedb.NotFoundError:
+            pass
+
+    return jsonify(geoname)
 
 if __name__ == '__main__':
     app.run(processes=3)

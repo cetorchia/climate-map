@@ -33,3 +33,6 @@ VALUES
     ('MRI-ESM2-0.ssp585', 'MRI-ESM2 fossil fueled development', 'MRI', 'Yukimoto, Seiji; Koshiro, Tsuyoshi; Kawai, Hideaki et al.', 'http://doi.org/10.22033/ESGF/CMIP6.6929', '2019', true),
     ('GFDL-ESM4.ssp245', 'GFDL-ESM4 middle of the road', 'NOAA', 'John, Jasmin G; Blanton, Chris; McHugh, Colleen et al.', 'http://doi.org/10.22033/ESGF/CMIP6.8686', '2018', true),
     ('GFDL-ESM4.ssp585', 'GFDL-ESM4 fossil fueled development', 'NOAA', 'John, Jasmin G; Blanton, Chris; McHugh, Colleen et al.', 'http://doi.org/10.22033/ESGF/CMIP6.8686', '2018', true);
+
+-- Country no longer exists so it breaks a foreign key constraint.
+INSERT INTO countries(code, name) VALUES ('YU', 'Federal Republic of Yugoslavia');

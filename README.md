@@ -225,9 +225,9 @@ You have to specify whether the script is calibrated using the last parameter.
 
 ## OSM tiling
 
-Given the lack of documentation surrounding the OSM tiling system, here
-is how the map tiles correspond to the division of the world map.
-If it's there, sorry, but I looked and looked.
+Here is how the map tiles correspond to the division of the world map.
+This is also documented at
+[Zoom levels - OpenStreetMap Wiki](https://wiki.openstreetmap.org/wiki/Zoom_levels).
 
 For each zoom level, the map is divided by 2 lengthwise and 2 widthwise.
 It starts at one tile for the entire world at zoom level 0, consisting

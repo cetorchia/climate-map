@@ -29,8 +29,8 @@ elif [ $COPY_TILES ]; then
 elif [ $COPY_CONFIG ]; then
     rsync -pRr --del config/config.yaml.example "$DESTINATION"
 else
-    rsync -pRr --del --exclude=__pycache__ src "$DESTINATION"
-    rsync -pRr --del --exclude=*bundle.js public/*.* "$DESTINATION"
-    rsync -pRr --del sql "$DESTINATION"
-    rsync -pR package.json webpack.config.js "$DESTINATION"
+    rsync -pRr --del --exclude=__pycache__ src "$DESTINATION" || exit 1
+    rsync -pRr --del --exclude=*bundle.js public/*.* "$DESTINATION" || exit 1
+    rsync -pRr --del sql "$DESTINATION" || exit 1
+    rsync -pR package.json webpack.config.js "$DESTINATION" || exit 1
 fi

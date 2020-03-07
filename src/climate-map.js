@@ -227,6 +227,7 @@ function updateTileLayer(tile_layer)
         tileUrl(data_source, date_range, measurement, period, 'tiles')
     );
     tile_layer.options.maxNativeZoom = dataSourceMaxZoomLevel(data_source_select);
+    tile_layer.options.maxZoom = tile_layer.options.maxNativeZoom + 1;
 }
 
 /**
@@ -247,13 +248,14 @@ function createTileLayer()
     const measurement = measurement_select.value;
     const period = period_select.value;
 
+    const max_zoom_level = dataSourceMaxZoomLevel(data_source_select);
     const tile_layer = L.tileLayer(
         tileUrl(data_source, date_range, measurement, period, 'tiles'),
         {
             attribution: dataSourceAttribution(data_source_select),
-            maxZoom: 12,
-            maxNativeZoom: dataSourceMaxZoomLevel(data_source_select),
-            opacity: 0.6,
+            maxZoom: max_zoom_level + 1,
+            maxNativeZoom: max_zoom_level,
+            opacity: 0.5,
             bounds: [[85.051129, -180], [-85.051129 + DELTA/2, 180 - DELTA/2]],
         }
     );
@@ -874,7 +876,7 @@ async function doSearch(search_query) {
 
     document.getElementById('search-container').style.display = 'none';
 
-    APP.climate_map.setView([lat, lon], 8);
+    APP.climate_map.setView([lat, lon], APP.climate_map.options.maxZoom);
 
     let place_name = data['name'];
 
@@ -1027,7 +1029,7 @@ function goToPageState(state)
 {
     if (state.lat !== null && state.lon !== null) {
         loadLocationClimate(state.lat, state.lon, state.location);
-        APP.climate_map.setView([state.lat, state.lon], 8);
+        APP.climate_map.setView([state.lat, state.lon], APP.climate_map.options.maxZoom);
         APP.clicked_lat = state.lat;
         APP.clicked_lon = state.lon;
     } else if (state.location !== null) {
@@ -1099,6 +1101,7 @@ window.onload = async function() {
     populateDateRanges(date_range_select).then(function() {
         populateDataSources(data_source_select, date_range_select).then(function() {
             APP.climate_tile_layer = createTileLayer().addTo(APP.climate_map);
+            APP.climate_map.options.maxZoom = APP.climate_tile_layer.options.maxZoom;
             goToURL(document.location.pathname); 
         });
     });
@@ -1107,6 +1110,7 @@ window.onload = async function() {
 
     function change_data_source() {
         updateTilesAndChart();
+        APP.climate_map.options.maxZoom = APP.climate_tile_layer.options.maxZoom;
 
         APP.climate_tile_layer.remove();
         APP.climate_tile_layer.options.attribution = dataSourceAttribution(data_source_select);

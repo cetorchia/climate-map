@@ -5,6 +5,7 @@
 
 if [ -z "$1" -o -n "$3" ]; then
     echo "Usage: $0 <server> [--data|--tiles|--config]" >&2
+    exit 1
 fi
 
 if [ "$2" == "--data" ]; then

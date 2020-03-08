@@ -5,32 +5,38 @@
  */
 
 import CONFIG from '../config/config.json';
+import './style.css';
 
 let L, Chart;
 
 async function importDependencies()
 {
-    const {default: L} = await import(/* webpackChunkName: "leaflet" */ 'leaflet/dist/leaflet-src.js');
-    const {default: Chart} = await import(/* webpackChunkName: "chartjs" */ 'chart.js/dist/Chart.bundle.js');
+    try {
+        const {default: L} = await import(/* webpackChunkName: "leaflet" */ 'leaflet/dist/leaflet-src.js');
+        const {default: Chart} = await import(/* webpackChunkName: "chartjs" */ 'chart.js/dist/Chart.bundle.js');
 
-    await import('./style.css');
-    await import('leaflet/dist/leaflet.css');
+        await import('leaflet/dist/leaflet.css');
 
-    // Hack so that leaflet's images work after going through webpack
-    // @ see https://github.com/PaulLeCam/react-leaflet/issues/255#issuecomment-388492108
-    const {default: marker} = await import('leaflet/dist/images/marker-icon.png');
-    const {default: marker2x} = await import('leaflet/dist/images/marker-icon-2x.png');
-    const {default: markerShadow} = await import('leaflet/dist/images/marker-shadow.png');
+        // Hack so that leaflet's images work after going through webpack
+        // @ see https://github.com/PaulLeCam/react-leaflet/issues/255#issuecomment-388492108
+        const {default: marker} = await import('leaflet/dist/images/marker-icon.png');
+        const {default: marker2x} = await import('leaflet/dist/images/marker-icon-2x.png');
+        const {default: markerShadow} = await import('leaflet/dist/images/marker-shadow.png');
 
-    delete L.Icon.Default.prototype._getIconUrl;
+        delete L.Icon.Default.prototype._getIconUrl;
 
-    L.Icon.Default.mergeOptions({
-        iconRetinaUrl: marker2x,
-        iconUrl: marker,
-        shadowUrl: markerShadow
-    });
+        L.Icon.Default.mergeOptions({
+            iconRetinaUrl: marker2x,
+            iconUrl: marker,
+            shadowUrl: markerShadow
+        });
 
-    return [L, Chart];
+        return [L, Chart];
+    } catch (err) {
+        showError('An error occurred fetching dependencies. Please try again later.');
+        console.error(err);
+        throw err;
+    }
 }
 
 /**
@@ -62,23 +68,19 @@ let APP = {};
  */
 async function fetchFromAPI(url)
 {
-    try {
-        const response = await fetch(url).then((response) => {
-            // Credit: https://stackoverflow.com/a/54164027
-            if (response.status >= 400 && response.status < 600) {
-                if (response.status == 404) {
-                    throw new Error(NOT_FOUND_ERROR_MESSAGE);
-                } else {
-                    throw new Error(API_ERROR_MESSAGE);
-                }
+    const response = await fetch(url).then((response) => {
+        // Credit: https://stackoverflow.com/a/54164027
+        if (response.status >= 400 && response.status < 600) {
+            if (response.status == 404) {
+                throw new Error(NOT_FOUND_ERROR_MESSAGE);
+            } else {
+                throw new Error(API_ERROR_MESSAGE);
             }
+        }
 
-            return response;
-        });
-        return response.json();
-    } catch (err) {
-        throw err;
-    }
+        return response;
+    });
+    return response.json();
 }
 
 /**

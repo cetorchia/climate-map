@@ -5,7 +5,7 @@ module.exports = {
         'climate-map': './src/climate-map.js',
     },
     output: {
-        filename: '[name].bundle.js',
+        filename: '[name].bundle.js?hash=[chunkhash]',
         path: path.resolve(__dirname, 'public'),
         publicPath: '/',
     },

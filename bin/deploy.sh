@@ -26,17 +26,17 @@ DESTINATION="$SERVER:$REPO_NAME"
 cd $REPO
 
 if [ $COPY_DATA ]; then
-    rsync -pRr --exclude=*-calibrated-* --del data "$DESTINATION"
+    rsync -pRru --exclude=*-calibrated-* --del data "$DESTINATION"
 elif [ $COPY_TILES ]; then
-    rsync -pRr --del public/tiles "$DESTINATION"
+    rsync -pRru --del public/tiles "$DESTINATION"
 elif [ $COPY_CONFIG ]; then
-    rsync -pRr --del config/config.yaml.example "$DESTINATION"
-    rsync -pRr --del config/config.json.example "$DESTINATION"
+    rsync -pRru --del config/config.yaml.example "$DESTINATION"
+    rsync -pRru --del config/config.json.example "$DESTINATION"
 else
-    rsync -pRr --del --exclude=__pycache__ src "$DESTINATION" || exit 1
-    rsync -pRr --del --exclude=*bundle.js public/*.* "$DESTINATION" || exit 1
-    rsync -pRr --del sql "$DESTINATION" || exit 1
-    rsync -pR package.json webpack.config.js "$DESTINATION" || exit 1
+    rsync -pRru --del --exclude=__pycache__ src "$DESTINATION" || exit 1
+    rsync -pRru --del --exclude=*bundle.js public/*.* "$DESTINATION" || exit 1
+    rsync -pRru --del sql "$DESTINATION" || exit 1
+    rsync -pRu package.json webpack.config.js "$DESTINATION" || exit 1
 fi
 
 if [ $DO_BUILD ]; then

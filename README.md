@@ -19,14 +19,6 @@ See [README-server.md](README-server.md)
 
 # Installation
 
-To install the climate map, first use npm to build the javascript.
-
-```
-npm install
-npm run build-dev       # Development environment (your local machine)
-npm run build           # Production environment (your web host)
-```
-
 Install the following Ubuntu packages, or equivalent:
 
 * npm
@@ -40,6 +32,19 @@ Install the following Ubuntu packages, or equivalent:
 * python3-mysqldb
 * mysql-server
 * nginx
+
+## JavaScript setup
+
+Use npm to build the javascript.
+
+```
+npm install
+npm run build-dev       # Development environment (your local machine)
+npm run build           # Production environment (your web host)
+```
+
+Configure the javascript in `config/config.json`.
+See `config/config.json.example`.
 
 ## Database setup
 

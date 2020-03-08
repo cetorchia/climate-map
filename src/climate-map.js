@@ -4,6 +4,8 @@
  * Copyright (c) 2020 Carlos Torchia
  */
 
+import CONFIG from '../config/config.json';
+
 let L, Chart;
 
 async function importDependencies()
@@ -1086,8 +1088,8 @@ window.onload = async function() {
 
     APP.climate_map = L.map('climate-map').setView([0, 0], 2);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: 'Map tiles &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    L.tileLayer(CONFIG.base_tile_url, {
+        attribution: CONFIG.base_tile_attribution
     }).addTo(APP.climate_map);
 
     APP.location_marker = L.marker([0, 0]);

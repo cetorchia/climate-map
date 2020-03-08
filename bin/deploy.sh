@@ -28,6 +28,7 @@ elif [ $COPY_TILES ]; then
     rsync -pRr --del public/tiles "$DESTINATION"
 elif [ $COPY_CONFIG ]; then
     rsync -pRr --del config/config.yaml.example "$DESTINATION"
+    rsync -pRr --del config/config.json.example "$DESTINATION"
 else
     rsync -pRr --del --exclude=__pycache__ src "$DESTINATION" || exit 1
     rsync -pRr --del --exclude=*bundle.js public/*.* "$DESTINATION" || exit 1

@@ -163,6 +163,16 @@ you know which is which in every case.
 should map to those bounds, or they may not align with the OSM tiles. See
 [Web Mercator projection](https://en.wikipedia.org/wiki/Web_Mercator_projection#Formulas).
 
+* When updating the code in `climate-map.js`, after running `npm run build`, it is
+recommended that you update the hash of `climate-map.bundle.js` in `public/index.html`.
+This will force the update of that file by the user's browser cache. If not, they
+have to press Ctrl+Shift+R to force a refresh. Another option is to put your release
+version.
+
+```
+<script type="text/javascript" src="/climate-map.bundle.js?hash=58fce162760b3b36b1b5"></script>
+```
+
 # Data source(s)
 
 * [ESRL : PSD : All Gridded Datasets](https://www.esrl.noaa.gov/psd/data/gridded/)

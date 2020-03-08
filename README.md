@@ -32,6 +32,8 @@ Install the following Ubuntu packages, or equivalent:
 * python3-mysqldb
 * mysql-server
 * nginx
+* uwsgi
+* uwsgi-plugin-python3
 
 ## JavaScript setup
 
@@ -129,7 +131,7 @@ chdir = /path/to/climate-map
 pythonpath = /path/to/climate-map/src
 wsgi-file = src/climatapi.py
 callable = app
-socket = 127.0.0.1:5000
+http = 127.0.0.1:5000
 processes = 3
 ```
 

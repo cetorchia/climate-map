@@ -8,3 +8,4 @@ __pycache__/
 /data/*
 /config/config.yaml
 /config/config.json
+*.pyc

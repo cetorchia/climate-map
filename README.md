@@ -120,6 +120,26 @@ server {
 }
 ```
 
+Create `/etc/uwsgi/apps-available/climatapi.ini` to have:
+
+```
+[uwsgi]
+plugin = python3
+chdir = /path/to/climate-map
+pythonpath = /path/to/climate-map/src
+wsgi-file = src/climatapi.py
+callable = app
+socket = 127.0.0.1:5000
+processes = 3
+```
+
+Then run:
+
+```
+sudo ln -s /etc/nginx/sites-available/climate-map.conf /etc/nginx/sites-enabled/
+sudo ln -s /etc/uwsgi/apps-available/climatapi.ini /etc/uwsgi/apps-enabled/
+```
+
 ## Running the API web server
 
 Run this in bash:

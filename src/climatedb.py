@@ -33,9 +33,6 @@ def connect():
     '''
     global db
 
-    if db is not None:
-        db.conn.close()
-
     db = Db(
         name=config.database.name,
         host=config.database.host,

@@ -125,7 +125,7 @@ server {
 Run this in bash:
 
 ```
-FLASK_APP=src/climatapi.py flask run
+python3 src/climatapi.py
 ```
 
 # Important notes

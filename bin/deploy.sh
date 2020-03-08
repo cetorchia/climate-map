@@ -14,6 +14,8 @@ elif [ "$2" == "--tiles" ]; then
     COPY_TILES=1
 elif [ "$2" == "--config" ]; then
     COPY_CONFIG=1
+elif [ "$2" == "--build" ]; then
+    DO_BUILD=1
 fi
 
 SERVER="$1"
@@ -35,4 +37,8 @@ else
     rsync -pRr --del --exclude=*bundle.js public/*.* "$DESTINATION" || exit 1
     rsync -pRr --del sql "$DESTINATION" || exit 1
     rsync -pR package.json webpack.config.js "$DESTINATION" || exit 1
+fi
+
+if [ $DO_BUILD ]; then
+    ssh $SERVER "cd $REPO_NAME && npm run build"
 fi

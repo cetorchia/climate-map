@@ -122,6 +122,17 @@ server {
 }
 ```
 
+Then run:
+
+```
+sudo ln -s /etc/nginx/sites-available/climate-map.conf /etc/nginx/sites-enabled/
+sudo service nginx restart
+```
+
+## uWSGI
+
+uWSGI is used to run the API server. The main nginx server passes
+traffic headed to `/api/` to the server running on port 5000.
 Create `/etc/uwsgi/apps-available/climatapi.ini` to have:
 
 ```
@@ -138,16 +149,8 @@ processes = 3
 Then run:
 
 ```
-sudo ln -s /etc/nginx/sites-available/climate-map.conf /etc/nginx/sites-enabled/
 sudo ln -s /etc/uwsgi/apps-available/climatapi.ini /etc/uwsgi/apps-enabled/
-```
-
-## Running the API web server
-
-Run this in bash:
-
-```
-python3 src/climatapi.py
+sudo service uwsgi restart
 ```
 
 # Important notes
@@ -288,7 +291,16 @@ To configure the climate map, you must update the config file on the server.
 ssh myclimatemap.org
 cd climate-map
 vim config/config.yaml
+cp config/config.json.example config/config.json
 ```
+
+Next, build the javascript.
+
+```
+bin/deploy.sh myclimatemap.org --build
+```
+
+## Database setup
 
 To copy your local database to the server (assuming all transformations were
 done locally and not on the server), you can run the following.
@@ -309,21 +321,9 @@ Again, make sure to **change the password** of the climate_map user for security
 
 ## Nginx
 
-As described above, nginx is needed so copy the nginx config to the
-server in sites-available and then link from sites-enabled/.
+Set up nginx as described above.
 
-```
-vim /etc/nginx/sites-available/climate-map.conf
-ln -s /etc/nginx/sites-available/climate-map.conf /etc/nginx/sites-enabled/climate-map.conf
-sudo service nginx restart
-```
+## uWSGI
 
-## Running the server
-
-Build the javascript and run the API server:
-
-```
-cd climate-map
-npm run build
-nohup python3 src/climatapi.py &
-```
+Set up uWSGI as described above.
+Whenever the API code changes you have to restart uWSGI.

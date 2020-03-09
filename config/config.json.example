@@ -1,5 +1,12 @@
 {
-    "base_tile_url": "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-    "base_tile_attribution": "Map tiles &copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors"
+    "climate_tile_layer": {
+        "z_index": 2
+    },
+    "tile_layers": [
+        {
+            "url": "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            "attribution": "Map tiles &copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors",
+            "z_index": 1
+        }
+    ]
 }
-

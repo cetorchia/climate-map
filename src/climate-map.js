@@ -257,6 +257,7 @@ function createTileLayer()
         tileUrl(data_source, date_range, measurement, period, 'tiles'),
         {
             attribution: dataSourceAttribution(data_source_select),
+            zIndex: CONFIG.climate_tile_layer.z_index,
             maxZoom: max_zoom_level + 1,
             maxNativeZoom: max_zoom_level,
             opacity: 0.5,
@@ -1090,9 +1091,14 @@ window.onload = async function() {
 
     APP.climate_map = L.map('climate-map').setView([0, 0], 2);
 
-    L.tileLayer(CONFIG.base_tile_url, {
-        attribution: CONFIG.base_tile_attribution
-    }).addTo(APP.climate_map);
+    for (let i = 0; i <= CONFIG.tile_layers.length - 1; i++) {
+        const tile_layer = CONFIG.tile_layers[i];
+
+        L.tileLayer(tile_layer.url, {
+            attribution: tile_layer.attribution,
+            zIndex: tile_layer.z_index,
+        }).addTo(APP.climate_map);
+    }
 
     APP.location_marker = L.marker([0, 0]);
 

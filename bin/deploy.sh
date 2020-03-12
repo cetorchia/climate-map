@@ -40,5 +40,5 @@ else
 fi
 
 if [ $DO_BUILD ]; then
-    ssh $SERVER "cd $REPO_NAME && npm run build"
+    ssh $SERVER "cd $REPO_NAME && npm update && npm run build"
 fi

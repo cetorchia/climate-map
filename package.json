@@ -34,6 +34,8 @@
   },
   "dependencies": {
     "chart.js": "^2.9.3",
-    "leaflet": "^1.6.0"
+    "leaflet": "^1.6.0",
+    "mapbox-gl": "^1.8.1",
+    "mapbox-gl-leaflet": "0.0.11"
   }
 }

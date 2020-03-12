@@ -16,6 +16,8 @@ async function importDependencies()
         const {default: Chart} = await import(/* webpackChunkName: "chartjs" */ 'chart.js/dist/Chart.bundle.js');
 
         await import('leaflet/dist/leaflet.css');
+        await import(/* webpackChunkName: "mapbox-gl-leaflet" */ 'mapbox-gl-leaflet');
+        await import('mapbox-gl/dist/mapbox-gl.css');
 
         // Hack so that leaflet's images work after going through webpack
         // @ see https://github.com/PaulLeCam/react-leaflet/issues/255#issuecomment-388492108
@@ -231,7 +233,6 @@ function updateTileLayer(tile_layer)
         tileUrl(data_source, date_range, measurement, period, 'tiles')
     );
     tile_layer.options.maxNativeZoom = dataSourceMaxZoomLevel(data_source_select);
-    tile_layer.options.maxZoom = tile_layer.options.maxNativeZoom + 1;
 }
 
 /**
@@ -258,7 +259,6 @@ function createTileLayer()
         {
             attribution: dataSourceAttribution(data_source_select),
             zIndex: CONFIG.climate_tile_layer.z_index,
-            maxZoom: max_zoom_level + 1,
             maxNativeZoom: max_zoom_level,
             opacity: 0.5,
             bounds: [[85.051129, -180], [-85.051129 + DELTA/2, 180 - DELTA/2]],
@@ -881,7 +881,7 @@ async function doSearch(search_query) {
 
     document.getElementById('search-container').style.display = 'none';
 
-    APP.climate_map.setView([lat, lon], APP.climate_map.options.maxZoom);
+    APP.climate_map.setView([lat, lon], CONFIG.maxZoom);
 
     let place_name = data['name'];
 
@@ -1091,13 +1091,30 @@ window.onload = async function() {
 
     APP.climate_map = L.map('climate-map').setView([0, 0], 2);
 
+    if (CONFIG.min_zoom !== undefined) {
+        APP.climate_map.options.minZoom = CONFIG.min_zoom;
+    }
+
+    if (CONFIG.max_zoom !== undefined) {
+        APP.climate_map.options.maxZoom = CONFIG.max_zoom;
+    }
+
     for (let i = 0; i <= CONFIG.tile_layers.length - 1; i++) {
         const tile_layer = CONFIG.tile_layers[i];
 
-        L.tileLayer(tile_layer.url, {
-            attribution: tile_layer.attribution,
-            zIndex: tile_layer.z_index,
-        }).addTo(APP.climate_map);
+        if (tile_layer.mapboxGL) {
+            L.mapboxGL({
+                attribution: tile_layer.attribution,
+                accessToken: tile_layer.access_token,
+                style: tile_layer.style_url,
+                zIndex: tile_layer.z_index,
+            }).addTo(APP.climate_map);
+        } else {
+            L.tileLayer(tile_layer.url, {
+                attribution: tile_layer.attribution,
+                zIndex: tile_layer.z_index,
+            }).addTo(APP.climate_map);
+        }
     }
 
     APP.location_marker = L.marker([0, 0]);
@@ -1111,7 +1128,6 @@ window.onload = async function() {
     populateDateRanges(date_range_select).then(function() {
         populateDataSources(data_source_select, date_range_select).then(function() {
             APP.climate_tile_layer = createTileLayer().addTo(APP.climate_map);
-            APP.climate_map.options.maxZoom = APP.climate_tile_layer.options.maxZoom;
             goToURL(document.location.pathname); 
         });
     });
@@ -1120,7 +1136,6 @@ window.onload = async function() {
 
     function change_data_source() {
         updateTilesAndChart();
-        APP.climate_map.options.maxZoom = APP.climate_tile_layer.options.maxZoom;
 
         APP.climate_tile_layer.remove();
         APP.climate_tile_layer.options.attribution = dataSourceAttribution(data_source_select);

@@ -731,6 +731,7 @@ async function populateDataSources(data_source_select, date_range_select)
 
     /* Use the last selected data source for this date range, if any. */
     const last_selected_data_source = data_source_select.getAttribute('data-last');
+    let used_previous_data_source = false;
 
     /* Remove all existing options. */
     data_source_select.innerHTML = '';
@@ -750,9 +751,15 @@ async function populateDataSources(data_source_select, date_range_select)
 
         if (option.value === selected_data_source) {
             data_source_select.selectedIndex = i;
+            used_previous_data_source = true;
         } else if (option.value === last_selected_data_source) {
             data_source_select.selectedIndex = i;
+            used_previous_data_source = true;
         }
+    }
+
+    if (!used_previous_data_source) {
+        data_source_select.selectedIndex = Math.floor(Math.random() * data_sources.length);
     }
 }
 

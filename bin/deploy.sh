@@ -12,8 +12,6 @@ if [ "$2" == "--data" ]; then
     COPY_DATA=1
 elif [ "$2" == "--tiles" ]; then
     COPY_TILES=1
-elif [ "$2" == "--config" ]; then
-    COPY_CONFIG=1
 elif [ "$2" == "--build" ]; then
     DO_BUILD=1
 fi
@@ -29,14 +27,13 @@ if [ $COPY_DATA ]; then
     rsync -pRru --exclude=*-calibrated-* --del data "$DESTINATION"
 elif [ $COPY_TILES ]; then
     rsync -pRru --del public/tiles "$DESTINATION"
-elif [ $COPY_CONFIG ]; then
-    rsync -pRru --del config/config.yaml.example "$DESTINATION"
-    rsync -pRru --del config/config.json.example "$DESTINATION"
 else
     rsync -pRru --del --exclude=__pycache__ src "$DESTINATION" || exit 1
     rsync -pRru --del --exclude=*bundle.js public/*.* "$DESTINATION" || exit 1
     rsync -pRru --del sql "$DESTINATION" || exit 1
     rsync -pRu package.json webpack.config.js "$DESTINATION" || exit 1
+    rsync -pRru --del config/config.yaml.example "$DESTINATION"
+    rsync -pRru --del config/config.json.example "$DESTINATION"
 fi
 
 if [ $DO_BUILD ]; then

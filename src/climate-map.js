@@ -1098,6 +1098,14 @@ function pageStateFromURL(url)
 }
 
 /**
+ * Returns the email address of the specified contact.
+ */
+function getContact(contact_name)
+{
+    return CONFIG.contact[contact_name].username + '@' + CONFIG.contact[contact_name].domain;
+}
+
+/**
  * Loads the climate map.
  */
 window.onload = async function() {
@@ -1272,4 +1280,11 @@ window.onload = async function() {
             goToPageState(e.state);
         }
     };
+
+    /**
+     * Display the support contact.
+     */
+    const support_contact = getContact('support');
+    document.getElementById('support-contact').innerHTML =
+        '<a href="mailto:' + support_contact + '">' + support_contact + '</a>';
 };

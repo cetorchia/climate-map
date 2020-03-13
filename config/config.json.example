@@ -8,5 +8,11 @@
             "attribution": "Map tiles &copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors",
             "z_index": 1
         }
-    ]
+    ],
+    "contact": {
+        "support": {
+            "username": "support",
+            "domain": "myclimatemap.org"
+        }
+    }
 }

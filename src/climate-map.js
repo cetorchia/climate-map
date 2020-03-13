@@ -20,7 +20,7 @@ async function importDependencies()
         await import('mapbox-gl/dist/mapbox-gl.css');
 
         // Hack so that leaflet's images work after going through webpack
-        // @ see https://github.com/PaulLeCam/react-leaflet/issues/255#issuecomment-388492108
+        // @see https://github.com/PaulLeCam/react-leaflet/issues/255#issuecomment-388492108
         const {default: marker} = await import('leaflet/dist/images/marker-icon.png');
         const {default: marker2x} = await import('leaflet/dist/images/marker-icon-2x.png');
         const {default: markerShadow} = await import('leaflet/dist/images/marker-shadow.png');
@@ -64,6 +64,8 @@ const TILE_URL = '/tiles';
 const APP_URL = '/';
 
 let APP = {};
+
+let defaultDataSources = {};
 
 /**
  * Makes a request to the API.
@@ -727,6 +729,9 @@ async function populateDataSources(data_source_select, date_range_select)
         selected_data_source = selected_option.value;
     }
 
+    /* Use the last selected data source for this date range, if any. */
+    const last_selected_data_source = data_source_select.getAttribute('data-last');
+
     /* Remove all existing options. */
     data_source_select.innerHTML = '';
 
@@ -743,7 +748,9 @@ async function populateDataSources(data_source_select, date_range_select)
 
         data_source_select.add(option);
 
-        if (option.value == selected_data_source) {
+        if (option.value === selected_data_source) {
+            data_source_select.selectedIndex = i;
+        } else if (option.value === last_selected_data_source) {
             data_source_select.selectedIndex = i;
         }
     }
@@ -1142,7 +1149,12 @@ window.onload = async function() {
         APP.climate_tile_layer.addTo(APP.climate_map);
     }
 
-    data_source_select.onchange = change_data_source;
+    data_source_select.onchange = function() {
+        change_data_source();
+
+        const selected_data_source = data_source_select.options[data_source_select.selectedIndex].value;
+        data_source_select.setAttribute('data-last', selected_data_source);
+    };
 
     date_range_select.onchange = function() {
         populateDataSources(data_source_select, date_range_select).then(change_data_source);

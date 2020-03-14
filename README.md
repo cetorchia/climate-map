@@ -80,8 +80,24 @@ proxy_cache_path /tmp/api_cache levels=1:2 keys_zone=api_cache:60m max_size=1g
                  inactive=60m use_temp_path=off;
 
 server {
-    listen              80;
-    server_name         climatemap;
+    listen 80;
+    listen [::]:80 default_server;
+    server_name myclimatemap.org;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen              443 ssl;
+    server_name         myclimatemap.org;
+    keepalive_timeout   70;
+
+    ssl_session_cache   shared:SSL:10m;
+    ssl_session_timeout 10m;
+    ssl_certificate     /etc/ssl/climatemap/cert.pem;
+    ssl_certificate_key /etc/ssl/climatemap/key.pem;
+    ssl_protocols       TLSv1 TLSv1.1 TLSv1.2;
+    ssl_ciphers         HIGH:!aNULL:!MD5;
+
     root                /path/to/climate-map/public;
     index               index.html;
 
@@ -119,7 +135,13 @@ server {
         sub_filter "<title>Climate Map</title>" "<title>$title</title>";
         sub_filter "<meta name=\"description\" content=\"Climate map showing past and future temperature and precipitation\">" "<meta name=\"description\" content=\"$title\">";
     }
-}
+```
+
+If you do not have a SSL certificate, you can generate a self-signed key.
+Otherwise use the certificate provided by your CA.
+
+```
+sudo openssl req -x509 -newkey rsa:4096 -keyout /etc/ssl/climatemap/key.pem -out /etc/ssl/climatemap/cert.pem -nodes
 ```
 
 Then run:

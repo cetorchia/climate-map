@@ -103,7 +103,7 @@ def main(args):
         for month in months:
             lat_arr, lon_arr, normals = climatedb.fetch_normals_from_dataset(dataset, month)
             if aggregated_normals is None:
-                aggregated_normals = normals
+                aggregated_normals = normals.copy()
             else:
                 aggregated_normals += normals
 

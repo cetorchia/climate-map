@@ -81,6 +81,13 @@ body {
     overflow-y: scroll;
 }
 
+#legend {
+    z-index: 1000;
+    position: absolute;
+    top: 260px;
+    left: 14px;
+}
+
 #error-container.map-window {
     z-index: 1005;
     padding: 10px;

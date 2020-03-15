@@ -711,6 +711,20 @@ function highlightMeasurementButton(measurement)
 }
 
 /**
+ * Update the legend for the specified measurement.
+ */
+function updateLegend(measurement)
+{
+    const legend_img = document.getElementById('legend-img');
+
+    if (['tavg', 'tmin', 'tmax'].indexOf(measurement) !== -1) {
+        legend_img.src = '/legend-temp.png';
+    } else if (measurement == 'precip') {
+        legend_img.src = '/legend-precip.png';
+    }
+}
+
+/**
  * Populates the data sources
  */
 async function populateDataSources(data_source_select, date_range_select)
@@ -1176,10 +1190,13 @@ window.onload = async function() {
         document.getElementById('date-range-slider').value = date_range_select.selectedIndex;
     };
 
-    measurement_select.onchange = function() {
+    function changeMeasurement() {
         updateTileLayer(APP.climate_tile_layer);
         highlightMeasurementButton(measurement_select.value);
-    };
+        updateLegend(measurement_select.value);
+    }
+
+    measurement_select.onchange = changeMeasurement;
 
     period_select.onchange = function() {
         updateTileLayer(APP.climate_tile_layer);
@@ -1239,14 +1256,12 @@ window.onload = async function() {
 
     document.getElementById('temperature-button').onclick = function() {
         setDropDown('measurement', 'tavg');
-        updateTileLayer(APP.climate_tile_layer);
-        highlightMeasurementButton('tavg');
+        changeMeasurement();
     };
 
     document.getElementById('precipitation-button').onclick = function() {
         setDropDown('measurement', 'precip');
-        updateTileLayer(APP.climate_tile_layer);
-        highlightMeasurementButton('precip');
+        changeMeasurement();
     };
 
     document.getElementById('about-button').onclick = function() {

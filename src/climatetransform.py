@@ -19,6 +19,7 @@ import json
 import stat
 import re
 import matplotlib.pyplot as plt
+import matplotlib.colors as colors
 import cv2
 
 import climatedb
@@ -746,7 +747,7 @@ def save_contours_tiles(y_arr, x_arr, units, normals, output_folder, data_source
 
     os.remove(full_output_file)
 
-def save_contours(y_arr, x_arr, units, normals, output_file, length=None, extent=None):
+def save_contours(y_arr, x_arr, units, normals, output_file, length=None, extent=None, contour = True):
     '''
     Saves contours in the data as a PNG file that is displayable over
     the map.
@@ -768,10 +769,20 @@ def save_contours(y_arr, x_arr, units, normals, output_file, length=None, extent
     contour_levels = get_contour_levels(units)
     contour_colours = get_contour_colours(contour_levels, units)
 
-    cs = ax.contourf(x_arr, y_arr, normals, levels=contour_levels, colors=contour_colours, extend='both')
-    cs.cmap.set_over(contour_colours[-1])
-    cs.cmap.set_under(contour_colours[0])
-    cs.changed()
+    if contour:
+        cs = ax.contourf(x_arr, y_arr, normals, levels=contour_levels, colors=contour_colours, extend='both')
+        cs.cmap.set_over(contour_colours[-1])
+        cs.cmap.set_under(contour_colours[0])
+        cs.changed()
+    else:
+        left_x, right_x = axis_limit_arrays(x_arr, (x_arr[1:] - x_arr[:-1]).mean())
+        x_arr = np.append(left_x, right_x[-1])
+        left_y, right_y = axis_limit_arrays(y_arr, lat2y(90) - y_arr[0])
+        y_arr = np.append(left_y, right_y[-1])
+        cmap = colors.ListedColormap(contour_colours)
+        norm = colors.BoundaryNorm(contour_levels, len(contour_colours))
+        ax.pcolormesh(x_arr, y_arr, normals, cmap=cmap, norm=norm)
+
     plt.savefig(output_file, dpi=dpi, transparent=True, quality=75)
     plt.close(fig)
 

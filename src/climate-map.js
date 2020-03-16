@@ -953,7 +953,7 @@ function showError(message)
 
     if (error_container) {
         error_container.style.display = 'block';
-        message_span = document.getElementById('error-span');
+        const message_span = document.getElementById('error-span');
         message_span.textContent = escapeHtmlTags(message);
     } else {
         error_container = document.createElement('div');

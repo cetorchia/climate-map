@@ -16,7 +16,8 @@ from werkzeug.routing import FloatConverter as BaseFloatConverter
 
 import climatedb
 import geonamedb
-import climatetransform
+import pack
+import calibration
 
 app = Flask(__name__)
 
@@ -69,7 +70,7 @@ def monthly_normals(data_source, start_year, end_year, lat, lon):
             units = climatedb.fetch_unit_by_id(dataset['unit_id'])['code']
 
             if calibrated:
-                calibrated_lat, calibrated_lon, calibrated_normals_arr = climatetransform.calibrate_location(
+                calibrated_lat, calibrated_lon, calibrated_normals_arr = calibration.calibrate_location(
                     dataset,
                     lat,
                     lon
@@ -99,7 +100,7 @@ def monthly_normals(data_source, start_year, end_year, lat, lon):
             'lon': actual_lon,
         })
 
-        normals = climatetransform.unpack_normals(normals)
+        normals = pack.unpack_normals(normals)
 
         return jsonify(normals)
 

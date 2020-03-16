@@ -25,21 +25,17 @@ import cv2
 import climatedb
 from climatedb import NotFoundError
 
+import arrays
+
 # Constants
 ALLOWED_GDAL_EXTENSIONS = ('tif', 'bil')
 TILE_LENGTH = 256
 MAX_ZOOM_LEVEL = 7
-ZOOM_LEVEL_OFFSET = 3
 EARTH_RADIUS = 6378137
 EARTH_CIRCUMFERENCE = 2 * math.pi * EARTH_RADIUS
 SECONDS_IN_A_DAY = 86400
 AVERAGE_MONTH_DAYS = 30.436875
 AVERAGE_FEB_DAYS = 28.2425
-SCALE_FACTOR = 10
-ABSOLUTE_DIFFERENCE_MEASUREMENTS = 'tavg', 'tmin', 'tmax', 'precip'
-OUTPUT_DTYPE = np.int16
-OUTPUT_DTYPE_MIN = np.iinfo(OUTPUT_DTYPE).min
-OUTPUT_DTYPE_MAX = np.iinfo(OUTPUT_DTYPE).max
 
 # Max latitude in OpenStreetMap, about 85.0511
 # https://en.wikipedia.org/wiki/Web_Mercator_projection#Formulas
@@ -170,55 +166,6 @@ def normals_from_folder(input_folder, variable_name, month=0):
         raise Exception('Could not find data for all months in %s' % input_folder)
 
     return (lat_arr, lon_arr, units, normals)
-
-def pack_array(data_arr, units=None):
-    '''
-    Masks the specified array with the specified missing value
-    as a int16 array. If the numbers won't fit as int16, this
-    will fail. Multiplies by 10 to not lose decimal points.
-    '''
-    if not isinstance(data_arr, np.ma.masked_array):
-        raise Exception('Expected masked array in pack_array()')
-
-    data_arr *= SCALE_FACTOR
-
-    dtype = OUTPUT_DTYPE
-    MIN_DTYPE = OUTPUT_DTYPE_MIN
-    MAX_DTYPE = OUTPUT_DTYPE_MAX
-
-    missing_value = data_arr.fill_value
-
-    if np.any(data_arr.mask) and (missing_value < MIN_DTYPE or missing_value > MAX_DTYPE):
-        new_missing_value = MIN_DTYPE
-
-        if np.any(data_arr.base == new_missing_value):
-            raise Exception('Data cannot contain %d as this is needed for missing values' % new_missing_value)
-
-        np.place(data_arr.base, data_arr.mask, new_missing_value)
-        data_arr.set_fill_value(new_missing_value)
-
-        if np.any(data_arr.mask != (data_arr.base == new_missing_value)):
-            raise Exception('Expected mask to all and only contain new missing value')
-
-    if np.any((data_arr < MIN_DTYPE) | (data_arr > MAX_DTYPE)):
-        raise Exception('Data contains values out of range (%d..%d) for a %s' % (MIN_DTYPE, MAX_DTYPE, dtype))
-
-    return np.round(data_arr).astype(dtype)
-
-def unpack_normals(normals):
-    '''
-    Divides each normal by 10.
-    This would be done assuming all normals are stored as themselves
-    multiplied by 10 in order to store them as an int16 and save space.
-    '''
-    new_normals = normals.copy()
-
-    for measurement, measurement_normals in new_normals.items():
-        if type(measurement_normals) is dict:
-            for month, month_normals in measurement_normals.items():
-                month_normals[0] /= SCALE_FACTOR
-
-    return new_normals
 
 def scale_array(data_arr, scale_factor=None, offset=None):
     '''
@@ -452,7 +399,7 @@ def normalize_longitudes(lon_arr, data_arr):
     example, the longitudes starting at 180 will be moved to start at -180.
     Assumes axis 1 in the data array contains the longitudes.
     '''
-    if not is_increasing(lon_arr):
+    if not arrays.is_increasing(lon_arr):
         raise Exception('Longitudes are not strictly increasing')
 
     gt180_idxs = np.where(lon_arr >= 180)[0]
@@ -475,22 +422,14 @@ def normalize_latitudes(lat_arr, data_arr):
 
     Assumes axis 0 in the data array contains the latitudes.
     '''
-    if is_increasing(lat_arr):
+    if arrays.is_increasing(lat_arr):
         new_lat_arr, new_data_arr = lat_arr[::-1], data_arr[::-1]
-    elif is_decreasing(lat_arr):
+    elif arrays.is_decreasing(lat_arr):
         new_lat_arr, new_data_arr = lat_arr, data_arr
     else:
         raise Exception('Latitudes are not strictly increasing or decreasing')
 
     return new_lat_arr, new_data_arr
-
-def is_increasing(arr):
-    # See https://stackoverflow.com/a/4983359
-    return all(x<y for x, y in zip(arr, arr[1:]))
-
-def is_decreasing(arr):
-    # See https://stackoverflow.com/a/4983359
-    return all(x>y for x, y in zip(arr, arr[1:]))
 
 def data_to_standard_units(units, data_arr, month):
     '''
@@ -775,9 +714,9 @@ def save_contours(y_arr, x_arr, units, normals, output_file, length=None, extent
         cs.cmap.set_under(contour_colours[0])
         cs.changed()
     else:
-        left_x, right_x = axis_limit_arrays(x_arr, (x_arr[1:] - x_arr[:-1]).mean())
+        left_x, right_x = arrays.axis_limit_arrays(x_arr, (x_arr[1:] - x_arr[:-1]).mean())
         x_arr = np.append(left_x, right_x[-1])
-        left_y, right_y = axis_limit_arrays(y_arr, lat2y(90) - y_arr[0])
+        left_y, right_y = arrays.axis_limit_arrays(y_arr, lat2y(90) - y_arr[0])
         y_arr = np.append(left_y, right_y[-1])
         cmap = colors.ListedColormap(contour_colours)
         norm = colors.BoundaryNorm(contour_levels, len(contour_colours))
@@ -785,489 +724,3 @@ def save_contours(y_arr, x_arr, units, normals, output_file, length=None, extent
 
     plt.savefig(output_file, dpi=dpi, transparent=True, quality=75)
     plt.close(fig)
-
-def save_db_data(
-        lat_arr,
-        lon_arr,
-        units,
-        normals,
-        variable_name,
-        start_time,
-        end_time,
-        month,
-        data_source,
-        calibrated=False
-):
-    '''
-    Saves the data into the specified database.
-    '''
-    measurement = to_standard_variable_name(variable_name)
-    unit_id = climatedb.fetch_unit(units)['id']
-    measurement_id = climatedb.fetch_measurement(measurement)['id']
-    data_source_id = climatedb.fetch_data_source(data_source)['id']
-
-    # Start date will vary by month, ensure entire year is saved
-    start_date = date(start_time.year, 1, 1)
-    end_date = date(end_time.year, 12, 31)
-
-    lat_start = lat_arr[0].item()
-    lat_delta = (lat_arr[lat_arr.size - 1] - lat_arr[0]) / (lat_arr.size - 1)
-    lon_start = lon_arr[0].item()
-    lon_delta = (lon_arr[lon_arr.size - 1] - lon_arr[0]) / (lon_arr.size - 1)
-
-    fill_value = normals.fill_value
-
-    try:
-        dataset_record = climatedb.fetch_dataset(data_source_id, measurement_id, unit_id, start_date, end_date,
-                                                 calibrated)
-
-        tolerance = 10**-10
-
-        if abs(lat_start - dataset_record['lat_start']) >= tolerance:
-            raise Exception('Expected latitude start %0.11g to be the same as the existing %0.11g' % (
-                lat_start, dataset_record['lat_start']
-            ))
-
-        if abs(lat_delta - dataset_record['lat_delta']) >= tolerance:
-            raise Exception('Expected latitude delta %0.11g to be the same as the existing %0.11g' % (
-                lat_delta, dataset_record['lat_delta']
-            ))
-
-        if abs(lon_start - dataset_record['lon_start']) >= tolerance:
-            raise Exception('Expected longitude start %0.11g to be the same as the existing %0.11g' % (
-                lon_start, dataset_record['lon_start']
-            ))
-
-        if abs(lon_delta - dataset_record['lon_delta']) >= tolerance:
-            raise Exception('Expected longitude delta %0.11g to be the same as the existing %0.11g' % (
-                lon_delta, dataset_record['lon_delta']
-            ))
-
-        if fill_value != dataset_record['fill_value']:
-            raise Exception('Expected fill value %g to be the same as the existing %g' % (
-                fill_value, dataset_record['fill_value']
-            ))
-
-        data_filename, lat_filename, lon_filename = climatedb.create_monthly_normals(
-            data_source,
-            start_date.year,
-            end_date.year,
-            measurement,
-            units,
-            lat_arr,
-            lon_arr,
-            normals,
-            month,
-            calibrated
-        )
-
-        if data_filename != dataset_record['data_filename']:
-            raise Exception('Expected data filename "%s" to be the same as the existing "%s"' % (
-                data_filename, dataset_record['data_filename']
-            ))
-
-        if lat_filename != dataset_record['lat_filename']:
-            raise Exception('Expected latitude filename "%s" to be the same as the existing "%s"' % (
-                data_filename, dataset_record['lat_filename']
-            ))
-
-        if lon_filename != dataset_record['lon_filename']:
-            raise Exception('Expected longitude filename "%s" to be the same as the existing "%s"' % (
-                data_filename, dataset_record['lon_filename']
-            ))
-
-        climatedb.commit()
-
-    except NotFoundError:
-        data_filename, lat_filename, lon_filename = climatedb.create_monthly_normals(
-            data_source,
-            start_date.year,
-            end_date.year,
-            measurement,
-            units,
-            lat_arr,
-            lon_arr,
-            normals,
-            month,
-            calibrated
-        )
-
-        climatedb.create_dataset(
-            data_source_id,
-            measurement_id,
-            unit_id,
-            start_date,
-            end_date,
-            lat_start,
-            lat_delta,
-            lon_start,
-            lon_delta,
-            fill_value,
-            data_filename,
-            lat_filename,
-            lon_filename,
-            calibrated
-        )
-
-        climatedb.commit()
-
-def axis_limit_arrays(axis_arr, axis_delta):
-    '''
-    Returns left and right axis limit arrays. Each element provides
-    the limit that points in the range of the coordinate must fall right
-    and left of which respectively.
-    '''
-    left_axis_limit = axis_arr[0] - axis_delta / 2
-    right_axis_limit = axis_arr[-1] + axis_delta / 2
-
-    left_axis_limit_arr = np.empty(axis_arr.size)
-    left_axis_limit_arr[0] = left_axis_limit
-    left_axis_limit_arr[1:] = (axis_arr[:-1] + axis_arr[1:]) / 2
-
-    right_axis_limit_arr = np.empty(axis_arr.size)
-    right_axis_limit_arr[:-1] = (axis_arr[:-1] + axis_arr[1:]) / 2
-    right_axis_limit_arr[-1] = right_axis_limit
-
-    if axis_delta > 0:
-        return left_axis_limit_arr, right_axis_limit_arr
-    else:
-        return right_axis_limit_arr, left_axis_limit_arr
-
-def downscale_axis_arr(baseline_axis_arr, axis_arr, left_axis_limit_arr, right_axis_limit_arr):
-    '''
-    Downscales the lower resolution axis array to the higher resolution baseline axis array.
-    '''
-    axis_repeats = np.array([
-        len(np.where(
-            (baseline_axis_arr >= left_axis_limit) &
-            (baseline_axis_arr < right_axis_limit)
-        )[0])
-        for left_axis_limit, right_axis_limit
-        in zip(left_axis_limit_arr, right_axis_limit_arr)
-    ])
-
-    if left_axis_limit_arr[0] < left_axis_limit_arr[-1]:
-        mask_left = len(np.where((baseline_axis_arr < left_axis_limit_arr[0]))[0])
-        mask_right = len(np.where((baseline_axis_arr >= right_axis_limit_arr[-1]))[0])
-    else:
-        mask_left = len(np.where((baseline_axis_arr >= right_axis_limit_arr[0]))[0])
-        mask_right = len(np.where((baseline_axis_arr < left_axis_limit_arr[-1]))[0])
-
-    if axis_arr[-1] < axis_arr[0]:
-        mask_left, mask_right = mask_right, mask_left
-
-    if baseline_axis_arr.size != mask_left + axis_repeats.sum() + mask_right:
-        raise Exception('Expected baseline axis to have size mask_left + axis_repeats + mask_right = %d' % (
-                        mask_left + axis_repeats.sum() + mask_right))
-
-    downscaled_axis_arr = np.ma.zeros(baseline_axis_arr.size)
-    downscaled_axis_arr.mask = np.repeat(False, downscaled_axis_arr.size)
-    downscaled_axis_arr.mask[:mask_left] = True
-    downscaled_axis_arr.mask[-mask_right:] = True
-    downscaled_axis_arr[mask_left:-mask_right] = np.repeat(axis_arr, axis_repeats)
-
-    num_downscaled = np.nonzero(~downscaled_axis_arr.mask)[0].size
-
-    if num_downscaled != axis_repeats.sum():
-        raise Exception('Expected number %d of non-masked downscaled axis elements to be %d' % (
-            num_downscaled, axis_repeats.sum()))
-
-    return mask_left, mask_right, downscaled_axis_arr, axis_repeats
-
-def check_downscaled_axis_arr(
-        baseline_axis_arr,
-        downscaled_axis_arr,
-        left_axis_limit_arr,
-        right_axis_limit_arr,
-        axis_repeats
-):
-    '''
-    Checks that the downscaled axis array corresponds to the each coordinate
-    in the baseline. Throws an exception if not.
-    '''
-    downscaled_left_axis_limit_arr = np.ma.empty_like(downscaled_axis_arr)
-    downscaled_left_axis_limit_arr.mask = downscaled_axis_arr.mask.copy()
-    downscaled_left_axis_limit_arr[~downscaled_axis_arr.mask] = np.repeat(left_axis_limit_arr, axis_repeats)
-
-    downscaled_right_axis_limit_arr = np.ma.empty_like(downscaled_axis_arr)
-    downscaled_right_axis_limit_arr.mask = downscaled_axis_arr.mask.copy()
-    downscaled_right_axis_limit_arr[~downscaled_axis_arr.mask] = np.repeat(right_axis_limit_arr, axis_repeats)
-
-    invalid_baseline_coordinates = (
-        (baseline_axis_arr < downscaled_left_axis_limit_arr) |
-        (baseline_axis_arr >= downscaled_right_axis_limit_arr)
-    )
-
-    if np.any(invalid_baseline_coordinates):
-        raise Exception('Baseline coordinates %a out of bounds for downscaled %a' % (
-            baseline_axis_arr[invalid_baseline_coordinates],
-            downscaled_axis_arr[invalid_baseline_coordinates]
-        ))
-
-    invalid_downscaled_coordinates = (
-        (downscaled_axis_arr < downscaled_left_axis_limit_arr) |
-        (downscaled_axis_arr >= downscaled_right_axis_limit_arr)
-    )
-
-    if np.any(invalid_downscaled_coordinates):
-        raise Exception('Downscaled coordinates %a out of bounds for %a,%a' % (
-            downscaled_axis_arr[invalid_downscaled_coordinates],
-            downscaled_left_axis_limit_arr[invalid_downscaled_coordinates],
-            downscaled_right_axis_limit_arr[invalid_downscaled_coordinates]
-        ))
-
-def downscale_array(baseline_lat_arr, baseline_lon_arr, lat_arr, lat_delta, lon_arr, lon_delta, data_arr):
-    '''
-    Downscales the lower-resolution data to the specified higher-resolution baseline data.
-    '''
-    baseline_lat_increasing = is_increasing(baseline_lat_arr)
-    baseline_lat_decreasing = is_decreasing(baseline_lat_arr)
-
-    if not baseline_lat_decreasing and not baseline_lat_increasing:
-        raise Exception('Expected baseline latitudes to be increasing or decreasing')
-
-    baseline_lon_increasing = is_increasing(baseline_lon_arr)
-    baseline_lon_decreasing = is_decreasing(baseline_lon_arr)
-
-    if not baseline_lon_decreasing and not baseline_lon_increasing:
-        raise Exception('Expected baseline longitudes to be increasing or decreasing')
-
-    lat_increasing = is_increasing(lat_arr)
-    lat_decreasing = is_decreasing(lat_arr)
-
-    if not lat_decreasing and not lat_increasing:
-        raise Exception('Expected latitudes to be increasing or decreasing')
-
-    lon_increasing = is_increasing(lon_arr)
-    lon_decreasing = is_decreasing(lon_arr)
-
-    if not lon_decreasing and not lon_increasing:
-        raise Exception('Expected longitudes to be increasing or decreasing')
-
-    if (lat_increasing and baseline_lat_decreasing) \
-    or (lat_decreasing and baseline_lat_increasing):
-        lat_arr = lat_arr[::-1]
-        lat_delta = -lat_delta
-        data_arr = data_arr[::-1]
-
-    if (lon_increasing and baseline_lon_decreasing) \
-    or (lon_decreasing and baseline_lon_increasing):
-        lon_arr = lon_arr[::-1]
-        lon_delta = -lon_delta
-        data_arr = data_arr[:, ::-1]
-
-    left_lat_limit_arr, right_lat_limit_arr = axis_limit_arrays(lat_arr, lat_delta)
-    lat_mask_left, lat_mask_right, downscaled_lat_arr, lat_repeats = downscale_axis_arr(baseline_lat_arr, lat_arr,
-                                                                                        left_lat_limit_arr,
-                                                                                        right_lat_limit_arr)
-
-    left_lon_limit_arr, right_lon_limit_arr = axis_limit_arrays(lon_arr, lon_delta)
-    lon_mask_left, lon_mask_right, downscaled_lon_arr, lon_repeats = downscale_axis_arr(baseline_lon_arr, lon_arr,
-                                                                                        left_lon_limit_arr,
-                                                                                        right_lon_limit_arr)
-
-    check_downscaled_axis_arr(baseline_lat_arr, downscaled_lat_arr,
-                              left_lat_limit_arr, right_lat_limit_arr, lat_repeats)
-    check_downscaled_axis_arr(baseline_lon_arr, downscaled_lon_arr,
-                              left_lon_limit_arr, right_lon_limit_arr, lon_repeats)
-
-    downscaled_data_arr = np.ma.empty((downscaled_lat_arr.size, downscaled_lon_arr.size))
-    downscaled_data_arr.mask = np.repeat(False, downscaled_data_arr.size).reshape(downscaled_data_arr.shape)
-    downscaled_data_arr.set_fill_value(
-        data_arr.fill_value if isinstance(data_arr, np.ma.masked_array) else OUTPUT_DTYPE_MIN
-    )
-
-    downscaled_data_arr.mask[downscaled_lat_arr.mask, :] = True
-    downscaled_data_arr.base[downscaled_lat_arr.mask, :] = downscaled_data_arr.fill_value
-    downscaled_data_arr.mask[:, downscaled_lon_arr.mask] = True
-    downscaled_data_arr.base[:, downscaled_lon_arr.mask] = downscaled_data_arr.fill_value
-
-    downscaled_data_subarr = np.repeat(data_arr, lat_repeats, axis=0)
-    downscaled_data_subarr = np.repeat(downscaled_data_subarr, lon_repeats, axis=1)
-
-    downscaled_data_arr[lat_mask_left:-lat_mask_right, lon_mask_left:-lon_mask_right] = downscaled_data_subarr
-
-    return downscaled_data_arr
-
-def calibrate(
-        baseline_data_source_code,
-        historical_data_source_code,
-        projection_data_source_code,
-        measurement,
-        units,
-        baseline_start_date,
-        baseline_end_date,
-        projection_start_date,
-        projection_end_date,
-        month
-):
-    '''
-    Adds projected differences to the baseline data.
-    '''
-    unit_id = climatedb.fetch_unit(units)['id']
-    measurement_id = climatedb.fetch_measurement(measurement)['id']
-
-    baseline_data_source = climatedb.fetch_data_source(baseline_data_source_code)
-    if not baseline_data_source['baseline']:
-        raise Exception('Expected data source %s to be flagged as "baseline"' % baseline_data_source_code)
-
-    historical_data_source = climatedb.fetch_data_source(historical_data_source_code)
-    projection_data_source = climatedb.fetch_data_source(projection_data_source_code)
-
-    print('Using historical dataset %s-%d-%d-%s-%s' % (
-        historical_data_source_code,
-        baseline_start_date.year,
-        baseline_end_date.year,
-        measurement,
-        units
-    ))
-    historical_dataset = climatedb.fetch_dataset(
-        historical_data_source['id'],
-        measurement_id,
-        unit_id,
-        baseline_start_date,
-        baseline_end_date,
-        calibrated=False
-    )
-    historical_lat, historical_lon, historical_data = climatedb.fetch_normals_from_dataset(historical_dataset, month)
-
-    print('And projection dataset %s-%d-%d-%s-%s' % (
-        projection_data_source_code,
-        projection_start_date.year,
-        projection_end_date.year,
-        measurement,
-        units
-    ))
-    projection_dataset = climatedb.fetch_dataset(
-        projection_data_source['id'],
-        measurement_id,
-        unit_id,
-        projection_start_date,
-        projection_end_date,
-        calibrated=False
-    )
-    projection_lat, projection_lon, projection_data = climatedb.fetch_normals_from_dataset(projection_dataset, month)
-
-    if projection_data.shape != historical_data.shape:
-        raise Exception('Expected historical data to have the same shape as projection')
-
-    if np.any(projection_lat != historical_lat):
-        raise Exception('Expected historical latitudes to be the same as projection latitudes')
-
-    if np.any(projection_lon != historical_lon):
-        raise Exception('Expected historical longitudes to be the same as projection longitudes')
-
-    if measurement in ABSOLUTE_DIFFERENCE_MEASUREMENTS:
-        print('Using absolute difference')
-        differences = np.float64(projection_data) - np.float64(historical_data)
-    else:
-        print('Using relative difference')
-        differences = projection_data / historical_data
-
-    print('Against baseline dataset %s-%d-%d-%s-%s' % (
-        baseline_data_source_code,
-        baseline_start_date.year,
-        baseline_end_date.year,
-        measurement,
-        units
-    ))
-    baseline_dataset = climatedb.fetch_dataset(
-        baseline_data_source['id'],
-        measurement_id,
-        unit_id,
-        baseline_start_date,
-        baseline_end_date,
-        calibrated=False
-    )
-    baseline_lat, baseline_lon, baseline_data = climatedb.fetch_normals_from_dataset(baseline_dataset, month)
-
-    downscaled_differences = downscale_array(
-        baseline_lat,
-        baseline_lon,
-        projection_lat,
-        projection_dataset['lat_delta'],
-        projection_lon,
-        projection_dataset['lon_delta'],
-        differences
-    )
-
-    if downscaled_differences.shape != baseline_data.shape:
-        raise Exception('Expected downscaled differences to have the same shape as baseline data')
-
-    if measurement in ABSOLUTE_DIFFERENCE_MEASUREMENTS:
-        calibrated_data = np.float64(baseline_data) + downscaled_differences
-    else:
-        calibrated_data = np.round(baseline_data * downscaled_differences)
-
-    if np.any(calibrated_data > OUTPUT_DTYPE_MAX):
-        raise Exception('Calibrated data is out of bounds for %s' % OUTPUT_DTYPE)
-    else:
-        calibrated_data = calibrated_data.astype(OUTPUT_DTYPE)
-
-    save_db_data(
-        baseline_lat,
-        baseline_lon,
-        units,
-        calibrated_data,
-        measurement,
-        projection_start_date,
-        projection_end_date,
-        month,
-        projection_data_source['code'],
-        calibrated=True
-    )
-
-    print('Created calibrated dataset %s-%d-%d-%s-%s-calibrated' % (
-        projection_data_source_code,
-        projection_start_date.year,
-        projection_end_date.year,
-        measurement,
-        units
-    ))
-
-def calibrate_location(dataset, lat, lon):
-    '''
-    Calibrates the climate normals at a specific location
-    against historical data.
-    '''
-    measurement = climatedb.fetch_measurement_by_id(dataset['measurement_id'])['code']
-    baseline_data_source_id = climatedb.fetch_baseline_data_source()
-    baseline_start_date, baseline_end_date = list(climatedb.fetch_date_ranges_by_data_source_id(baseline_data_source_id))[0]
-    baseline_dataset = climatedb.fetch_dataset(
-        baseline_data_source_id,
-        dataset['measurement_id'],
-        dataset['unit_id'],
-        baseline_start_date,
-        baseline_end_date,
-        calibrated=False
-    )
-
-    historical_data_source_id = climatedb.fetch_historical_data_source(dataset['data_source_id'])
-    historical_dataset = climatedb.fetch_dataset(
-        historical_data_source_id,
-        dataset['measurement_id'],
-        dataset['unit_id'],
-        baseline_start_date,
-        baseline_end_date,
-        calibrated=False
-    )
-
-    projection_dataset = climatedb.fetch_dataset(
-        dataset['data_source_id'],
-        dataset['measurement_id'],
-        dataset['unit_id'],
-        dataset['start_date'],
-        dataset['end_date'],
-        calibrated=False
-    )
-
-    actual_lat, actual_lon, historical_normals_arr = climatedb.fetch_monthly_normals(historical_dataset, lat, lon)
-    actual_lat, actual_lon, projection_normals_arr = climatedb.fetch_monthly_normals(projection_dataset, lat, lon)
-    actual_lat, actual_lon, baseline_normals_arr = climatedb.fetch_monthly_normals(baseline_dataset, lat, lon)
-
-    if measurement in ABSOLUTE_DIFFERENCE_MEASUREMENTS:
-        normals_arr = np.float64(baseline_normals_arr) + np.float64(projection_normals_arr) - np.float64(historical_normals_arr)
-    else:
-        normals_arr = np.float64(baseline_normals_arr) * np.float64(projection_normals_arr) / np.float64(historical_normals_arr)
-
-    return actual_lat, actual_lon, normals_arr

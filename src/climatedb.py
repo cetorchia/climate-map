@@ -9,10 +9,12 @@ import MySQLdb
 import re
 import math
 from datetime import datetime
+from datetime import date
 import time
 import os.path
 import numpy as np
 
+import arrays
 import config
 
 # Global database object
@@ -615,14 +617,14 @@ def fetch_monthly_normals(dataset_record, lat, lon):
     lat_mmap = np.memmap(lat_pathname, dtype=LAT_DTYPE, mode='r')
     lon_mmap = np.memmap(lon_pathname, dtype=LON_DTYPE, mode='r')
 
-    lat_i = int(round((lat - dataset_record['lat_start']) / dataset_record['lat_delta']))
+    lat_i = arrays.find_coordinate_index(lat_mmap, dataset_record['lat_delta'], lat)
     actual_lat = lat_mmap[lat_i]
     lat_error = abs(dataset_record['lat_delta'] / 2)
 
     if abs(lat - actual_lat) >= lat_error:
         raise Exception('Expected latitude %g to be within %g of %g' % (lat, lat_error, actual_lat))
 
-    lon_i = int(round((lon - dataset_record['lon_start']) / dataset_record['lon_delta']))
+    lon_i = arrays.find_coordinate_index(lon_mmap, dataset_record['lon_delta'], lon)
     actual_lon = lon_mmap[lon_i]
     lon_error = abs(dataset_record['lon_delta'] / 2)
 
@@ -685,3 +687,126 @@ def fetch_normals_from_dataset_mean(dataset_record):
         data = data_mean
 
     return lat_mmap, lon_mmap, data
+
+def save_normals(
+        lat_arr,
+        lon_arr,
+        units,
+        normals,
+        measurement,
+        start_time,
+        end_time,
+        month,
+        data_source,
+        calibrated=False
+):
+    '''
+    Saves climate normals.
+    '''
+    unit_id = fetch_unit(units)['id']
+    measurement_id = fetch_measurement(measurement)['id']
+    data_source_id = fetch_data_source(data_source)['id']
+
+    # Start date will vary by month, ensure entire year is saved
+    start_date = date(start_time.year, 1, 1)
+    end_date = date(end_time.year, 12, 31)
+
+    lat_start = lat_arr[0].item()
+    lat_delta = (lat_arr[lat_arr.size - 1] - lat_arr[0]) / (lat_arr.size - 1)
+    lon_start = lon_arr[0].item()
+    lon_delta = (lon_arr[lon_arr.size - 1] - lon_arr[0]) / (lon_arr.size - 1)
+
+    fill_value = normals.fill_value
+
+    try:
+        dataset_record = fetch_dataset(data_source_id, measurement_id, unit_id, start_date, end_date, calibrated)
+
+        tolerance = 10**-10
+
+        if abs(lat_start - dataset_record['lat_start']) >= tolerance:
+            raise Exception('Expected latitude start %0.11g to be the same as the existing %0.11g' % (
+                lat_start, dataset_record['lat_start']
+            ))
+
+        if abs(lat_delta - dataset_record['lat_delta']) >= tolerance:
+            raise Exception('Expected latitude delta %0.11g to be the same as the existing %0.11g' % (
+                lat_delta, dataset_record['lat_delta']
+            ))
+
+        if abs(lon_start - dataset_record['lon_start']) >= tolerance:
+            raise Exception('Expected longitude start %0.11g to be the same as the existing %0.11g' % (
+                lon_start, dataset_record['lon_start']
+            ))
+
+        if abs(lon_delta - dataset_record['lon_delta']) >= tolerance:
+            raise Exception('Expected longitude delta %0.11g to be the same as the existing %0.11g' % (
+                lon_delta, dataset_record['lon_delta']
+            ))
+
+        if fill_value != dataset_record['fill_value']:
+            raise Exception('Expected fill value %g to be the same as the existing %g' % (
+                fill_value, dataset_record['fill_value']
+            ))
+
+        data_filename, lat_filename, lon_filename = create_monthly_normals(
+            data_source,
+            start_date.year,
+            end_date.year,
+            measurement,
+            units,
+            lat_arr,
+            lon_arr,
+            normals,
+            month,
+            calibrated
+        )
+
+        if data_filename != dataset_record['data_filename']:
+            raise Exception('Expected data filename "%s" to be the same as the existing "%s"' % (
+                data_filename, dataset_record['data_filename']
+            ))
+
+        if lat_filename != dataset_record['lat_filename']:
+            raise Exception('Expected latitude filename "%s" to be the same as the existing "%s"' % (
+                data_filename, dataset_record['lat_filename']
+            ))
+
+        if lon_filename != dataset_record['lon_filename']:
+            raise Exception('Expected longitude filename "%s" to be the same as the existing "%s"' % (
+                data_filename, dataset_record['lon_filename']
+            ))
+
+        commit()
+
+    except NotFoundError:
+        data_filename, lat_filename, lon_filename = create_monthly_normals(
+            data_source,
+            start_date.year,
+            end_date.year,
+            measurement,
+            units,
+            lat_arr,
+            lon_arr,
+            normals,
+            month,
+            calibrated
+        )
+
+        create_dataset(
+            data_source_id,
+            measurement_id,
+            unit_id,
+            start_date,
+            end_date,
+            lat_start,
+            lat_delta,
+            lon_start,
+            lon_delta,
+            fill_value,
+            data_filename,
+            lat_filename,
+            lon_filename,
+            calibrated
+        )
+
+        commit()

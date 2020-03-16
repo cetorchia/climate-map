@@ -15,6 +15,7 @@ from datetime import datetime
 
 import climatetransform
 import climatedb
+import pack
 
 def get_args(arguments):
     '''
@@ -99,15 +100,17 @@ def main(args):
             climatetransform.aggregate_normals(input_files, get_normals_function(month, start_time, end_time))
 
         units, normals = climatetransform.data_to_standard_units(units, normals, month)
-        normals = climatetransform.pack_array(normals, units)
+        normals = pack.pack_array(normals, units)
         lon_arr, normals = climatetransform.normalize_longitudes(lon_arr, normals)
 
-        climatetransform.save_db_data(
+        measurement = climatetransform.to_standard_variable_name(variable_name)
+
+        climatedb.save_normals(
             lat_arr,
             lon_arr,
             units,
             normals,
-            variable_name,
+            measurement,
             start_time,
             end_time,
             month,

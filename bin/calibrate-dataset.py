@@ -13,6 +13,7 @@ from datetime import timedelta
 from datetime import date
 
 import climatetransform
+import calibration
 import climatedb
 
 def get_args(arguments):
@@ -78,7 +79,7 @@ def main(args):
     for month in range(1, climatedb.MONTHS_PER_YEAR + 1):
         #print('.', end='', flush=True)
         print('For month %d' % month)
-        climatetransform.calibrate(
+        calibration.calibrate(
             baseline_data_source,
             historical_data_source,
             projection_data_source,

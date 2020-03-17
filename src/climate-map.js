@@ -951,6 +951,11 @@ function loadLocationClimate(lat, lon, location_title)
         updateClimateChart(data);
         showLocationTitle(location_title);
         showLocationClimate();
+
+        APP.clicked_lat = lat;
+        APP.clicked_lon = lon;
+
+        return [lat, lon, location_title];
     });
 }
 
@@ -981,7 +986,7 @@ async function doSearch(search_query) {
 
     document.getElementById('search-container').style.display = 'none';
 
-    APP.climate_map.setView([lat, lon], CONFIG.maxZoom);
+    APP.climate_map.setView([lat, lon], CONFIG.max_zoom);
 
     let place_name = data['name'];
 
@@ -990,8 +995,6 @@ async function doSearch(search_query) {
     } else if (data['country']) {
         place_name += ', ' + data['country'];
     }
-
-    await loadLocationClimate(lat, lon, place_name);
 
     return [lat, lon, place_name];
 }
@@ -1128,19 +1131,18 @@ function goToURL(url)
 {
     const state = pageStateFromURL(url);
     goToPageState(state);
+    window.history.replaceState(state, state.page_title);
 }
 
 function goToPageState(state)
 {
     if (state.lat !== null && state.lon !== null) {
-        loadLocationClimate(state.lat, state.lon, state.location);
-        APP.climate_map.setView([state.lat, state.lon], APP.climate_map.options.maxZoom);
-        APP.clicked_lat = state.lat;
-        APP.clicked_lon = state.lon;
+        loadLocationClimate(state.lat, state.lon, state.location).then(function() {
+            APP.climate_map.setView([state.lat, state.lon], APP.climate_map.options.maxZoom);
+        });
     } else if (state.location !== null) {
-        doSearch(state.location).then(([lat, lon, display_name]) => {
-            APP.clicked_lat = lat;
-            APP.clicked_lon = lon;
+        doSearch(state.location).then(([lat, lon, location_title]) => {
+            loadLocationClimate(lat, lon, location_title);
         });
     } else {
         hideLocationClimate();
@@ -1200,7 +1202,7 @@ window.onload = async function() {
     /**
      * Create the leaflet map.
      */
-    APP.climate_map = L.map('climate-map').setView([0, 0], 2);
+    APP.climate_map = L.map('climate-map').setView([0, 0], CONFIG.min_zoom);
 
     if (CONFIG.min_zoom !== undefined) {
         APP.climate_map.options.minZoom = CONFIG.min_zoom;
@@ -1327,11 +1329,12 @@ window.onload = async function() {
      * Handle clicking at a location on the map.
      */
     APP.climate_map.on('click', function(e) {
-        APP.clicked_lat = e.latlng.lat;
-        APP.clicked_lon = e.latlng.lng;
+        const lat = e.latlng.lat;
+        const lon = e.latlng.lng;
 
-        loadLocationClimate(APP.clicked_lat, APP.clicked_lon);
-        updatePageState(APP.clicked_lat, APP.clicked_lon);
+        loadLocationClimate(lat, lon).then(function() {
+            updatePageState(lat, lon);
+        });
     });
 
     document.getElementById('close-location-climate').onclick = function() {
@@ -1342,23 +1345,25 @@ window.onload = async function() {
     /**
      * Handle search.
      */
-    document.getElementById('search-button').onclick = function() {
-        if (search_input.value) {
-            doSearch(search_input.value).then(([lat, lon, display_name]) => {
-                updatePageState(lat, lon, display_name);
+    function do_search(search_query) {
+        if (search_query) {
+            doSearch(search_query).then(([lat, lon, display_name]) => {
+                loadLocationClimate(lat, lon, display_name).then(([lat, lon, display_name]) => {
+                    updatePageState(lat, lon, display_name);
+                });
             });
         }
-    };
+    }
 
-    document.getElementById('search').addEventListener('keyup', function(event) {
+    document.getElementById('search-button').onclick = function() {
+        do_search(search_input.value);
+    }
+
+    search_input.addEventListener('keyup', function(event) {
         /* Credit: https://www.w3schools.com/howto/howto_js_trigger_button_enter.asp */
         event.preventDefault();
         if (event.keyCode === 13) {
-            if (search_input.value) {
-                doSearch(search_input.value).then(([lat, lon, display_name]) => {
-                    updatePageState(lat, lon, display_name);
-                });
-            }
+            do_search(search_input.value);
         }
     });
 

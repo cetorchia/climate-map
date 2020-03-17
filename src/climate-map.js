@@ -725,6 +725,23 @@ function updateLegend(measurement)
 }
 
 /**
+ * Returns the value of the last data source.
+ */
+function getLastDataSource(data_source_select)
+{
+    return data_source_select.getAttribute('data-last');
+}
+
+/**
+ * Update what was the last data source the user selected.
+ */
+function updateLastDataSource(data_source_select)
+{
+    const selected_data_source = data_source_select.options[data_source_select.selectedIndex].value;
+    data_source_select.setAttribute('data-last', selected_data_source);
+}
+
+/**
  * Populates the data sources
  */
 async function populateDataSources(data_source_select, date_range_select)
@@ -744,7 +761,7 @@ async function populateDataSources(data_source_select, date_range_select)
     }
 
     /* Use the last selected data source for this date range, if any. */
-    const last_selected_data_source = data_source_select.getAttribute('data-last');
+    const last_selected_data_source = getLastDataSource(data_source_select);
     let used_previous_data_source = false;
 
     /* Remove all existing options. */
@@ -756,6 +773,7 @@ async function populateDataSources(data_source_select, date_range_select)
 
         option.text = data_sources[i].name;
         option.value = data_sources[i].code;
+
         option.setAttribute('data-name', data_sources[i].name);
         option.setAttribute('data-organisation', data_sources[i].organisation);
         option.setAttribute('data-url', data_sources[i].url);
@@ -1179,6 +1197,9 @@ function getContact(contact_name)
 window.onload = async function() {
     [L, Chart] = await importDependencies();
 
+    /**
+     * Create the leaflet map.
+     */
     APP.climate_map = L.map('climate-map').setView([0, 0], 2);
 
     if (CONFIG.min_zoom !== undefined) {
@@ -1189,6 +1210,9 @@ window.onload = async function() {
         APP.climate_map.options.maxZoom = CONFIG.max_zoom;
     }
 
+    /**
+     * Show the basemaps defined in the config file.
+     */
     for (let i = 0; i <= CONFIG.tile_layers.length - 1; i++) {
         const tile_layer = CONFIG.tile_layers[i];
 
@@ -1215,17 +1239,24 @@ window.onload = async function() {
     const period_select = document.getElementById('period');
     const search_input = document.getElementById('search');
 
+    /**
+     * Populate the drop downs and render the climate map tiles.
+     * Also show the location climate if there is a location in the
+     * URL path.
+     */
     populateDateRanges(date_range_select).then(function() {
         populateDataSources(data_source_select, date_range_select).then(function() {
             APP.climate_tile_layer = createTileLayer().addTo(APP.climate_map);
+            highlightMeasurementButton(measurement_select.value);
             updateDescriptionTooltip(period_select.value, measurement_select.value, date_range_select.value);
             updateLegend(measurement_select.value);
             goToURL(document.location.pathname); 
         });
     });
 
-    highlightMeasurementButton('tavg');
-
+    /**
+     * Handle changing the data source
+     */
     function change_data_source() {
         updateTilesAndChart();
 
@@ -1236,31 +1267,65 @@ window.onload = async function() {
 
     data_source_select.onchange = function() {
         change_data_source();
-
-        const selected_data_source = data_source_select.options[data_source_select.selectedIndex].value;
-        data_source_select.setAttribute('data-last', selected_data_source);
+        updateLastDataSource(data_source_select);
     };
+
+    /**
+     * Handle changing the date range dropdown.
+     */
+    function change_date_range() {
+        populateDataSources(data_source_select, date_range_select).then(change_data_source).then(function() {
+            if (!getLastDataSource(data_source_select)) {
+                updateLastDataSource(data_source_select);
+            }
+        });
+        updateDescriptionTooltip(period_select.value, measurement_select.value, date_range_select.value);
+    }
 
     date_range_select.onchange = function() {
-        populateDataSources(data_source_select, date_range_select).then(change_data_source);
+        change_date_range();
         document.getElementById('date-range-slider').value = date_range_select.selectedIndex;
-        updateDescriptionTooltip(period_select.value, measurement_select.value, date_range_select.value);
     };
 
-    function changeMeasurement() {
+    /**
+     * Handle sliding the date range slider.
+     */
+    const date_range_slider = document.getElementById('date-range-slider');
+
+    date_range_slider.onchange = function(e) {
+        date_range_select.selectedIndex = e.target.value;
+        change_date_range();
+        hideDateRangeSliderTooltip();
+    };
+
+    date_range_slider.onmousedown = updateDateRangeSliderTooltip;
+    date_range_slider.onmouseup = hideDateRangeSliderTooltip;
+    date_range_slider.oninput = updateDateRangeSliderTooltip;
+    date_range_slider.onkeydown = updateDateRangeSliderTooltip;
+
+    /**
+     * Handle changing the measurement dropdown
+     */
+    function change_measurement() {
         updateTileLayer(APP.climate_tile_layer);
         highlightMeasurementButton(measurement_select.value);
         updateLegend(measurement_select.value);
         updateDescriptionTooltip(period_select.value, measurement_select.value, date_range_select.value);
     }
 
-    measurement_select.onchange = changeMeasurement;
+    measurement_select.onchange = change_measurement;
 
+    /**
+     * Handle changing the period dropdown.
+     */
     period_select.onchange = function() {
         updateTileLayer(APP.climate_tile_layer);
         updateDescriptionTooltip(period_select.value, measurement_select.value, date_range_select.value);
     };
 
+    /**
+     * Handle clicking at a location on the map.
+     */
     APP.climate_map.on('click', function(e) {
         APP.clicked_lat = e.latlng.lat;
         APP.clicked_lon = e.latlng.lng;
@@ -1274,6 +1339,9 @@ window.onload = async function() {
         updatePageState();
     };
 
+    /**
+     * Handle search.
+     */
     document.getElementById('search-button').onclick = function() {
         if (search_input.value) {
             doSearch(search_input.value).then(([lat, lon, display_name]) => {
@@ -1294,6 +1362,9 @@ window.onload = async function() {
         }
     });
 
+    /**
+     * Handle clicking the buttons on the side.
+     */
     document.getElementById('filter-button').onclick = function() {
         this.classList.toggle('hamburger-close');
         const filters_div = document.getElementById('filter-container');
@@ -1315,12 +1386,12 @@ window.onload = async function() {
 
     document.getElementById('temperature-button').onclick = function() {
         setDropDown('measurement', 'tavg');
-        changeMeasurement();
+        change_measurement();
     };
 
     document.getElementById('precipitation-button').onclick = function() {
         setDropDown('measurement', 'precip');
-        changeMeasurement();
+        change_measurement();
     };
 
     document.getElementById('about-button').onclick = function() {
@@ -1332,20 +1403,6 @@ window.onload = async function() {
         const about_div = document.getElementById('about');
         about_div.style.display = 'none';
     };
-
-    const date_range_slider = document.getElementById('date-range-slider');
-
-    date_range_slider.onchange = function(e) {
-        date_range_select.selectedIndex = e.target.value;
-        populateDataSources(data_source_select, date_range_select).then(change_data_source);
-        hideDateRangeSliderTooltip();
-        updateDescriptionTooltip(period_select.value, measurement_select.value, date_range_select.value);
-    };
-
-    date_range_slider.onmousedown = updateDateRangeSliderTooltip;
-    date_range_slider.onmouseup = hideDateRangeSliderTooltip;
-    date_range_slider.oninput = updateDateRangeSliderTooltip;
-    date_range_slider.onkeydown = updateDateRangeSliderTooltip;
 
     /**
      * Handle the back button.

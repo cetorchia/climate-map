@@ -12,6 +12,7 @@ body {
 #filter-container.map-window {
     top: 73px;
     min-height: 100px;
+    width: 360px;
     padding-top: 10px;
     z-index: 1001;
 }
@@ -22,7 +23,7 @@ body {
 
 #location-climate.map-window {
     top: 11px;
-    max-width: 450px;
+    width: 450px;
     left: 50px;
     bottom: 78px;
     overflow-y: scroll;
@@ -109,8 +110,8 @@ body {
 .map-window {
     left: 45px;
     position: absolute;
-    max-width: 340px;
-    width: 75vw;
+    max-width: 75vw;
+    width: 340px;
     max-height: 90vh;
     padding: 15px;
     border-left: 1px solid #aaa;
@@ -199,12 +200,15 @@ body {
  * See https://www.w3schools.com/howto/howto_js_rangeslider.asp
  */
 #date-range-slider-container {
-    position: absolute;
-    bottom: 50px;
+    position:absolute;
+    left:0;
+    right:0;
+    margin-left:auto;
+    margin-right:auto;
+    bottom: 53px;
     width: 150px;
     max-width: 50vw;
     z-index: 1000;
-    left: 35vw;
 }
 
 .slider {
@@ -244,12 +248,24 @@ body {
 /* Tooltip based on https://www.w3schools.com/howto/tryit.asp?filename=tryhow_css_tooltip */
 #date-range-slider-tooltip {
     z-index: 1001;
-    top: 50px;
+    top: -10px;
     left: 2px;
     font-size: 120%;
 }
 
-.slider-tooltip {
+#description-tooltip {
+    position:absolute;
+    left:0;
+    right:0;
+    margin-left:auto;
+    margin-right:auto;
+    z-index: 1000;
+    bottom: 19px;
+    width: 350px;
+    max-width: 70vw;
+}
+
+.tooltip {
     position: relative;
     background-color: #555;
     color: #fff;

@@ -2,6 +2,7 @@
     <head>
         <meta http-equiv="content-type" content="text/html; charset=UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+        <meta http-equiv="ScreenOrientation" content="autoRotate:disabled">
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
         <meta name="description" content="Climate map showing past and future temperature and precipitation">
 
@@ -22,9 +23,11 @@
         <div id="about-button" class="map-button"><span id="about-question-mark">?</span></div>
 
         <div id="date-range-slider-container">
-            <div id="date-range-slider-tooltip" class="slider-tooltip" style="display: none;"></div>
+            <div id="date-range-slider-tooltip" class="tooltip" style="display: none;"></div>
             <input id="date-range-slider" type="range" min="0" max="0" value="0" list="date-range-list" class="slider">
         </div>
+
+        <div id="description-tooltip" class="tooltip"></div>
 
         <div id="search-container" class="map-window" style="display:none">
             <input id="search" type="text" placeholder="Search">
@@ -144,7 +147,7 @@
         </div>
 
         <div id="legend">
-            <img id="legend-img" src="/legend-temp.png"></img>
+            <img id="legend-img" src="/legend-temp.png">
         </div>
 
         <div id="location-climate" class="map-window" style="display:none">

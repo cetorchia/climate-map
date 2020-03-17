@@ -836,6 +836,60 @@ function hideDateRangeSliderTooltip()
 }
 
 /**
+ * Returns an English description of the specified measurement.
+ */
+function getMeasurementLabel(measurement)
+{
+    switch (measurement) {
+        case 'precip':
+            return 'Precipitation';
+        case 'tavg':
+            return 'Temperature';
+        case 'tmin':
+            return 'Minimum Temperature';
+        case 'tmax':
+            return 'Maximum Temperature';
+        default:
+            throw new Error('Unrecognized measurement: ' + measurement);
+    }
+}
+
+/**
+ * Returns an English description of the specified period.
+ */
+function getPeriodLabel(period)
+{
+    switch (period) {
+        case 'year':
+            return 'Year-round';
+        case '12_01_02':
+            return 'Dec-Feb';
+        case '03_04_05':
+            return 'Mar-May';
+        case '06_07_08':
+            return 'Jun-Aug';
+        case '09_10_11':
+            return 'Sep-Nov';
+        default:
+            throw new Error('Unrecognized period: ' + period);
+    }
+}
+
+/**
+ * Updates the description tooltip to give the user
+ * an idea about what they're seeing.
+ */
+function updateDescriptionTooltip(period, measurement, date_range)
+{
+    const tooltip = document.getElementById('description-tooltip');
+    const period_label = getPeriodLabel(period);
+    const measurement_label = getMeasurementLabel(measurement);
+    const text = 'Average ' + period_label + ' ' + measurement_label + ', ' + date_range;
+
+    tooltip.textContent = text;
+}
+
+/**
  * Gives the attribution for the selected data source.
  */
 function dataSourceAttribution(data_source_select)
@@ -1164,6 +1218,8 @@ window.onload = async function() {
     populateDateRanges(date_range_select).then(function() {
         populateDataSources(data_source_select, date_range_select).then(function() {
             APP.climate_tile_layer = createTileLayer().addTo(APP.climate_map);
+            updateDescriptionTooltip(period_select.value, measurement_select.value, date_range_select.value);
+            updateLegend(measurement_select.value);
             goToURL(document.location.pathname); 
         });
     });
@@ -1188,18 +1244,21 @@ window.onload = async function() {
     date_range_select.onchange = function() {
         populateDataSources(data_source_select, date_range_select).then(change_data_source);
         document.getElementById('date-range-slider').value = date_range_select.selectedIndex;
+        updateDescriptionTooltip(period_select.value, measurement_select.value, date_range_select.value);
     };
 
     function changeMeasurement() {
         updateTileLayer(APP.climate_tile_layer);
         highlightMeasurementButton(measurement_select.value);
         updateLegend(measurement_select.value);
+        updateDescriptionTooltip(period_select.value, measurement_select.value, date_range_select.value);
     }
 
     measurement_select.onchange = changeMeasurement;
 
     period_select.onchange = function() {
         updateTileLayer(APP.climate_tile_layer);
+        updateDescriptionTooltip(period_select.value, measurement_select.value, date_range_select.value);
     };
 
     APP.climate_map.on('click', function(e) {
@@ -1280,6 +1339,7 @@ window.onload = async function() {
         date_range_select.selectedIndex = e.target.value;
         populateDataSources(data_source_select, date_range_select).then(change_data_source);
         hideDateRangeSliderTooltip();
+        updateDescriptionTooltip(period_select.value, measurement_select.value, date_range_select.value);
     };
 
     date_range_slider.onmousedown = updateDateRangeSliderTooltip;

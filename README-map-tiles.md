@@ -38,7 +38,7 @@ the following:
             "mapboxGL": true,
             "style_url": "https://api.maptiler.com/maps/{mapId}/style.json?key={key}",
             "access_token": "{access_token}",
-            "attribution": "<a href=\"https://www.maptiler.com/copyright/\" target=\"_blank\">© MapTiler</a> <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\">© OpenStreetMap contributors</a>",
+            "attribution": "Map tiles &copy; <a href=\"https://www.maptiler.com/copyright/\" target=\"_blank\">MapTiler</a> &copy <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\">OpenStreetMap</a> contributors",
             "z_index": 1
         }
     ]

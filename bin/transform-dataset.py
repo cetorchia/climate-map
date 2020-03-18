@@ -13,7 +13,7 @@ sys.path.append(_dir_path)
 from datetime import timedelta
 from datetime import datetime
 
-import climatetransform
+import transform
 import climatedb
 import pack
 
@@ -62,7 +62,7 @@ def main(args):
             input_fmt = get_input_fmt(input_file)
 
             if input_fmt == 'nc':
-                return climatetransform.normals_from_netcdf4(
+                return transform.normals_from_netcdf4(
                     input_file,
                     variable_name,
                     start_time,
@@ -71,10 +71,10 @@ def main(args):
                 )
 
             elif input_fmt in ('tif', 'bil'):
-                return climatetransform.normals_from_geotiff(input_file, input_fmt)
+                return transform.normals_from_geotiff(input_file, input_fmt)
 
             elif input_fmt == 'folder':
-                return climatetransform.normals_from_folder(input_file, variable_name, month)
+                return transform.normals_from_folder(input_file, variable_name, month)
 
             else:
                 raise Exception('Unexpected input format "%s"' % input_fmt)
@@ -97,13 +97,13 @@ def main(args):
             end_time = datetime(end_year + 1, 1, 1) - timedelta(seconds=1)
 
         lat_arr, lon_arr, units, normals = \
-            climatetransform.aggregate_normals(input_files, get_normals_function(month, start_time, end_time))
+            transform.aggregate_normals(input_files, get_normals_function(month, start_time, end_time))
 
-        units, normals = climatetransform.data_to_standard_units(units, normals, month)
+        units, normals = transform.data_to_standard_units(units, normals, month)
         normals = pack.pack_array(normals, units)
-        lon_arr, normals = climatetransform.normalize_longitudes(lon_arr, normals)
+        lon_arr, normals = transform.normalize_longitudes(lon_arr, normals)
 
-        measurement = climatetransform.to_standard_variable_name(variable_name)
+        measurement = transform.to_standard_variable_name(variable_name)
 
         climatedb.save_normals(
             lat_arr,

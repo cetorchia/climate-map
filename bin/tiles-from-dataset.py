@@ -12,31 +12,37 @@ sys.path.append(_dir_path)
 
 from datetime import date
 
-import climatetransform
+import transform
 import climatedb
+import geo
+import tiling
 
 def get_args(arguments):
     '''
     Determines command line arguments
     '''
-    num_arguments = len(arguments)
-    if num_arguments != 6:
-        print('Usage: ' + arguments[0] + ' <data-source> <variable> <start-year> <end-year> <calibrated:1|0>', file=sys.stderr)
+    if len(arguments) < 5:
+        print('Usage: ' + arguments[0] + ' [options] <data-source> <variable> <start-year> <end-year>', file=sys.stderr)
+        print('Options:', file=sys.stderr)
+        print('  --calibrated   Whether to generate tiles for the calibrated version of this dataset', file=sys.stderr)
+        print('  --single-image Whether generate one large image instead of tiles', file=sys.stderr)
         sys.exit(1)
 
-    data_source = arguments[1]
-    variable_name = arguments[2]
-    start_year = int(arguments[3])
-    end_year = int(arguments[4])
-    calibrated = int(arguments[5])
+    options = arguments[1:-4]
+    rest_of_arguments = arguments[-4:]
+
+    data_source = rest_of_arguments[0]
+    variable_name = rest_of_arguments[1]
+    start_year = int(rest_of_arguments[2])
+    end_year = int(rest_of_arguments[3])
 
     start_date = date(start_year, 1, 1)
     end_date = date(end_year, 12, 31)
 
-    if calibrated not in (0, 1):
-        raise Exception('Expected <calibrated> to be 1 or 0')
+    calibrated = True if '--calibrated' in options else False
+    single_image = True if '--single-image' in options else False
 
-    return data_source, variable_name, start_date, end_date, calibrated
+    return data_source, variable_name, start_date, end_date, calibrated, single_image
 
 def tile_folder(data_source, variable_name, start_date, end_date, months=None):
     '''
@@ -58,10 +64,10 @@ def main(args):
     '''
     The main function
     '''
-    data_source, variable_name, start_date, end_date, calibrated = get_args(args)
+    data_source, variable_name, start_date, end_date, calibrated, single_image = get_args(args)
 
-    measurement = climatetransform.to_standard_variable_name(variable_name)
-    units = climatetransform.standard_units_from_measurement(measurement)
+    measurement = transform.to_standard_variable_name(variable_name)
+    units = transform.standard_units_from_measurement(measurement)
 
     climatedb.connect()
 
@@ -81,17 +87,18 @@ def main(args):
     print(data_source, measurement, start_date.year, end_date.year, 'year')
     lat_arr, lon_arr, normals = climatedb.fetch_normals_from_dataset_mean(dataset)
 
-    projected_y_arr = climatetransform.lat2y(lat_arr)
-    projected_x_arr = climatetransform.lon2x(lon_arr)
+    projected_y_arr = geo.lat2y(lat_arr)
+    projected_x_arr = geo.lon2x(lon_arr)
 
     output_folder = tile_folder(data_source, variable_name, start_date, end_date)
-    climatetransform.save_contours_tiles(
+    transform.save_contours_tiles(
         projected_y_arr,
         projected_x_arr,
         units,
         normals,
         output_folder,
-        data_source_record['id']
+        data_source_record['id'],
+        tile=not single_image
     )
 
     for start_month in (12, 3, 6, 9):
@@ -111,13 +118,14 @@ def main(args):
 
         output_folder = tile_folder(data_source, variable_name, start_date, end_date, months)
 
-        climatetransform.save_contours_tiles(
+        tiling.save_contours_tiles(
             projected_y_arr,
             projected_x_arr,
             units,
             aggregated_normals,
             output_folder,
-            data_source_record['id']
+            data_source_record['id'],
+            tile=not single_image
         )
 
     climatedb.close()

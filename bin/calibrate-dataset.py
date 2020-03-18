@@ -12,7 +12,7 @@ sys.path.append(_dir_path)
 from datetime import timedelta
 from datetime import date
 
-import climatetransform
+import transform
 import calibration
 import climatedb
 
@@ -71,8 +71,8 @@ def main(args):
         projection_end_date,
     )= get_args(args)
 
-    measurement = climatetransform.to_standard_variable_name(variable_name)
-    units = climatetransform.standard_units_from_measurement(measurement)
+    measurement = transform.to_standard_variable_name(variable_name)
+    units = transform.standard_units_from_measurement(measurement)
 
     climatedb.connect()
 

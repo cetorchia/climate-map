@@ -256,12 +256,18 @@ the projected differences and add those to the baseline data.
 ```
 bin/calibrate-dataset.py TerraClimate CanESM5.historical CanESM5.ssp245 tavg 1981-2010 2015-2045
 bin/calibrate-dataset.py TerraClimate CanESM5.historical CanESM5.ssp245 tmin 1981-2010 2015-2045
+bin/calibrate-dataset.py TerraClimate CanESM5.historical CanESM5.ssp245 tmax 1981-2010 2015-2045
 bin/calibrate-dataset.py TerraClimate CanESM5.historical CanESM5.ssp245 precip 1981-2010 2015-2045
+
+bin/calibrate-dataset.py TerraClimate CanESM5.historical CanESM5.ssp245 tavg 1981-2010 2045-2075
+bin/calibrate-dataset.py TerraClimate CanESM5.historical CanESM5.ssp245 tmin 1981-2010 2045-2075
+bin/calibrate-dataset.py TerraClimate CanESM5.historical CanESM5.ssp245 tmax 1981-2010 2045-2075
+bin/calibrate-dataset.py TerraClimate CanESM5.historical CanESM5.ssp245 precip 1981-2010 2045-2075
 ```
 
 This will generate a new dataset with the same data source name with a "calibrated"
-flag. This flag distinguishes that dataset so it can be identified separately in
-the application.
+flag. This flag distinguishes that dataset in order to generate tiles for the
+calibrated dataset and not the uncalibrated one.
 
 ## Generating PNG tiles
 
@@ -274,14 +280,16 @@ Once you have loaded a dataset into the database, you can generate tiles for it
 using the script used in the following example.
 
 ```
-bin/tiles-from-dataset.py TerraClimate tavg 2015 2045 0
-bin/tiles-from-dataset.py TerraClimate precip 2015 2045 0
+bin/tiles-from-dataset.py TerraClimate tavg 1981 2010
+bin/tiles-from-dataset.py TerraClimate precip 1981 2010
 
-bin/tiles-from-dataset.py MRI-ESM2-0.ssp245 tavg 2015 2045 1
-bin/tiles-from-dataset.py MRI-ESM2-0.ssp245 precip 2015 2045 1
+bin/tiles-from-dataset.py --calibrated MRI-ESM2-0.ssp245 tavg 2015 2045
+bin/tiles-from-dataset.py --calibrated MRI-ESM2-0.ssp245 precip 2015 2045
 ```
 
-You have to specify whether the script is calibrated using the last parameter.
+You have to specify the `--calibrated` option if the dataset is calibrated,
+in order to generate tiles for the calibrated dataset instead of the uncalibrated
+dataset.
 
 # Tiling scheme
 
@@ -314,7 +322,6 @@ The deploy script is used to send files to the server. SSH is used.
 bin/deploy.sh myclimatemap.org
 bin/deploy.sh myclimatemap.org --tiles
 bin/deploy.sh myclimatemap.org --data
-bin/deploy.sh myclimatemap.org --config
 ```
 
 To configure the climate map, you must update the config file on the server.

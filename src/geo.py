@@ -5,6 +5,8 @@
 # Copyright (c) 2020 Carlos Torchia
 #
 import numpy as np
+import math
+import numbers
 
 EARTH_RADIUS = 6378137
 EARTH_CIRCUMFERENCE = 2 * math.pi * EARTH_RADIUS

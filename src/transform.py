@@ -12,7 +12,6 @@ from datetime import datetime
 from datetime import date
 import numpy as np
 import math
-import numbers
 import netCDF4
 from osgeo import gdal
 import json
@@ -29,10 +28,6 @@ ALLOWED_GDAL_EXTENSIONS = ('tif', 'bil')
 SECONDS_IN_A_DAY = 86400
 AVERAGE_MONTH_DAYS = 30.436875
 AVERAGE_FEB_DAYS = 28.2425
-
-# Max latitude in OpenStreetMap, about 85.0511
-# https://en.wikipedia.org/wiki/Web_Mercator_projection#Formulas
-MAX_LAT = math.degrees(2*math.atan(math.exp(math.pi)) - math.pi/2)
 
 def to_standard_variable_name(variable_name):
     '''

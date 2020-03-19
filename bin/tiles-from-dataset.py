@@ -25,10 +25,9 @@ def get_args(arguments):
         print('Usage: ' + arguments[0] + ' [options] <data-source> <variable> <start-year> <end-year>', file=sys.stderr)
         print('Options:', file=sys.stderr)
         print('  --calibrated   Whether to generate tiles for the calibrated version of this dataset', file=sys.stderr)
-        print('  --single-image Whether generate one large image instead of tiles', file=sys.stderr)
         sys.exit(1)
 
-    options = arguments[1:-4]
+    options = set(arguments[1:-4])
     rest_of_arguments = arguments[-4:]
 
     data_source = rest_of_arguments[0]
@@ -40,9 +39,14 @@ def get_args(arguments):
     end_date = date(end_year, 12, 31)
 
     calibrated = True if '--calibrated' in options else False
-    single_image = True if '--single-image' in options else False
 
-    return data_source, variable_name, start_date, end_date, calibrated, single_image
+    invalid_options = options - {'--calibrated'}
+
+    if len(invalid_options) > 0:
+        print('Invalid option(s): ' + ', '.join(invalid_options), file=sys.stderr)
+        sys.exit(1)
+
+    return data_source, variable_name, start_date, end_date, calibrated
 
 def tile_folder(data_source, variable_name, start_date, end_date, months=None):
     '''
@@ -64,7 +68,7 @@ def main(args):
     '''
     The main function
     '''
-    data_source, variable_name, start_date, end_date, calibrated, single_image = get_args(args)
+    data_source, variable_name, start_date, end_date, calibrated = get_args(args)
 
     measurement = transform.to_standard_variable_name(variable_name)
     units = transform.standard_units_from_measurement(measurement)
@@ -91,14 +95,13 @@ def main(args):
     projected_x_arr = geo.lon2x(lon_arr)
 
     output_folder = tile_folder(data_source, variable_name, start_date, end_date)
-    transform.save_contours_tiles(
+    tiling.save_contour_tiles(
         projected_y_arr,
         projected_x_arr,
         units,
         normals,
         output_folder,
-        data_source_record['id'],
-        tile=not single_image
+        data_source_record['id']
     )
 
     for start_month in (12, 3, 6, 9):
@@ -118,14 +121,13 @@ def main(args):
 
         output_folder = tile_folder(data_source, variable_name, start_date, end_date, months)
 
-        tiling.save_contours_tiles(
+        tiling.save_contour_tiles(
             projected_y_arr,
             projected_x_arr,
             units,
             aggregated_normals,
             output_folder,
-            data_source_record['id'],
-            tile=not single_image
+            data_source_record['id']
         )
 
     climatedb.close()

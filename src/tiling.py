@@ -24,7 +24,7 @@ TILE_LENGTH = 256
 MAP_LENGTH = 16384
 MAX_ZOOM_LEVEL = 7
 
-def save_contour_tiles(y_arr, x_arr, units, normals, output_folder, data_source_id, tile=True):
+def save_contour_tiles(y_arr, x_arr, units, normals, output_folder, data_source_id):
     '''
     Generates map contour tiles for the specified climate normals
     in the specified output folder.
@@ -36,11 +36,10 @@ def save_contour_tiles(y_arr, x_arr, units, normals, output_folder, data_source_
     os.makedirs(os.path.dirname(full_output_file), exist_ok=True)
     save_contours(y_arr, x_arr, units, normals, full_output_file)
 
-    if tile:
-        img = cv2.imread(full_output_file)
-        save_tiles(img, output_folder, data_source_id)
+    img = cv2.imread(full_output_file)
+    save_tiles(img, output_folder, data_source_id)
 
-        os.remove(full_output_file)
+    os.remove(full_output_file)
 
 def save_contours(y_arr, x_arr, units, normals, output_file, length=MAP_LENGTH, extent=None, contour=True):
     '''
@@ -62,9 +61,11 @@ def save_contours(y_arr, x_arr, units, normals, output_file, length=MAP_LENGTH, 
     fig = plt.figure()
     fig.set_size_inches(width, height)
     ax = plt.Axes(fig, [0, 0, width, height])
+
     if extent is not None:
         ax.set_xlim(extent[0], extent[1])
         ax.set_ylim(extent[2], extent[3])
+
     ax.set_axis_off()
     fig.add_axes(ax)
 

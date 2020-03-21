@@ -60,7 +60,6 @@ const TILE_ERROR_MESSAGE = 'Could not fetch climate map overlay. Please try agai
 const DEFAULT_PAGE_TITLE = 'Climate Map';
 
 const API_URL = '/api';
-const TILE_URL = '/tiles';
 const APP_URL = '/';
 
 let APP = {};
@@ -144,7 +143,7 @@ async function fetchDataSources(date_range)
  */
 function tileUrl(data_source, date_range, measurement, period)
 {
-    return TILE_URL + '/' +
+    return CONFIG.climate_tile_layer.url + '/' +
         encodeURIComponent(data_source) + '/' +
         encodeURIComponent(date_range) + '/' +
         encodeURIComponent(measurement + '-' + period) +

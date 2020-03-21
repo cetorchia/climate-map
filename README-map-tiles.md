@@ -31,7 +31,8 @@ the following:
     "min_zoom": 2,
     "max_zoom": 10,
     "climate_tile_layer": {
-        "z_index": 2
+        "z_index": 2,
+        "url": "/tiles/climate"
     },
     "tile_layers": [
         {

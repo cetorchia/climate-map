@@ -48,22 +48,6 @@ def get_args(arguments):
 
     return data_source, variable_name, start_date, end_date, calibrated
 
-def tile_folder(data_source, variable_name, start_date, end_date, months=None):
-    '''
-    Gives the directory where tiles will be stored.
-    '''
-    repo = os.path.dirname(os.path.dirname(__file__))
-    date_range = '%d-%d' % (start_date.year, end_date.year)
-
-    if months:
-        period = '%02d_%02d_%02d' % months
-    else:
-        period = 'year'
-
-    tile_folder = os.path.join(repo, 'public', 'tiles', data_source, date_range, variable_name + '-' + period)
-
-    return tile_folder
-
 def main(args):
     '''
     The main function
@@ -94,7 +78,7 @@ def main(args):
     projected_y_arr = geo.lat2y(lat_arr)
     projected_x_arr = geo.lon2x(lon_arr)
 
-    output_folder = tile_folder(data_source, variable_name, start_date, end_date)
+    output_folder = tiling.tile_folder(data_source, variable_name, start_date, end_date)
     tiling.save_contour_tiles(
         projected_y_arr,
         projected_x_arr,
@@ -119,7 +103,7 @@ def main(args):
 
         aggregated_normals = aggregated_normals / len(months)
 
-        output_folder = tile_folder(data_source, variable_name, start_date, end_date, months)
+        output_folder = tiling.tile_folder(data_source, variable_name, start_date, end_date, months)
 
         tiling.save_contour_tiles(
             projected_y_arr,

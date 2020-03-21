@@ -20,9 +20,49 @@ import arrays
 import geo
 import pack
 
+TILE_ROOT = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'tiles')
+
 TILE_LENGTH = 256
+ZOOM_LEVELS_PER_TILE = 2
+META_TILE_LENGTH = TILE_LENGTH * 2 ** (ZOOM_LEVELS_PER_TILE - 1)
 MAP_LENGTH = 16384
 MAX_ZOOM_LEVEL = 7
+TILE_EXTENSION = 'jpeg'
+INITIAL_CONTOUR_EXTENSION = 'png'
+
+MAP_EXTENT = (
+    -geo.EARTH_CIRCUMFERENCE/2,
+    geo.EARTH_CIRCUMFERENCE/2,
+    -geo.EARTH_CIRCUMFERENCE/2,
+    geo.EARTH_CIRCUMFERENCE/2
+)
+
+if (MAX_ZOOM_LEVEL + 1) % ZOOM_LEVELS_PER_TILE != 0:
+    raise Exception('The number of zoom levels, which is %d, must be divisible by the number of zoom levels per tile, which is %d.' % (MAX_ZOOM_LEVEL + 1, ZOOM_LEVELS_PER_TILE))
+
+class TileNotFoundError(Exception):
+    '''
+    Thrown when the user requested a tile that does not exist.
+    '''
+    pass
+
+def tile_folder(data_source, measurement, start_date, end_date, months=None):
+    '''
+    Gives the directory where tiles will be stored.
+
+    Do not use this function to determine the path of a single tile;
+    please use tile_path() for this instead.
+    '''
+    date_range = '%d-%d' % (start_date.year, end_date.year)
+
+    if months:
+        period = '%02d_%02d_%02d' % months
+    else:
+        period = 'year'
+
+    tile_folder = os.path.join(TILE_ROOT, data_source, date_range, measurement + '-' + period)
+
+    return tile_folder
 
 def save_contour_tiles(y_arr, x_arr, units, normals, output_folder, data_source_id):
     '''
@@ -32,27 +72,19 @@ def save_contour_tiles(y_arr, x_arr, units, normals, output_folder, data_source_
     The `tile` parameter specifies whether to generate tiles or save
     a large image that can later be tiled on-the-fly.
     '''
-    full_output_file = output_folder + '.png'
+    full_output_file = output_folder + '.' + INITIAL_CONTOUR_EXTENSION
     os.makedirs(os.path.dirname(full_output_file), exist_ok=True)
-    save_contours(y_arr, x_arr, units, normals, full_output_file)
+    save_contours(y_arr, x_arr, units, normals, full_output_file, MAP_LENGTH, MAP_EXTENT)
 
     img = cv2.imread(full_output_file)
+    os.remove(full_output_file)
     save_tiles(img, output_folder, data_source_id)
 
-    os.remove(full_output_file)
-
-def save_contours(y_arr, x_arr, units, normals, output_file, length=MAP_LENGTH, extent=None, contour=True):
+def save_contours(y_arr, x_arr, units, normals, output_file, length, extent, contour=True):
     '''
     Saves contours in the data as a PNG file that is displayable over
     the map.
     '''
-    extent = extent if extent else (
-        -geo.EARTH_CIRCUMFERENCE/2,
-        geo.EARTH_CIRCUMFERENCE/2,
-        -geo.EARTH_CIRCUMFERENCE/2,
-        geo.EARTH_CIRCUMFERENCE/2
-    )
-
     # Use dpi to ensure the plot takes up the expected dimensions in pixels.
     height = 1
     dpi = x_arr.size if length is None else length
@@ -86,7 +118,7 @@ def save_contours(y_arr, x_arr, units, normals, output_file, length=MAP_LENGTH, 
         norm = colors.BoundaryNorm(contour_levels, len(contour_colours))
         ax.pcolormesh(x_arr, y_arr, normals, cmap=cmap, norm=norm)
 
-    plt.savefig(output_file, dpi=dpi, transparent=True, quality=75)
+    plt.savefig(output_file, dpi=dpi, transparent=True)
     plt.close(fig)
 
 def save_tiles(img, output_folder, data_source_id):
@@ -102,41 +134,46 @@ def save_tiles(img, output_folder, data_source_id):
     E.g. /tiles/tavg-01/{z}/{x}/{y}.jpeg
     '''
     max_zoom_level = MAX_ZOOM_LEVEL
+
     climatedb.update_max_zoom_level(data_source_id, max_zoom_level)
     climatedb.commit();
 
+    tile_length = META_TILE_LENGTH
+
     for zoom_level in range(0, max_zoom_level + 1):
-        print('Zoom level %d: ' % zoom_level, end='', flush=True)
+        # Skip zoom levels already included in the previous zoom level
+        if zoom_level % ZOOM_LEVELS_PER_TILE == 0:
+            print('Zoom level %d: ' % zoom_level, end='', flush=True)
 
-        num_tiles = 2**zoom_level
+            num_tiles = 2**zoom_level
 
-        y_size = img.shape[0] / num_tiles
-        x_size = img.shape[1] / num_tiles
+            y_size = img.shape[0] / num_tiles
+            x_size = img.shape[1] / num_tiles
 
-        for y in range(0, num_tiles):
-            y_start = int(round(y * y_size))
-            y_end = int(round((y + 1) * y_size))
-            img_y = img[y_start:y_end]
+            for y in range(0, num_tiles):
+                y_start = int(round(y * y_size))
+                y_end = int(round((y + 1) * y_size))
+                img_y = img[y_start:y_end]
 
-            for x in range(0, num_tiles):
-                x_start = int(round(x * x_size))
-                x_end = int(round((x + 1) * x_size))
+                for x in range(0, num_tiles):
+                    x_start = int(round(x * x_size))
+                    x_end = int(round((x + 1) * x_size))
 
-                img_xy = img_y[:, x_start:x_end]
-                if img_xy.shape[0] != img_y.shape[0]:
-                    raise Exception('Unexpected mismatch of axis 0 on the img arrays')
-                resized_img = cv2.resize(img_xy, (TILE_LENGTH, TILE_LENGTH), fx=0.5, fy=0.5, interpolation=cv2.INTER_CUBIC)
+                    img_xy = img_y[:, x_start:x_end]
+                    if img_xy.shape[0] != img_y.shape[0]:
+                        raise Exception('Unexpected mismatch of axis 0 on the img arrays')
+                    resized_img = cv2.resize(img_xy, (tile_length, tile_length), fx=0.5, fy=0.5, interpolation=cv2.INTER_CUBIC)
 
-                output_parent = os.path.join(output_folder, str(zoom_level), str(x))
-                os.makedirs(output_parent, exist_ok=True)
-                output_file = os.path.join(output_parent, str(y) + '.jpeg')
+                    output_parent = os.path.join(output_folder, str(zoom_level), str(x))
+                    os.makedirs(output_parent, exist_ok=True)
+                    output_file = os.path.join(output_parent, str(y) + '.' + TILE_EXTENSION)
 
-                cv2.imwrite(output_file, resized_img)
+                    cv2.imwrite(output_file, resized_img)
 
-            if y % math.ceil(num_tiles/100) == 0:
-                print('.', end='', flush=True)
+                if y % math.ceil(num_tiles/100) == 0:
+                    print('.', end='', flush=True)
 
-        print()
+            print()
 
 def get_contour_levels(units):
     '''
@@ -264,3 +301,82 @@ def precipitation_millimetres_colour(amount):
         return 230, 230, 120
     else:
         return 240, 230, 90
+
+def fetch_tile(data_source, start_year, end_year, measurement, period, zoom_level, x, y, ext):
+    '''
+    Fetches the specified tile.
+    If more than one zoom level per tile is used, the metatile will be divided
+    to extract the sub-tile.
+    '''
+    sub_zoom_level = zoom_level % ZOOM_LEVELS_PER_TILE
+    meta_zoom_level = zoom_level - sub_zoom_level
+    division = 2 ** sub_zoom_level
+
+    meta_x = x // division
+    meta_y = y // division
+
+    path = tile_path(data_source, start_year, end_year, measurement, period, meta_zoom_level, meta_x, meta_y, ext)
+    tile_img = cv2.imread(path)
+
+    sub_x = x % division
+    sub_y = y % division
+
+    sub_tile_length = int(META_TILE_LENGTH / division)
+    start_x = sub_x * sub_tile_length
+    end_x = start_x + sub_tile_length
+
+    start_y = sub_y * sub_tile_length
+    end_y = start_y + sub_tile_length
+
+    subtile_img = tile_img[start_y:end_y, start_x:end_x]
+
+    if subtile_img.shape != (TILE_LENGTH, TILE_LENGTH):
+        subtile_img = cv2.resize(subtile_img, (TILE_LENGTH, TILE_LENGTH), fx=0.5, fy=0.5, interpolation=cv2.INTER_CUBIC)
+
+    success, subtile_data = cv2.imencode('.' + ext, subtile_img)
+
+    if success:
+        return subtile_data.tostring()
+    else:
+        raise Exception('Error encoding tile image to %s' % ext)
+
+def tile_path(data_source, start_year, end_year, measurement, period, zoom_level, x, y, ext):
+    '''
+    Gives the path of the specified tile.
+    Throws TileNotFoundError if not found.
+    '''
+    date_range = '%d-%d' % (start_year, end_year)
+    measurement_period = '%s-%s' % (measurement, period)
+    y_ext = '%d.%s' % (y, ext)
+    path = build_path(TILE_ROOT, data_source, date_range, measurement_period, zoom_level, x, y_ext)
+
+    if not path:
+        raise TileNotFoundError()
+
+    return path
+
+def build_path(*parts):
+    '''
+    Builds a path from the specified parts that is immune to '..' attacks.
+    Returns parts[0] + '/' + parts[1] + '/' + ... + '/' + parts[n] assuming os.sep is '/'
+    Returns None if the path does not exist, including if '..' or '.' are elements in the path.
+    '''
+    path = str(parts[0])
+
+    for part in parts[1:]:
+        part = str(part)
+        if part.find('/') != -1:
+            return None
+        elif part.find(os.sep) != -1:
+            return None
+        elif path.find('..') != -1:
+            return None
+        elif part not in os.listdir(path):
+            return None
+        else:
+            path = path + os.sep + part
+
+    if path.find('..') != -1:
+        return None
+
+    return path

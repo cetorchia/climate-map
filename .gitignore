@@ -1,4 +1,4 @@
-/public/tiles/*
+/tiles/*
 /node_modules/
 /public/bundle.js
 /public/*.bundle.js

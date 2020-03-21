@@ -7,9 +7,6 @@
 
 from datetime import date
 import numpy as np
-import math
-import json
-import urllib
 from flask import Flask
 from flask import jsonify
 from werkzeug.routing import FloatConverter as BaseFloatConverter

@@ -19,6 +19,8 @@ See [README-server.md](README-server.md)
 
 # Installation
 
+Please don't worry; this is actually really easy. Just look at one step at a time.
+
 Install the following Ubuntu packages, or equivalent:
 
 * npm
@@ -168,6 +170,8 @@ sudo service nginx restart
 
 uWSGI is used to run the API server. The main nginx server passes
 traffic headed to `/api/` to the server running on port 5000.
+The tile API server runs on port 5001.
+
 Create `/etc/uwsgi/apps-available/climatapi.ini` to have:
 
 ```
@@ -192,6 +196,7 @@ wsgi-file = src/tile-api.py
 callable = app
 http = 127.0.0.1:5001
 processes = 3
+disable-logging = True
 ```
 
 Then run:
@@ -202,7 +207,7 @@ sudo ln -s /etc/uwsgi/apps-available/tile-api.ini /etc/uwsgi/apps-enabled/
 sudo service uwsgi restart
 ```
 
-# Important notes
+# Loading climate data: Important notes
 
 * Coordinates in Postgis and geoJSON are `[longitude, latitude]`, but coordinates
 in the datasets and the transformation code are `[latitude, longitude]`. Make sure
@@ -217,6 +222,8 @@ recommended that you update the hash of `climate-map.bundle.js` in `public/index
 This will force the update of that file by the user's browser cache. If not, they
 have to press Ctrl+Shift+R to force a refresh. Another option is to put your release
 version.
+
+* If you update any API code (including the tile API) you have to run `service uwsgi restart`.
 
 ```
 <script type="text/javascript" src="/climate-map.bundle.js?hash=58fce162760b3b36b1b5"></script>
@@ -283,12 +290,12 @@ the projected differences and add those to the baseline data.
 ```
 bin/calibrate-dataset.py TerraClimate CanESM5.historical CanESM5.ssp245 tavg 1981-2010 2015-2045
 bin/calibrate-dataset.py TerraClimate CanESM5.historical CanESM5.ssp245 tmin 1981-2010 2015-2045
-bin/calibrate-dataset.py TerraClimate CanESM5.historical CanESM5.ssp245 tmax 1981-2010 2015-2045
+#bin/calibrate-dataset.py TerraClimate CanESM5.historical CanESM5.ssp245 tmax 1981-2010 2015-2045
 bin/calibrate-dataset.py TerraClimate CanESM5.historical CanESM5.ssp245 precip 1981-2010 2015-2045
 
 bin/calibrate-dataset.py TerraClimate CanESM5.historical CanESM5.ssp245 tavg 1981-2010 2045-2075
 bin/calibrate-dataset.py TerraClimate CanESM5.historical CanESM5.ssp245 tmin 1981-2010 2045-2075
-bin/calibrate-dataset.py TerraClimate CanESM5.historical CanESM5.ssp245 tmax 1981-2010 2045-2075
+#bin/calibrate-dataset.py TerraClimate CanESM5.historical CanESM5.ssp245 tmax 1981-2010 2045-2075
 bin/calibrate-dataset.py TerraClimate CanESM5.historical CanESM5.ssp245 precip 1981-2010 2045-2075
 ```
 

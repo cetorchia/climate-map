@@ -8,6 +8,8 @@
 
 import numpy as np
 
+import pack
+
 def is_increasing(arr):
     # See https://stackoverflow.com/a/4983359
     return all(x<y for x, y in zip(arr, arr[1:]))
@@ -201,7 +203,7 @@ def downscale_array(baseline_lat_arr, baseline_lon_arr, lat_arr, lat_delta, lon_
     downscaled_data_arr = np.ma.empty((downscaled_lat_arr.size, downscaled_lon_arr.size))
     downscaled_data_arr.mask = np.repeat(False, downscaled_data_arr.size).reshape(downscaled_data_arr.shape)
     downscaled_data_arr.set_fill_value(
-        data_arr.fill_value if isinstance(data_arr, np.ma.masked_array) else OUTPUT_DTYPE_MIN
+        data_arr.fill_value if isinstance(data_arr, np.ma.masked_array) else pack.OUTPUT_DTYPE_MIN
     )
 
     downscaled_data_arr.mask[downscaled_lat_arr.mask, :] = True

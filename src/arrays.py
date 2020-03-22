@@ -18,6 +18,26 @@ def is_decreasing(arr):
     # See https://stackoverflow.com/a/4983359
     return all(x>y for x, y in zip(arr, arr[1:]))
 
+def find_lat_index(lat_arr, lat_delta, lat):
+    '''
+    Finds the index of the specified latitude in the latitude array.
+    '''
+    return find_coordinate_index(lat_arr, lat_delta, lat)
+
+def find_lon_index(lon_arr, lon_delta, lon):
+    '''
+    Finds the index of the specified longitude in the longitude array.
+    '''
+    # If the longitude is beyond the last data point, e.g. 179.9, we resolve it
+    # to -180.
+    if lon_delta > 0:
+        if lon >= lon_arr[-1] + lon_delta / 2:
+            lon -= 360
+    else:
+        raise Exception('Unsupported: decreasing longitudes in dataset')
+
+    return find_coordinate_index(lon_arr, lon_delta, lon)
+
 def find_coordinate_index(coord_arr, coord_delta, coord):
     '''
     Finds the index of the coordinate in the coordinate array.

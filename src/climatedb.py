@@ -617,18 +617,18 @@ def fetch_monthly_normals(dataset_record, lat, lon):
     lat_mmap = np.memmap(lat_pathname, dtype=LAT_DTYPE, mode='r')
     lon_mmap = np.memmap(lon_pathname, dtype=LON_DTYPE, mode='r')
 
-    lat_i = arrays.find_coordinate_index(lat_mmap, dataset_record['lat_delta'], lat)
+    lat_i = arrays.find_lat_index(lat_mmap, dataset_record['lat_delta'], lat)
     actual_lat = lat_mmap[lat_i]
     lat_error = abs(dataset_record['lat_delta'] / 2)
 
     if abs(lat - actual_lat) >= lat_error:
         raise Exception('Expected latitude %g to be within %g of %g' % (lat, lat_error, actual_lat))
 
-    lon_i = arrays.find_coordinate_index(lon_mmap, dataset_record['lon_delta'], lon)
+    lon_i = arrays.find_lon_index(lon_mmap, dataset_record['lon_delta'], lon)
     actual_lon = lon_mmap[lon_i]
     lon_error = abs(dataset_record['lon_delta'] / 2)
 
-    if abs(lon - actual_lon) >= lon_error:
+    if abs(lon - actual_lon) >= lon_error and abs(lon - 360 - actual_lon) >= lon_error:
         raise Exception('Expected longitude %g to be within %g of %g' % (lon, lon_error, actual_lon))
 
     data_mmap = np.memmap(data_pathname, dtype=DATA_DTYPE, mode='r',

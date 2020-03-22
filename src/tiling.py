@@ -112,7 +112,7 @@ def save_contours(y_arr, x_arr, units, normals, output_file, length, extent, con
     else:
         left_x, right_x = arrays.axis_limit_arrays(x_arr, (x_arr[1:] - x_arr[:-1]).mean())
         x_arr = np.append(left_x, right_x[-1])
-        left_y, right_y = arrays.axis_limit_arrays(y_arr, lat2y(90) - y_arr[0])
+        left_y, right_y = arrays.axis_limit_arrays(y_arr, geo.lat2y(90) - y_arr[0])
         y_arr = np.append(left_y, right_y[-1])
         cmap = colors.ListedColormap(contour_colours)
         norm = colors.BoundaryNorm(contour_levels, len(contour_colours))

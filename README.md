@@ -76,6 +76,9 @@ You then need to import climate datasets into this database.
 Use the following nginx config to serve the climate map.
 
 ```
+proxy_cache_path /tmp/tile_cache levels=1:2 keys_zone=tile_cache:60m max_size=10g 
+                 inactive=30d use_temp_path=off;
+
 proxy_cache_path /tmp/api_cache levels=1:2 keys_zone=api_cache:60m max_size=1g 
                  inactive=60m use_temp_path=off;
 
@@ -108,6 +111,16 @@ server {
         proxy_cache         api_cache;
         proxy_cache_valid   200 60m;
         proxy_pass          "http://127.0.0.1:5000";
+    }
+
+    location ~ ^/tiles/ {
+        rewrite             ^/tiles/(.*)    /$1 break;
+        proxy_set_header    X-Forwarded-For $remote_addr;
+        proxy_set_header    Host $http_host;
+        proxy_cache         tile_cache;
+        proxy_cache_valid   200 30d;
+        proxy_pass          "http://127.0.0.1:5001";
+        access_log          /dev/null;
     }
 
     # Credit to https://serverfault.com/a/571403
@@ -168,10 +181,24 @@ http = 127.0.0.1:5000
 processes = 3
 ```
 
+Also create `/etc/uwsgi/apps-available/tile-api.ini` to have:
+
+```
+[uwsgi]
+plugin = python3
+chdir = /path/to/climate-map
+pythonpath = /path/to/climate-map/src
+wsgi-file = src/tile-api.py
+callable = app
+http = 127.0.0.1:5001
+processes = 3
+```
+
 Then run:
 
 ```
 sudo ln -s /etc/uwsgi/apps-available/climatapi.ini /etc/uwsgi/apps-enabled/
+sudo ln -s /etc/uwsgi/apps-available/tile-api.ini /etc/uwsgi/apps-enabled/
 sudo service uwsgi restart
 ```
 

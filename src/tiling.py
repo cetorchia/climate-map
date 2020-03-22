@@ -180,39 +180,10 @@ def get_contour_levels(units):
     Returns a list of the contour levels for use with pyplot.contourf()
     '''
     if units == 'degC':
-        return np.array([
-            -40,
-            -35,
-            -30,
-            -25,
-            -20,
-            -15,
-            -10,
-            -5,
-            0,
-            5,
-            10,
-            15,
-            20,
-            25,
-            30,
-            35,
-            40,
-        ]) * 10
+        return np.arange(-40, 40, 1) * pack.SCALE_FACTOR
 
     elif units == 'mm':
-        return np.array([
-            0,
-            10,
-            25,
-            50,
-            75,
-            100,
-            150,
-            300,
-            400,
-            500,
-        ]) * 10
+        return np.append(np.arange(0, 100, 1), np.arange(110, 500, 10)) * pack.SCALE_FACTOR
 
     else:
         raise Exception('Unknown units: ' + units)
@@ -221,6 +192,7 @@ def get_contour_colours(levels, units):
     '''
     Returns a list of the contour colours for use with pyplot.contourf()
     '''
+    levels = levels / pack.SCALE_FACTOR
     return ['#%02X%02X%02X' % tuple(colour_for_amount(amount, units)) for amount in levels]
 
 def colour_for_amount(amount, units):
@@ -240,67 +212,52 @@ def degrees_celsius_colour(amount):
     '''
     Returns the colour for the specified degrees Celsius.
     '''
-    amount /= pack.SCALE_FACTOR
-
     if amount >= 35:
-        return 255, 0, 0
-    elif amount >= 30:
-        return 255, 34, 34
-    elif amount >= 25:
-        return 255, 68, 68
-    elif amount >= 20:
-        return 255, 102, 102
-    elif amount >= 15:
-        return 255, 136, 136
-    elif amount >= 10:
-        return 255, 170, 170
-    elif amount >= 5:
-        return 255, 204, 204
+        red = int(round(-255 / 65 * min(amount, 100) + 255 / 65 * 100))
+        return red, 0, 0
+
     elif amount >= 0:
-        return 255, 238, 238
-    elif amount < -35:
-        return 0, 0, 255
-    elif amount < -30:
-        return 34, 34, 255
-    elif amount < -25:
-        return 68, 68, 255
-    elif amount < -20:
-        return 102, 102, 255
-    elif amount < -15:
-        return 136, 136, 255
-    elif amount < -10:
-        return 170, 170, 255
-    elif amount < -5:
-        return 204, 204, 255
+        green = blue = int(round(-255 / 35 * amount + 255))
+        return 255, green, blue
+
+    elif amount >= -35:
+        red = green = int(round(255 / 35 * amount + 255))
+        return red, green, 255
+
     else:
-        return 238, 238, 255
+        #red = green = int(-255 / 65 * max(amount, -100) + 255 * (1 - 100 / 65))
+        blue = int(round(255 / 65 * max(amount, -100) + 255 / 65 * 100))
+        return 0, 0, blue
 
 def precipitation_millimetres_colour(amount):
     '''
     Returns the colour for the specified mm of precipitation.
     '''
-    amount /= pack.SCALE_FACTOR
-
     if amount >= 500:
-        return 0, 0, 255
+        blue = int(round(-255 / 500 * min(amount, 1000) + 2 * 255))
+        return 0, 0, blue
+
     elif amount >= 400:
-        return 60, 60, 255
+        red = green = int(round(-1 * amount + 500))
+        return red, green, 255
+
     elif amount >= 300:
-        return 0, 255, 0
-    elif amount >= 150:
-        return 50, 255, 50
-    elif amount >= 100:
-        return 100, 255, 100
-    elif amount >= 75:
-        return 150, 255, 150
+        red = int(round(amount - 300))
+        green = int(round(-155 / 100 * amount + 255 + 155 * 3))
+        blue = int(round(255 / 100 * amount - 255 * 3))
+        return red, green, blue
+
     elif amount >= 50:
-        return 240, 255, 240
+        red = blue = int(round(-1 * amount + 300))
+        return red, 255, blue
+
     elif amount >= 25:
-        return 230, 230, 180
-    elif amount >= 10:
-        return 230, 230, 120
+        blue = int(round(10 * amount - 250))
+        return 250, 250, blue
+
     else:
-        return 240, 230, 90
+        red = green = int(round(6 * max(amount, 0) + 100))
+        return red, green, 0
 
 def fetch_tile(data_source, start_year, end_year, measurement, period, zoom_level, x, y, ext):
     '''

@@ -261,7 +261,7 @@ function createTileLayer()
             attribution: dataSourceAttribution(data_source_select),
             zIndex: CONFIG.climate_tile_layer.z_index,
             maxNativeZoom: max_zoom_level,
-            opacity: 0.5,
+            opacity: CONFIG.climate_tile_layer.opacity,
             bounds: [[85.051129, -180], [-85.051129 + DELTA/2, 180 - DELTA/2]],
         }
     );

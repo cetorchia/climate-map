@@ -87,7 +87,6 @@ def monthly_normals(data_source, start_year, end_year, lat, lon):
                     raise Exception('Expected calibrated coordinates to match those from on-the-fly calibration')
 
                 if np.any(normals_arr != calibrated_normals_arr):
-                    print(normals_arr, calibrated_normals_arr)
                     raise Exception('Expected calibrated normals to correspond with on-the-fly calibration')
 
             normals[measurement] = {(i + 1): [value.item(), units] for i, value in enumerate(normals_arr)}

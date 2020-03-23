@@ -62,6 +62,12 @@ const DEFAULT_PAGE_TITLE = 'Climate Map';
 const API_URL = '/api';
 const APP_URL = '/';
 
+const ALLOWED_TILE_FORMATS = ['png'];
+
+if (ALLOWED_TILE_FORMATS.indexOf(CONFIG.climate_tile_layer.format) === -1) {
+    throw Error('Climate tile format is not valid.');
+}
+
 let APP = {};
 
 let defaultDataSources = {};
@@ -147,7 +153,7 @@ function tileUrl(data_source, date_range, measurement, period)
         encodeURIComponent(data_source) + '/' +
         encodeURIComponent(date_range) + '/' +
         encodeURIComponent(measurement + '-' + period) +
-        '/{z}/{x}/{y}.jpeg';
+        '/{z}/{x}/{y}.' + CONFIG.climate_tile_layer.format;
 }
 
 /**

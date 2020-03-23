@@ -19,6 +19,7 @@ import climatedb
 import arrays
 import geo
 import pack
+import config
 
 TILE_ROOT = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'tiles')
 
@@ -27,7 +28,7 @@ ZOOM_LEVELS_PER_TILE = 2
 META_TILE_LENGTH = TILE_LENGTH * 2 ** (ZOOM_LEVELS_PER_TILE - 1)
 MAP_LENGTH = 16384
 MAX_ZOOM_LEVEL = 7
-TILE_EXTENSION = 'jpeg'
+TILE_EXTENSION = 'png'
 INITIAL_CONTOUR_EXTENSION = 'png'
 
 MAP_EXTENT = (
@@ -36,6 +37,9 @@ MAP_EXTENT = (
     -geo.EARTH_CIRCUMFERENCE/2,
     geo.EARTH_CIRCUMFERENCE/2
 )
+
+WATERMARK_IMAGE = os.path.join(os.path.dirname(os.path.dirname(__file__)), config.images.watermark.filename)
+WATERMARK_OPACITY = config.images.watermark.opacity
 
 if (MAX_ZOOM_LEVEL + 1) % ZOOM_LEVELS_PER_TILE != 0:
     raise Exception('The number of zoom levels, which is %d, must be divisible by the number of zoom levels per tile, which is %d.' % (MAX_ZOOM_LEVEL + 1, ZOOM_LEVELS_PER_TILE))
@@ -76,7 +80,7 @@ def save_contour_tiles(y_arr, x_arr, units, normals, output_folder, data_source_
     os.makedirs(os.path.dirname(full_output_file), exist_ok=True)
     save_contours(y_arr, x_arr, units, normals, full_output_file, MAP_LENGTH, MAP_EXTENT)
 
-    img = cv2.imread(full_output_file)
+    img = cv2.imread(full_output_file, cv2.IMREAD_UNCHANGED)
     os.remove(full_output_file)
     save_tiles(img, output_folder, data_source_id)
 
@@ -273,7 +277,7 @@ def fetch_tile(data_source, start_year, end_year, measurement, period, zoom_leve
     meta_y = y // division
 
     path = tile_path(data_source, start_year, end_year, measurement, period, meta_zoom_level, meta_x, meta_y, ext)
-    tile_img = cv2.imread(path)
+    tile_img = cv2.imread(path, cv2.IMREAD_UNCHANGED)
 
     sub_x = x % division
     sub_y = y % division
@@ -289,6 +293,8 @@ def fetch_tile(data_source, start_year, end_year, measurement, period, zoom_leve
 
     if subtile_img.shape != (TILE_LENGTH, TILE_LENGTH):
         subtile_img = cv2.resize(subtile_img, (TILE_LENGTH, TILE_LENGTH), fx=0.5, fy=0.5, interpolation=cv2.INTER_CUBIC)
+
+    subtile_img = add_watermark(subtile_img)
 
     success, subtile_data = cv2.imencode('.' + ext, subtile_img)
 
@@ -337,3 +343,26 @@ def build_path(*parts):
         return None
 
     return path
+
+def add_watermark(img):
+    '''
+    Adds the copyright watermark to the specified image.
+    If the image is bigger than the watermark image, then we
+    repeat the image horizontally and vertically in an effort
+    to show the copyright on every sub-tile.
+
+    The watermark image must be exactly the same size as each
+    tile. See TILE_LENGTH.
+    '''
+    if WATERMARK_IMAGE and os.path.exists(WATERMARK_IMAGE):
+        watermark_img = cv2.imread(WATERMARK_IMAGE, cv2.IMREAD_UNCHANGED)
+
+        if watermark_img.shape != img.shape:
+            raise Exception('Expected watermark image to fit evenly on each tile. Check size of %s is 256x256' % WATERMARK_IMAGE)
+
+        final_img = img.copy()
+        final_img = cv2.addWeighted(watermark_img, WATERMARK_OPACITY, final_img, 1.0, 0, final_img)
+
+        return final_img
+    else:
+        return img

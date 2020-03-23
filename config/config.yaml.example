@@ -3,3 +3,8 @@ database:
   host: localhost
   user: climate_map
   password: change_me
+
+images:
+  watermark:
+    filename: images/copright-tile.png
+    opacity: 0.1

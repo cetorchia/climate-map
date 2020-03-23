@@ -37,4 +37,9 @@ database.host = _yaml_data['database']['host']
 database.user = _yaml_data['database']['user']
 database.password = _yaml_data['database']['password']
 
+images = _Object()
+images.watermark = _Object()
+images.watermark.filename = _yaml_data['images']['watermark']['filename']
+images.watermark.opacity = _yaml_data['images']['watermark']['opacity']
+
 del _yaml_data

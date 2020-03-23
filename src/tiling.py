@@ -180,10 +180,10 @@ def get_contour_levels(units):
     Returns a list of the contour levels for use with pyplot.contourf()
     '''
     if units == 'degC':
-        return np.arange(-40, 40, 1) * pack.SCALE_FACTOR
+        return np.arange(-100, 100, 1) * pack.SCALE_FACTOR
 
     elif units == 'mm':
-        return np.append(np.arange(0, 100, 1), np.arange(110, 500, 10)) * pack.SCALE_FACTOR
+        return np.append(np.arange(0, 100, 1), np.arange(110, 700, 10)) * pack.SCALE_FACTOR
 
     else:
         raise Exception('Unknown units: ' + units)
@@ -213,20 +213,19 @@ def degrees_celsius_colour(amount):
     Returns the colour for the specified degrees Celsius.
     '''
     if amount >= 35:
-        red = int(round(-255 / 65 * min(amount, 100) + 255 / 65 * 100))
+        red = int(round(-205 / 65 * min(amount, 100) + 50 + 205 / 65 * 100))
         return red, 0, 0
 
     elif amount >= 0:
-        green = blue = int(round(-255 / 35 * amount + 255))
+        green = blue = int(round(-240 / 35 * amount + 240))
         return 255, green, blue
 
     elif amount >= -35:
-        red = green = int(round(255 / 35 * amount + 255))
+        red = green = int(round(240 / 35 * amount + 240))
         return red, green, 255
 
     else:
-        #red = green = int(-255 / 65 * max(amount, -100) + 255 * (1 - 100 / 65))
-        blue = int(round(255 / 65 * max(amount, -100) + 255 / 65 * 100))
+        blue = int(round(205 / 65 * min(amount, 100) + 50 + 205 / 65 * 100))
         return 0, 0, blue
 
 def precipitation_millimetres_colour(amount):
@@ -248,16 +247,17 @@ def precipitation_millimetres_colour(amount):
         return red, green, blue
 
     elif amount >= 50:
-        red = blue = int(round(-1 * amount + 300))
+        red = blue = int(round(-4 / 5 * amount + 240))
         return red, 255, blue
 
     elif amount >= 25:
-        blue = int(round(10 * amount - 250))
-        return 250, 250, blue
+        red = int(round(-2 * amount + 300))
+        blue = int(round(6 * amount - 100))
+        return red, 250, blue
 
     else:
-        red = green = int(round(6 * max(amount, 0) + 100))
-        return red, green, 0
+        green = int(round(4 * max(amount, 0) + 150))
+        return 250, green, 50
 
 def fetch_tile(data_source, start_year, end_year, measurement, period, zoom_level, x, y, ext):
     '''

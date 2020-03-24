@@ -35,7 +35,7 @@ def climate_tile(data_source, start_year, end_year, measurement, period, zoom_le
     if period not in ALLOWED_PERIODS:
         return jsonify({'error': 'Invalid period "%s"' % period}), 400
 
-    if ext != tiling.TILE_EXTENSION:
+    if ext != tiling.FETCH_TILE_EXTENSION:
         return jsonify({'error': 'Invalid extension "%s"' % ext}), 400
 
     try:

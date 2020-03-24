@@ -28,8 +28,11 @@ ZOOM_LEVELS_PER_TILE = 2
 META_TILE_LENGTH = TILE_LENGTH * 2 ** (ZOOM_LEVELS_PER_TILE - 1)
 MAP_LENGTH = 16384
 MAX_ZOOM_LEVEL = 7
-TILE_EXTENSION = 'png'
+TILE_EXTENSION = 'jpeg'
 INITIAL_CONTOUR_EXTENSION = 'png'
+FETCH_TILE_EXTENSION = 'png'
+ALPHA_EXTENSION = 'png'
+TILE_TRANSPARENT_VALUE = 255
 
 MAP_EXTENT = (
     -geo.EARTH_CIRCUMFERENCE/2,
@@ -143,6 +146,7 @@ def save_tiles(img, output_folder, data_source_id):
     climatedb.commit();
 
     tile_length = META_TILE_LENGTH
+    ext = TILE_EXTENSION
 
     for zoom_level in range(0, max_zoom_level + 1):
         # Skip zoom levels already included in the previous zoom level
@@ -170,9 +174,15 @@ def save_tiles(img, output_folder, data_source_id):
 
                     output_parent = os.path.join(output_folder, str(zoom_level), str(x))
                     os.makedirs(output_parent, exist_ok=True)
-                    output_file = os.path.join(output_parent, str(y) + '.' + TILE_EXTENSION)
+                    output_file = os.path.join(output_parent, str(y) + '.' + ext)
 
                     cv2.imwrite(output_file, resized_img)
+
+                    # Create alpha file to not lose transparency
+                    if resized_img.shape[2] == 4 and ext in ('jpeg', 'jpg'):
+                        alpha_file = os.path.join(output_parent, str(y) + '-alpha.' + ALPHA_EXTENSION)
+                        alpha = resized_img[:, :, 3]
+                        cv2.imwrite(alpha_file, alpha)
 
                 if y % math.ceil(num_tiles/100) == 0:
                     print('.', end='', flush=True)
@@ -187,7 +197,7 @@ def get_contour_levels(units):
         return np.arange(-100, 100, 1) * pack.SCALE_FACTOR
 
     elif units == 'mm':
-        return np.append(np.arange(0, 100, 1), np.arange(110, 700, 10)) * pack.SCALE_FACTOR
+        return np.append(np.arange(0, 101, 1), np.arange(110, 1010, 10)) * pack.SCALE_FACTOR
 
     else:
         raise Exception('Unknown units: ' + units)
@@ -260,8 +270,9 @@ def precipitation_millimetres_colour(amount):
         return red, 250, blue
 
     else:
+        red = int(round(2 * max(amount, 0) + 200))
         green = int(round(4 * max(amount, 0) + 150))
-        return 250, green, 50
+        return red, green, 50
 
 def fetch_tile(data_source, start_year, end_year, measurement, period, zoom_level, x, y, ext):
     '''
@@ -276,8 +287,12 @@ def fetch_tile(data_source, start_year, end_year, measurement, period, zoom_leve
     meta_x = x // division
     meta_y = y // division
 
-    path = tile_path(data_source, start_year, end_year, measurement, period, meta_zoom_level, meta_x, meta_y, ext)
+    stored_ext = TILE_EXTENSION
+    path = tile_path(data_source, start_year, end_year, measurement, period, meta_zoom_level, meta_x, meta_y, stored_ext)
+    alpha_path = tile_alpha_path(data_source, start_year, end_year, measurement, period, meta_zoom_level, meta_x, meta_y)
+
     tile_img = cv2.imread(path, cv2.IMREAD_UNCHANGED)
+    alpha_img = cv2.imread(alpha_path, cv2.IMREAD_UNCHANGED)
 
     sub_x = x % division
     sub_y = y % division
@@ -290,10 +305,15 @@ def fetch_tile(data_source, start_year, end_year, measurement, period, zoom_leve
     end_y = start_y + sub_tile_length
 
     subtile_img = tile_img[start_y:end_y, start_x:end_x]
+    subalpha_img = alpha_img[start_y:end_y, start_x:end_x]
 
     if subtile_img.shape != (TILE_LENGTH, TILE_LENGTH):
-        subtile_img = cv2.resize(subtile_img, (TILE_LENGTH, TILE_LENGTH), fx=0.5, fy=0.5, interpolation=cv2.INTER_CUBIC)
+        subtile_img = cv2.resize(subtile_img, (TILE_LENGTH, TILE_LENGTH), fx=0.5, fy=0.5, interpolation=cv2.INTER_NEAREST)
 
+    if subalpha_img.shape != (TILE_LENGTH, TILE_LENGTH):
+        subalpha_img = cv2.resize(subalpha_img, (TILE_LENGTH, TILE_LENGTH), fx=0.5, fy=0.5, interpolation=cv2.INTER_NEAREST)
+
+    subtile_img = add_transparency(subtile_img, subalpha_img)
     subtile_img = add_watermark(subtile_img)
 
     success, subtile_data = cv2.imencode('.' + ext, subtile_img)
@@ -311,6 +331,21 @@ def tile_path(data_source, start_year, end_year, measurement, period, zoom_level
     date_range = '%d-%d' % (start_year, end_year)
     measurement_period = '%s-%s' % (measurement, period)
     y_ext = '%d.%s' % (y, ext)
+    path = build_path(TILE_ROOT, data_source, date_range, measurement_period, zoom_level, x, y_ext)
+
+    if not path:
+        raise TileNotFoundError()
+
+    return path
+
+def tile_alpha_path(data_source, start_year, end_year, measurement, period, zoom_level, x, y):
+    '''
+    Gives the path of the specified tile's alpha channel.
+    Throws TileNotFoundError if not found.
+    '''
+    date_range = '%d-%d' % (start_year, end_year)
+    measurement_period = '%s-%s' % (measurement, period)
+    y_ext = '%d-alpha.%s' % (y, ALPHA_EXTENSION)
     path = build_path(TILE_ROOT, data_source, date_range, measurement_period, zoom_level, x, y_ext)
 
     if not path:
@@ -344,6 +379,14 @@ def build_path(*parts):
 
     return path
 
+def add_transparency(img, alpha):
+    '''
+    Adds transparency to a tile that does not have it.
+    This is especially the case when we save tiles in JPEG to save space.
+    The alpha parameter is a numpy array with the alpha channel.
+    '''
+    return np.append(img, alpha.reshape(img.shape[:2] + (1,)), axis=2)
+
 def add_watermark(img):
     '''
     Adds the copyright watermark to the specified image.
@@ -357,8 +400,11 @@ def add_watermark(img):
     if WATERMARK_IMAGE and os.path.exists(WATERMARK_IMAGE):
         watermark_img = cv2.imread(WATERMARK_IMAGE, cv2.IMREAD_UNCHANGED)
 
-        if watermark_img.shape != img.shape:
+        if watermark_img.shape[:2] != img.shape[:2]:
             raise Exception('Expected watermark image to fit evenly on each tile. Check size of %s is 256x256' % WATERMARK_IMAGE)
+
+        if watermark_img.shape[2] != img.shape[2]:
+            raise Exception('Expected watermark image to have the same depth as each tile. Check alpha layer')
 
         final_img = img.copy()
         final_img = cv2.addWeighted(watermark_img, WATERMARK_OPACITY, final_img, 1.0, 0, final_img)

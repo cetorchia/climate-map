@@ -84,7 +84,7 @@ def calibrate(
 
     if measurement in ABSOLUTE_DIFFERENCE_MEASUREMENTS:
         print('Using absolute difference')
-        differences = np.float64(projection_data) - np.float64(historical_data)
+        differences = projection_data - historical_data
     else:
         print('Using relative difference')
         differences = projection_data / historical_data
@@ -120,7 +120,7 @@ def calibrate(
         raise Exception('Expected downscaled differences to have the same shape as baseline data')
 
     if measurement in ABSOLUTE_DIFFERENCE_MEASUREMENTS:
-        calibrated_data = np.float64(baseline_data) + downscaled_differences
+        calibrated_data = baseline_data + downscaled_differences
     else:
         calibrated_data = np.round(baseline_data * downscaled_differences)
 
@@ -191,8 +191,8 @@ def calibrate_location(dataset, lat, lon):
     actual_lat, actual_lon, baseline_normals_arr = climatedb.fetch_monthly_normals(baseline_dataset, lat, lon)
 
     if measurement in ABSOLUTE_DIFFERENCE_MEASUREMENTS:
-        normals_arr = np.float64(baseline_normals_arr) + np.float64(projection_normals_arr) - np.float64(historical_normals_arr)
+        normals_arr = baseline_normals_arr + projection_normals_arr - historical_normals_arr
     else:
-        normals_arr = np.float64(baseline_normals_arr) * np.float64(projection_normals_arr) / np.float64(historical_normals_arr)
+        normals_arr = baseline_normals_arr * projection_normals_arr / historical_normals_arr
 
     return actual_lat, actual_lon, normals_arr

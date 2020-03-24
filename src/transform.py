@@ -99,6 +99,8 @@ def aggregate_normals(input_files, get_normals):
 
     for input_file in input_files:
         lat_arr, lon_arr, units, next_normals = get_normals(input_file)
+        if next_normals.dtype == np.int16:
+            raise Exception('Do not use aggregate_normals() with int16\'s or you will end up with overflow')
 
         if aggregated_normals is None:
             aggregated_normals = next_normals

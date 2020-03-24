@@ -22,8 +22,9 @@ db = None
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
 
-DATA_DTYPE = np.int16
+DATA_DTYPE = np.int16 # Data type of climate normal values stored in the database, helps save space
 LAT_DTYPE = LON_DTYPE = np.float64
+FETCH_DTYPE = np.float64 # Data type returned from db, important for preventing integer overflow
 
 MONTHS_PER_YEAR = 12
 
@@ -639,7 +640,7 @@ def fetch_monthly_normals(dataset_record, lat, lon):
     if np.all(normals_arr.mask):
         raise NotFoundError('No data at %g, %g' % (actual_lat, actual_lon))
 
-    return actual_lat, actual_lon, normals_arr
+    return actual_lat, actual_lon, normals_arr.astype(FETCH_DTYPE)
 
 def fetch_normals_from_dataset(dataset_record, month):
     '''
@@ -661,7 +662,7 @@ def fetch_normals_from_dataset(dataset_record, month):
     else:
         data = data_mmap[month - 1, :]
 
-    return lat_mmap, lon_mmap, data
+    return lat_mmap, lon_mmap, data.astype(FETCH_DTYPE)
 
 def fetch_normals_from_dataset_mean(dataset_record):
     '''
@@ -686,7 +687,7 @@ def fetch_normals_from_dataset_mean(dataset_record):
     else:
         data = data_mean
 
-    return lat_mmap, lon_mmap, data
+    return lat_mmap, lon_mmap, data.astype(FETCH_DTYPE)
 
 def save_normals(
         lat_arr,

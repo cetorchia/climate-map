@@ -194,10 +194,10 @@ def get_contour_levels(units):
     Returns a list of the contour levels for use with pyplot.contourf()
     '''
     if units == 'degC':
-        return np.arange(-100, 100, 1) * pack.SCALE_FACTOR
+        return np.hstack((np.arange(-100, -40, 10), np.arange(-40, 40, 5), np.arange(40, 101, 10))) * pack.SCALE_FACTOR
 
     elif units == 'mm':
-        return np.append(np.arange(0, 101, 1), np.arange(110, 1010, 10)) * pack.SCALE_FACTOR
+        return np.hstack((np.arange(0, 100, 25), np.arange(100, 200, 50), np.arange(200, 1001, 100))) * pack.SCALE_FACTOR
 
     else:
         raise Exception('Unknown units: ' + units)
@@ -227,18 +227,26 @@ def degrees_celsius_colour(amount):
     Returns the colour for the specified degrees Celsius.
     '''
     if amount >= 35:
+        # 100: 50, 0, 0
+        # 35: 255, 0, 0
         red = int(round(-205 / 65 * min(amount, 100) + 50 + 205 / 65 * 100))
         return red, 0, 0
 
     elif amount >= 0:
-        green = blue = int(round(-240 / 35 * amount + 240))
+        # 35: 255, 0, 0
+        # 0: 255, 238, 238
+        green = blue = int(round(-238 / 35 * amount + 238))
         return 255, green, blue
 
     elif amount >= -35:
-        red = green = int(round(240 / 35 * amount + 240))
+        # -5: 238, 238, 255
+        # -35: 0, 0, 255
+        red = green = int(round(238 / 30 * min(amount, -5) + 35 * 238 / 30))
         return red, green, 255
 
     else:
+        # -35: 0, 0, 255
+        # -100: 0, 0, 50
         blue = int(round(205 / 65 * min(amount, 100) + 50 + 205 / 65 * 100))
         return 0, 0, blue
 
@@ -247,32 +255,29 @@ def precipitation_millimetres_colour(amount):
     Returns the colour for the specified mm of precipitation.
     '''
     if amount >= 500:
-        blue = int(round(-255 / 500 * min(amount, 1000) + 2 * 255))
+        # 1000: 0, 0, 50
+        # 500: 0, 0, 255
+        blue = int(round(-41 / 100 * min(amount, 1000) + 460))
         return 0, 0, blue
 
     elif amount >= 400:
-        red = green = int(round(-1 * amount + 500))
-        return red, green, 255
-
+        return 50, 50, 255
     elif amount >= 300:
-        red = int(round(amount - 300))
-        green = int(round(-155 / 100 * amount + 255 + 155 * 3))
-        blue = int(round(255 / 100 * amount - 255 * 3))
-        return red, green, blue
-
+        return 100, 100, 255
+    elif amount >= 200:
+        return 0, 255, 0
+    elif amount >= 150:
+        return 50, 255, 50
+    elif amount >= 100:
+        return 100, 255, 100
+    elif amount >= 75:
+        return 150, 255, 150
     elif amount >= 50:
-        red = blue = int(round(-4 / 5 * amount + 240))
-        return red, 255, blue
-
+        return 200, 255, 200
     elif amount >= 25:
-        red = int(round(-2 * amount + 300))
-        blue = int(round(6 * amount - 100))
-        return red, 250, blue
-
+        return 230, 230, 180
     else:
-        red = int(round(2 * max(amount, 0) + 200))
-        green = int(round(4 * max(amount, 0) + 150))
-        return red, green, 50
+        return 245, 220, 100
 
 def fetch_tile(data_source, start_year, end_year, measurement, period, zoom_level, x, y, ext):
     '''

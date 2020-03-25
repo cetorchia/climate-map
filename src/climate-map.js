@@ -42,12 +42,6 @@ async function importDependencies()
 }
 
 /**
- * Climate data resolution. Offset is used in case each data point does not
- * start at some multiple of the delta.
- */
-const DELTA = 1/24, DELTA_OFFSET = 0;
-
-/**
  * Default error message.
  */
 const DEFAULT_ERROR_MESSAGE = 'An error occurred. Please try again later.';
@@ -268,7 +262,6 @@ function createTileLayer()
             zIndex: CONFIG.climate_tile_layer.z_index,
             maxNativeZoom: max_zoom_level,
             opacity: CONFIG.climate_tile_layer.opacity,
-            bounds: [[85.051129, -180], [-85.051129 + DELTA/2, 180 - DELTA/2]],
         }
     );
 

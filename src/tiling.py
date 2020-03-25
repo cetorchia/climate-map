@@ -26,7 +26,8 @@ TILE_ROOT = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'tiles')
 TILE_LENGTH = 256
 ZOOM_LEVELS_PER_TILE = 2
 META_TILE_LENGTH = TILE_LENGTH * 2 ** (ZOOM_LEVELS_PER_TILE - 1)
-MAP_LENGTH = 16384
+IMAGE_LENGTH = 16384
+MIN_ZOOM_LEVEL = 0
 MAX_ZOOM_LEVEL = 7
 TILE_EXTENSION = 'jpeg'
 INITIAL_CONTOUR_EXTENSION = 'png'
@@ -81,11 +82,38 @@ def save_contour_tiles(y_arr, x_arr, units, normals, output_folder, data_source_
     '''
     full_output_file = output_folder + '.' + INITIAL_CONTOUR_EXTENSION
     os.makedirs(os.path.dirname(full_output_file), exist_ok=True)
-    save_contours(y_arr, x_arr, units, normals, full_output_file, MAP_LENGTH, MAP_EXTENT)
 
+    # Do the first zoom level separately as it cannot be divided into quadrants.
+    save_contours(y_arr, x_arr, units, normals, full_output_file, META_TILE_LENGTH, MAP_EXTENT)
     img = cv2.imread(full_output_file, cv2.IMREAD_UNCHANGED)
     os.remove(full_output_file)
-    save_tiles(img, output_folder, data_source_id)
+    save_tiles(img, output_folder, data_source_id, max_zoom_level=MIN_ZOOM_LEVEL)
+
+    # Divide the map into four quadrants and generate contour tiles for them separately
+    # in order to not run out of memory.
+
+    MAP_X_DISTANCE = MAP_EXTENT[1] - MAP_EXTENT[0]
+    MAP_Y_DISTANCE = MAP_EXTENT[3] - MAP_EXTENT[2]
+
+    for qy in (0, 1):
+        for qx in (0, 1):
+            print('Quadrant %d, %d' % (qx, qy))
+            map_extent = (
+                MAP_EXTENT[0] if qx == 0 else MAP_EXTENT[0] + MAP_X_DISTANCE / 2,
+                MAP_EXTENT[1] if qx == 1 else MAP_EXTENT[0] + MAP_X_DISTANCE / 2,
+                MAP_EXTENT[2] if qy == 1 else MAP_EXTENT[2] + MAP_Y_DISTANCE / 2,
+                MAP_EXTENT[3] if qy == 0 else MAP_EXTENT[2] + MAP_Y_DISTANCE / 2,
+            )
+            tiles_extent = (
+                0 if qx == 0 else 1 / 2,
+                1 / 2 if qx == 0 else 1,
+                0 if qy == 0 else 1 / 2,
+                1 / 2 if qy == 0 else 1,
+            )
+            save_contours(y_arr, x_arr, units, normals, full_output_file, IMAGE_LENGTH, map_extent)
+            img = cv2.imread(full_output_file, cv2.IMREAD_UNCHANGED)
+            os.remove(full_output_file)
+            save_tiles(img, output_folder, data_source_id, min_zoom_level=MIN_ZOOM_LEVEL + 1, tiles_extent=tiles_extent)
 
 def save_contours(y_arr, x_arr, units, normals, output_file, length, extent, contour=True):
     '''
@@ -128,7 +156,10 @@ def save_contours(y_arr, x_arr, units, normals, output_file, length, extent, con
     plt.savefig(output_file, dpi=dpi, transparent=True)
     plt.close(fig)
 
-def save_tiles(img, output_folder, data_source_id):
+def save_tiles(img, output_folder, data_source_id,
+               min_zoom_level=MIN_ZOOM_LEVEL,
+               max_zoom_level=MAX_ZOOM_LEVEL,
+               tiles_extent=(0,1,0,1)):
     '''
     Generates map tiles from the specified image in the specified folder.
     The max zoom level of the data source is updated so that the UI knows
@@ -140,32 +171,35 @@ def save_tiles(img, output_folder, data_source_id):
 
     E.g. /tiles/tavg-01/{z}/{x}/{y}.jpeg
     '''
-    max_zoom_level = MAX_ZOOM_LEVEL
-
     climatedb.update_max_zoom_level(data_source_id, max_zoom_level)
     climatedb.commit();
 
     tile_length = META_TILE_LENGTH
     ext = TILE_EXTENSION
 
-    for zoom_level in range(0, max_zoom_level + 1):
+    for zoom_level in range(min_zoom_level, max_zoom_level + 1):
         # Skip zoom levels already included in the previous zoom level
         if zoom_level % ZOOM_LEVELS_PER_TILE == 0:
             print('Zoom level %d: ' % zoom_level, end='', flush=True)
 
             num_tiles = 2**zoom_level
 
-            y_size = img.shape[0] / num_tiles
-            x_size = img.shape[1] / num_tiles
+            x_tiles_start = int(num_tiles * tiles_extent[0])
+            x_tiles_end = int(num_tiles * tiles_extent[1])
+            y_tiles_start = int(num_tiles * tiles_extent[2])
+            y_tiles_end = int(num_tiles * tiles_extent[3])
 
-            for y in range(0, num_tiles):
-                y_start = int(round(y * y_size))
-                y_end = int(round((y + 1) * y_size))
+            y_size = img.shape[0] / (y_tiles_end - y_tiles_start)
+            x_size = img.shape[1] / (x_tiles_end - x_tiles_start)
+
+            for y in range(y_tiles_start, y_tiles_end):
+                y_start = int(round((y - y_tiles_start) * y_size))
+                y_end = int(round((y - y_tiles_start + 1) * y_size))
                 img_y = img[y_start:y_end]
 
-                for x in range(0, num_tiles):
-                    x_start = int(round(x * x_size))
-                    x_end = int(round((x + 1) * x_size))
+                for x in range(x_tiles_start, x_tiles_end):
+                    x_start = int(round((x - x_tiles_start) * x_size))
+                    x_end = int(round((x - x_tiles_start + 1) * x_size))
 
                     img_xy = img_y[:, x_start:x_end]
                     if img_xy.shape[0] != img_y.shape[0]:
@@ -234,8 +268,8 @@ def degrees_celsius_colour(amount):
 
     elif amount >= 0:
         # 35: 255, 0, 0
-        # 0: 255, 238, 238
-        green = blue = int(round(-238 / 35 * amount + 238))
+        # 0: 255, 235, 235
+        green = blue = int(round(-235 / 35 * amount + 235))
         return 255, green, blue
 
     elif amount >= -35:

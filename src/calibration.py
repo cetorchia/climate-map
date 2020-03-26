@@ -12,7 +12,8 @@ import climatedb
 import arrays
 import pack
 
-ABSOLUTE_DIFFERENCE_MEASUREMENTS = 'tavg', 'tmin', 'tmax', 'precip'
+ABSOLUTE_DIFFERENCE_MEASUREMENTS = 'tavg', 'tmin', 'tmax'
+ABSOLUTE_THRESHOLD = 5
 
 def calibrate(
         baseline_data_source_code,
@@ -88,6 +89,7 @@ def calibrate(
     else:
         print('Using relative difference')
         differences = projection_data / historical_data
+        abs_differences = projection_data - historical_data
 
     print('Against baseline dataset %s-%d-%d-%s-%s' % (
         baseline_data_source_code,
@@ -122,7 +124,18 @@ def calibrate(
     if measurement in ABSOLUTE_DIFFERENCE_MEASUREMENTS:
         calibrated_data = baseline_data + downscaled_differences
     else:
+        downscaled_abs_differences = arrays.downscale_array(
+            baseline_lat,
+            baseline_lon,
+            projection_lat,
+            projection_dataset['lat_delta'],
+            projection_lon,
+            projection_dataset['lon_delta'],
+            abs_differences
+        )
         calibrated_data = np.round(baseline_data * downscaled_differences)
+        above_threshold = above_absolute_threshold(calibrated_data, downscaled_differences, downscaled_abs_differences)
+        calibrated_data[above_threshold] = baseline_data[above_threshold] + downscaled_abs_differences[above_threshold]
 
     if np.any((calibrated_data > pack.OUTPUT_DTYPE_MAX) | (calibrated_data < pack.OUTPUT_DTYPE_MIN)):
         raise Exception('Calibrated data is out of bounds for %s' % pack.OUTPUT_DTYPE)
@@ -193,6 +206,25 @@ def calibrate_location(dataset, lat, lon):
     if measurement in ABSOLUTE_DIFFERENCE_MEASUREMENTS:
         normals_arr = baseline_normals_arr + projection_normals_arr - historical_normals_arr
     else:
-        normals_arr = baseline_normals_arr * projection_normals_arr / historical_normals_arr
+        relative_differences = projection_normals_arr / historical_normals_arr
+        absolute_differences = projection_normals_arr - historical_normals_arr
+        normals_arr = np.round(baseline_normals_arr * relative_differences)
+
+        above_threshold = above_absolute_threshold(normals_arr, relative_differences, absolute_differences)
+        normals_arr[above_threshold] = baseline_normals_arr[above_threshold] + absolute_differences[above_threshold]
 
     return actual_lat, actual_lon, normals_arr
+
+def above_absolute_threshold(calibrated_normals, relative_differences, absolute_differences):
+    '''
+    Returns a boolean numpy array indicating those elements that
+    are at or above the threshold at which absolute differences should
+    be used instead of relative differences. This helps avoid excessive 
+    relative differences, especially infinity or NaN.
+    '''
+    return (
+        (relative_differences >= ABSOLUTE_THRESHOLD)
+        | np.isnan(relative_differences)
+        | (calibrated_normals < pack.OUTPUT_DTYPE_MIN)
+        | (calibrated_normals > pack.OUTPUT_DTYPE_MAX)
+    )

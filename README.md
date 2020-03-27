@@ -303,6 +303,16 @@ This will generate a new dataset with the same data source name with a "calibrat
 flag. This flag distinguishes that dataset in order to generate tiles for the
 calibrated dataset and not the uncalibrated one.
 
+As a shortcut, the following command will calibrate the model for all measurements, date
+ranges, and scenarios.
+
+```
+bin/calibrate.sh CanESM5
+```
+
+You may have to update `bin/calibrate.sh` if you will provide a different set of
+scenarios and date range(s).
+
 ## Generating PNG tiles
 
 To improve efficiency, tiles are generated that divide the map so that Leaflet
@@ -324,6 +334,14 @@ bin/tiles-from-dataset.py --calibrated MRI-ESM2-0.ssp245 precip 2015 2045
 You have to specify the `--calibrated` option if the dataset is calibrated,
 in order to generate tiles for the calibrated dataset instead of the uncalibrated
 dataset.
+
+The following command is a shortcut to generate tiles for the model for all
+measurements, scenarios, and date ranges. (It automatically uses the calibrated
+dataset.)
+
+```
+bin/generate-tiles.sh MRI-ESM2-0
+```
 
 # Tiling scheme
 

@@ -63,9 +63,14 @@ def find_coordinate_index(coord_arr, coord_delta, coord):
 def axis_limit_arrays(axis_arr, axis_delta):
     '''
     Returns left and right axis limit arrays. Each element provides
-    the limit that points in the range of the coordinate must fall right
-    and left of which respectively.
+    the limit that points in the range of the coordinate must greater than or
+    equal to and less than respectively.
     '''
+    # Note: if axis array is decreasing (as in the case of latitudes),
+    # left axis limit is still the lower limit of these coordinates, so we
+    # still need to subtract (and not add) the delta / 2.
+    # Similarly, we still need to add the delta / 2 to the right axis limit
+    # as this number will be greater than all coordinate elements.
     left_axis_limit = axis_arr[0] - axis_delta / 2
     right_axis_limit = axis_arr[-1] + axis_delta / 2
 
@@ -236,4 +241,46 @@ def downscale_array(baseline_lat_arr, baseline_lon_arr, lat_arr, lat_delta, lon_
 
     downscaled_data_arr[lat_mask_left:-lat_mask_right, lon_mask_left:-lon_mask_right] = downscaled_data_subarr
 
+    fix_missing_longitudes(baseline_lon_arr, lon_arr, lon_delta, downscaled_data_arr, lon_mask_left,
+                           lon_mask_left + lon_mask_right)
+
     return downscaled_data_arr
+
+def fix_missing_longitudes(baseline_lon_arr, lon_arr, lon_delta, downscaled_data_arr, lon_mask_left, total_lon_masked):
+    '''
+    Adds data for missing longitudes to calibrated data at the edge of the map
+    because the point that they fall within is on the other side (the earth is round).
+
+    Data for these longitudes will be added to the already-downscaled data array
+    that you pass in.
+
+    For simplicity, for now, since all of the datasets so far start at -180, we
+    will only add missing longitudes at the east end of the globe. If there are
+    missing longitudes on the west, we throw an exception.
+    '''
+    if not is_increasing(baseline_lon_arr):
+        raise Exception('Expected baseline longitude array to be increasing')
+
+    if not is_increasing(lon_arr):
+        raise Exception('Expected forecast longitude array to be increasing')
+
+    lon_min = lon_arr[0]
+    lon_max = lon_arr[-1]
+
+    if np.any(baseline_lon_arr < lon_min - lon_delta / 2) or np.all(downscaled_data_arr.mask[:, 0]) or lon_mask_left != 0:
+        raise Exception('Unsupported: missing longitudes on the west side of globe that need to be copied '
+                        'from the east side (the earth is round). Try making longitudes start at -180 and '
+                        'this should work, or change this function to copy data from longitude 180.')
+
+    lon_arr_within_min = (
+        (baseline_lon_arr >= lon_max + lon_delta / 2) &
+        (baseline_lon_arr - 360 >= lon_min - lon_delta / 2) &
+        (baseline_lon_arr - 360 < lon_min)
+    )
+
+    if len(np.where(lon_arr_within_min)[0]) != total_lon_masked:
+        raise Exception('Expected baseline longitudes that are within the minimum forecast longitude to be'
+                        'as many as those that were masked during the downscaling process.')
+
+    data_from_lon_min = downscaled_data_arr[:, lon_mask_left].reshape((downscaled_data_arr.shape[0], 1))
+    downscaled_data_arr[:, lon_arr_within_min] = data_from_lon_min

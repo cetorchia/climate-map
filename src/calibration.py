@@ -219,7 +219,7 @@ def above_absolute_threshold(calibrated_normals, relative_differences, absolute_
     '''
     Returns a boolean numpy array indicating those elements that
     are at or above the threshold at which absolute differences should
-    be used instead of relative differences. This helps avoid excessive 
+    be used instead of relative differences. This helps avoid excessive
     relative differences, especially infinity or NaN.
     '''
     return (

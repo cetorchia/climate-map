@@ -33,7 +33,7 @@ the following:
     "climate_tile_layer": {
         "z_index": 2,
         "url": "/tiles/climate",
-        "opacity": 0.6,
+        "opacity": 0.5,
         "format": "png"
     },
     "tile_layers": [

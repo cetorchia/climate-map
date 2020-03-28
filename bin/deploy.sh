@@ -4,7 +4,7 @@
 #
 
 if [ -z "$1" -o -n "$3" ]; then
-    echo "Usage: $0 <server> [--data|--tiles|--config]" >&2
+    echo "Usage: $0 <server> [--data|--tiles|--build]" >&2
     exit 1
 fi
 
@@ -30,6 +30,7 @@ elif [ $COPY_TILES ]; then
 else
     rsync -ipRru --del --exclude=__pycache__ src "$DESTINATION" || exit 1
     rsync -ipRru --del --exclude=*bundle.js public/*.* "$DESTINATION" || exit 1
+    rsync -ipRru --del images "$DESTINATION" || exit 1
     rsync -ipRru --del sql "$DESTINATION" || exit 1
     rsync -ipRu package.json webpack.config.js "$DESTINATION" || exit 1
     rsync -ipRru --del config/config.yaml.example "$DESTINATION" || exit 1

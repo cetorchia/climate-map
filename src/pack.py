@@ -46,18 +46,3 @@ def pack_array(data_arr, units=None):
         raise Exception('Data contains values out of range (%d..%d) for a %s' % (MIN_DTYPE, MAX_DTYPE, dtype))
 
     return np.round(data_arr).astype(dtype)
-
-def unpack_normals(normals):
-    '''
-    Divides each normal by 10.
-    This would be done assuming all normals are stored as themselves
-    multiplied by 10 in order to store them as an int16 and save space.
-    '''
-    new_normals = normals.copy()
-
-    for measurement, measurement_normals in new_normals.items():
-        if type(measurement_normals) is dict:
-            for month, month_normals in measurement_normals.items():
-                month_normals[0] /= SCALE_FACTOR
-
-    return new_normals

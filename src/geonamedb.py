@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 #
-# Climate database
+# Geonames database
+#
+# Please read https://download.geonames.org/export/dump/ for
+# detailed technical information about this data.
 #
 # Copyright (c) 2020 Carlos Torchia
 #
@@ -48,16 +51,26 @@ def delete_geonames():
     '''
     climatedb.db.cur.execute('DELETE FROM geonames')
 
-def create_geoname(geonameid, name, lat, lon, country, province, population, elevation):
+def create_geoname(geonameid, name, lat, lon, feature_class, feature_code, country, province, population, elevation):
     '''
     Creates a geoname entry.
     '''
     climatedb.db.cur.execute(
         '''
-        INSERT INTO geonames(geonameid, name, latitude, longitude, country, province, population, elevation)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO geonames(
+            geonameid,
+            name,
+            latitude,
+            longitude,
+            feature_class,
+            feature_code,
+            country,
+            province,
+            population,
+            elevation)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ''',
-        (geonameid, name, lat, lon, country, province, population, elevation)
+        (geonameid, name, lat, lon, feature_class, feature_code, country, province, population, elevation)
     )
 
 def fetch_geoname(name, province=None, country=None):
@@ -72,7 +85,17 @@ def fetch_geoname(name, province=None, country=None):
 
     climatedb.db.cur.execute(
         '''
-        SELECT geonameid, name, latitude, longitude, country, province, population, elevation
+        SELECT
+            geonameid,
+            name,
+            latitude,
+            longitude,
+            feature_class,
+            feature_code,
+            country,
+            province,
+            population,
+            elevation
         FROM geonames
         WHERE name = %s
         ''' + province_sql + '''
@@ -93,6 +116,8 @@ def fetch_geoname(name, province=None, country=None):
         name,
         latitude,
         longitude,
+        feature_class,
+        feature_code,
         country,
         province,
         population,
@@ -104,6 +129,8 @@ def fetch_geoname(name, province=None, country=None):
         'name': name,
         'latitude': latitude,
         'longitude': longitude,
+        'feature_class': feature_class,
+        'feature_code': feature_code,
         'country': country,
         'province': province,
         'population': population,
@@ -325,3 +352,88 @@ def create_alternate_name(alternate_name_id, geonameid, lang, alternate_name, pr
         ''',
         (alternate_name_id, geonameid, lang, alternate_name, preferred, abbrev)
     )
+
+def fetch_geonames_population_over(min_population):
+    '''
+    Gives geonames which have a population of at least the specified minimum.
+    Sorts by population in ascending order because then the user will see
+    more populous places instead of less populous places.
+
+    Countries and provinces are excluded.
+    '''
+    climatedb.db.cur.execute(
+        '''
+        SELECT geonameid, name, latitude, longitude, country, province, population, elevation
+        FROM geonames
+        WHERE feature_code = 'PPLC'
+        OR (population > %s AND feature_class = 'P')
+        ORDER BY population ASC
+        ''',
+        (min_population,)
+    )
+
+    rows = climatedb.db.cur.fetchall()
+
+    return (
+        {
+            'geonameid': geonameid,
+            'name': name,
+            'latitude': latitude,
+            'longitude': longitude,
+            'country': country,
+            'province': province,
+            'population': population,
+            'elevation': elevation
+        }
+        for geonameid,
+            name,
+            latitude,
+            longitude,
+            country,
+            province,
+            population,
+            elevation
+        in rows
+    )
+
+def places_by_latitude_and_longitude(min_population):
+    '''
+    Gives all geonames with at least the specified population,
+    indexed by latitude and longitude.
+
+    This dict will be indexed by integer, and it will have
+    'lat_start', 'lat_delta', 'lon_start', and 'lon_delta' keys, and
+    these can tell you how to fetch the place by its latitude and
+    longitude. If two places map to the same coordinates, the
+    one with higher population will be taken.
+    '''
+    LAT_START = 90
+    LAT_DELTA = -5
+    LON_START = -180
+    LON_DELTA = 5
+
+    geonames = fetch_geonames_population_over(min_population)
+
+    output = {
+        'lat_start': LAT_START,
+        'lat_delta': LAT_DELTA,
+        'lon_start': LON_START,
+        'lon_delta': LON_DELTA,
+        'geonames': {},
+    }
+
+    for geoname in geonames:
+        i = int(round((geoname['latitude'] - LAT_START) / LAT_DELTA))
+        j = int(round((geoname['longitude'] - LON_START) / LON_DELTA))
+
+        if output['geonames'].get(i) is None:
+            output['geonames'][i] = {}
+
+        output['geonames'][i][j] = {
+            'name': geoname['name'],
+            'geonameid': geoname['geonameid'],
+            'latitude': geoname['latitude'],
+            'longitude': geoname['longitude'],
+        }
+
+    return output

@@ -50,6 +50,7 @@ const API_ERROR_MESSAGE = 'An error occurred while fetching from the API.';
 const SEARCH_NOT_FOUND = 'Could not find the specified location.';
 const LOCATION_NOT_FOUND = 'Data at the specified location is unavailable.';
 const TILE_ERROR_MESSAGE = 'Could not fetch climate map overlay. Please try again later.';
+const PLACES_ERROR = 'Could not retrieve places and all their climates.';
 
 const DEFAULT_PAGE_TITLE = 'Climate Map';
 
@@ -64,7 +65,7 @@ if (ALLOWED_TILE_FORMATS.indexOf(CONFIG.climate_tile_layer.format) === -1) {
 
 let APP = {};
 
-let defaultDataSources = {};
+let CLIMATES_OF_PLACES = null;
 
 /**
  * Makes a request to the API.
@@ -134,6 +135,29 @@ async function fetchDataSources(date_range)
         return await fetchFromAPI(url);
     } catch(err) {
         showError();
+        throw err;
+    }
+}
+
+/**
+ * Fetches the places with climate normals indexed by
+ * latitude and longitude.
+ */
+async function fetchClimatesOfPlaces(data_source, date_range, measurement, period)
+{
+    const MIN_POPULATION = 500000;
+
+    const url =
+        API_URL + '/places/' +
+        encodeURIComponent(data_source) + '/' +
+        encodeURIComponent(date_range) + '/' +
+        encodeURIComponent(measurement) + '-' + encodeURIComponent(period) + '/' +
+        encodeURIComponent(MIN_POPULATION);
+
+    try {
+        return await fetchFromAPI(url);
+    } catch(err) {
+        showError(PLACES_ERROR);
         throw err;
     }
 }
@@ -355,7 +379,7 @@ function createClimateChart(datasets, units, labels, type, canvas_id)
     /* Collect temperature means for each month in a linear fashion. */
     let chart_datasets = [];
 
-    if (type == 'bar' && datasets.length == 3 && units == 'degC') {
+    if (type == 'bar' && datasets.length == 3) {
         /**
          * Assume datasets are the mean, min, and max temperatures. Create a floating bar
          * chart with the bottom of the bars being minimum and the top being maximum.
@@ -621,8 +645,13 @@ function updateClimateChart(data)
     const average_temperature = Math.round(data['tavg'][0][0] * 10) / 10;
     const total_precipitation = Math.round(data['precip'][0][0] * 10) / 10;
 
-    document.getElementById('average-temperature').textContent = average_temperature;
-    document.getElementById('total-precipitation').textContent = total_precipitation;
+    const temp_units = data['tavg'][0][1];
+    const temp_unit_label = getUnitLabel(temp_units);
+    const precip_units = data['precip'][0][1];
+    const precip_unit_label = getUnitLabel(precip_units);
+
+    document.getElementById('average-temperature').textContent = average_temperature + ' ' + temp_unit_label;
+    document.getElementById('total-precipitation').textContent = total_precipitation + ' ' + precip_unit_label;
 
     if (APP.temp_chart !== undefined) {
         APP.temp_chart.destroy();
@@ -634,11 +663,11 @@ function updateClimateChart(data)
             ('tmin' in data ? data['tmin'] : {}),
             ('tmax' in data ? data['tmax'] : {}),
         ],
-        'degC',
+        temp_units,
         [
-            'Mean Temperature (°C)',
-            'Min Temperature (°C)',
-            'Max Temperature (°C)',
+            'Mean Temperature (' + temp_unit_label + ')',
+            'Min Temperature (' + temp_unit_label + ')',
+            'Max Temperature (' + temp_unit_label + ')',
         ],
         'bar',
         'location-temperature-chart'
@@ -649,8 +678,8 @@ function updateClimateChart(data)
     }
     APP.precip_chart = createClimateChart(
         [data['precip']],
-        'mm',
-        ['Precipitation (mm)'],
+        precip_units,
+        ['Precipitation (' + precip_unit_label + ')'],
         'bar',
         'location-precipitation-chart'
     );
@@ -852,6 +881,128 @@ function hideDateRangeSliderTooltip()
 }
 
 /**
+ * Updates the climates of populous places. This is used
+ * to show one measurement as the user hovers over various
+ * populated places like cities.
+ */
+function updateClimatesOfPlaces()
+{
+    hideClimateOfPlacePopup();
+
+    const data_source_select = document.getElementById('data-source');
+    const date_range_select = document.getElementById('date-range');
+    const measurement_select = document.getElementById('measurement');
+    const period_select = document.getElementById('period');
+
+    return fetchClimatesOfPlaces(
+        data_source_select.value,
+        date_range_select.value,
+        measurement_select.value,
+        period_select.value
+    ).then(function(places) {
+        CLIMATES_OF_PLACES = places;
+    });
+}
+
+/**
+ * Returns the specified measurement for the populated place at the
+ * specified coordinates. This is only used when the user hovers
+ * over a populated major city. Showing temperature of literally
+ * every spot they hover over will over-load the server and their
+ * computer/device.
+ *
+ * Returns null if there is no data for that place.
+ */
+function getClimateOfPlace(lat, lon)
+{
+    const lat_start = CLIMATES_OF_PLACES.lat_start;
+    const lat_delta = CLIMATES_OF_PLACES.lat_delta;
+    const lon_start = CLIMATES_OF_PLACES.lon_start;
+    const lon_delta = CLIMATES_OF_PLACES.lon_delta;
+
+    const i = Math.round((lat - lat_start) / lat_delta)
+    const j = Math.round((lon - lon_start) / lon_delta)
+
+    if (i in CLIMATES_OF_PLACES.geonames) {
+        if (j in CLIMATES_OF_PLACES.geonames[i]) {
+            return CLIMATES_OF_PLACES.geonames[i][j];
+        }
+    }
+    return null;
+}
+
+/**
+ * Displays a popup to show the climate info of a place the
+ * user has hovered over.
+ */
+function viewClimateOfPlacePopup(lat, lon, date_range, measurement, period)
+{
+    if (isLocationClimateOpen()) {
+        return;
+    }
+
+    const geoname = getClimateOfPlace(lat, lon);
+
+    if (!geoname || geoname[measurement] === undefined) {
+        // Hide the popup if the user moves the mouse off the original location.
+        hideClimateOfPlacePopup();
+        return;
+    }
+
+    if (APP.climate_of_place.geoname && APP.climate_of_place.geoname.geonameid === geoname.geonameid) {
+        return;
+    }
+
+    APP.climate_of_place.geoname = geoname;
+
+    const div = APP.climate_of_place.popup_contents;
+    const actual_lat = geoname.latitude;
+    const actual_lon = geoname.longitude;
+    const measurement_label = getMeasurementLabel(measurement);
+    const period_label = getPeriodLabel(period);
+
+    const name = geoname.name;
+    let value = geoname[measurement][0];
+    const units = geoname[measurement][1];
+
+    if (units == 'mm' && period === 'year') {
+        value *= 12;
+    }
+
+    let text = '<b>' + name + '</b>';
+    text += '<br>\nAverage ' + measurement_label + ' ' + period_label + ': ';
+    text += Math.round(value * 10) / 10 + ' ' + getUnitLabel(units);
+    if (units == 'mm' && period !== 'year') {
+        text += '/month';
+    }
+    text += '<br>\n(' + date_range + ')';
+    text += '<br>\n<i>Click for more details.</i>'
+
+    div.innerHTML = text;
+
+    APP.climate_of_place.popup.setLatLng([actual_lat, actual_lon]).setContent(div).openOn(APP.climate_map);
+    APP.climate_of_place.marker.setLatLng([actual_lat, actual_lon]).addTo(APP.climate_map);
+}
+
+/**
+ * Hides the climate of place popup.
+ */
+function hideClimateOfPlacePopup()
+{
+    APP.climate_of_place.geoname = null;
+    APP.climate_of_place.popup.remove();
+    APP.climate_of_place.marker.remove();
+}
+
+/**
+ * Returns true if the climate of place popup is showing on the map anywhere.
+ */
+function isClimateOfPlacePopupOpen()
+{
+    return APP.climate_of_place.popup.isOpen();
+}
+
+/**
  * Returns an English description of the specified measurement.
  */
 function getMeasurementLabel(measurement)
@@ -888,6 +1039,21 @@ function getPeriodLabel(period)
             return 'Sep-Nov';
         default:
             throw new Error('Unrecognized period: ' + period);
+    }
+}
+
+/**
+ * Returns an English description of the specified units.
+ */
+function getUnitLabel(units)
+{
+    switch (units) {
+        case 'degC':
+            return '°C';
+        case 'mm':
+            return 'mm';
+        default:
+            throw new Error('Unrecognized units: ' + units);
     }
 }
 
@@ -929,8 +1095,7 @@ function dataSourceMaxZoomLevel(data_source_select)
 }
 
 /**
- * Handle clicks on the climate map. We will show a bunch of information
- * about that particular location's climate.
+ * Shows the user climate charts for the specified location.
  */
 function loadLocationClimate(lat, lon, location_title)
 {
@@ -958,6 +1123,18 @@ function loadLocationClimate(lat, lon, location_title)
 }
 
 /**
+ * Shows the climate of the specified location and
+ * updates the page state. This should be called when the
+ * user clicks on the map.
+ */
+function viewLocationClimate(lat, lon, display_name)
+{
+    return loadLocationClimate(lat, lon, display_name).then(([lat, lon, display_name]) => {
+        updatePageState(lat, lon, display_name);
+    });
+}
+
+/**
  * Shows the location climate container.
  */
 function showLocationClimate()
@@ -971,6 +1148,14 @@ function showLocationClimate()
 function hideLocationClimate()
 {
     document.getElementById('location-climate').style.display = 'none';
+}
+
+/**
+ * Returns true if location climate is open.
+ */
+function isLocationClimateOpen()
+{
+    return (document.getElementById('location-climate').style.display !== 'none');
 }
 
 /**
@@ -1233,6 +1418,16 @@ window.onload = async function() {
 
     APP.location_marker = L.marker([0, 0]);
 
+    APP.climate_of_place = {
+        popup: L.popup({
+            closeOnClick: false,
+        }),
+        marker: L.marker([0, 0]),
+        popup_contents: document.createElement('div'),
+        geoname: null,
+    };
+
+
     const data_source_select = document.getElementById('data-source');
     const date_range_select = document.getElementById('date-range');
     const measurement_select = document.getElementById('measurement');
@@ -1247,6 +1442,7 @@ window.onload = async function() {
     populateDateRanges(date_range_select).then(function() {
         populateDataSources(data_source_select, date_range_select).then(function() {
             APP.climate_tile_layer = createTileLayer().addTo(APP.climate_map);
+            updateClimatesOfPlaces();
             highlightMeasurementButton(measurement_select.value);
             updateDescriptionTooltip(period_select.value, measurement_select.value, date_range_select.value);
             updateLegend(measurement_select.value);
@@ -1259,6 +1455,7 @@ window.onload = async function() {
      */
     function change_data_source() {
         updateTilesAndChart();
+        updateClimatesOfPlaces();
 
         APP.climate_tile_layer.remove();
         APP.climate_tile_layer.options.attribution = dataSourceAttribution(data_source_select);
@@ -1278,8 +1475,9 @@ window.onload = async function() {
             if (!getLastDataSource(data_source_select)) {
                 updateLastDataSource(data_source_select);
             }
+            updateClimatesOfPlaces();
+            updateDescriptionTooltip(period_select.value, measurement_select.value, date_range_select.value);
         });
-        updateDescriptionTooltip(period_select.value, measurement_select.value, date_range_select.value);
     }
 
     date_range_select.onchange = function() {
@@ -1308,6 +1506,7 @@ window.onload = async function() {
      */
     function change_measurement() {
         updateTileLayer(APP.climate_tile_layer);
+        updateClimatesOfPlaces();
         highlightMeasurementButton(measurement_select.value);
         updateLegend(measurement_select.value);
         updateDescriptionTooltip(period_select.value, measurement_select.value, date_range_select.value);
@@ -1321,18 +1520,17 @@ window.onload = async function() {
     period_select.onchange = function() {
         updateTileLayer(APP.climate_tile_layer);
         updateDescriptionTooltip(period_select.value, measurement_select.value, date_range_select.value);
+        updateClimatesOfPlaces();
     };
 
     /**
      * Handle clicking at a location on the map.
      */
     APP.climate_map.on('click', function(e) {
-        const lat = e.latlng.lat;
-        const lon = e.latlng.lng;
+        let lat = e.latlng.lat;
+        let lon = e.latlng.lng;
 
-        loadLocationClimate(lat, lon).then(function() {
-            updatePageState(lat, lon);
-        });
+        viewLocationClimate(lat, lon);
     });
 
     document.getElementById('close-location-climate').onclick = function() {
@@ -1341,14 +1539,44 @@ window.onload = async function() {
     };
 
     /**
+     * Handle hovering over the map.
+     */
+    APP.climate_map.on('mousemove', function(e) {
+        const lat = e.latlng.lat;
+        const lon = e.latlng.lng;
+
+        viewClimateOfPlacePopup(lat, lon, date_range_select.value, measurement_select.value, period_select.value);
+    });
+
+    /**
+     * Displays the climate charts for the place that
+     * the user is hovering over with their mouse.
+     */
+    function view_place_climate() {
+        const lat = APP.climate_of_place.geoname.latitude;
+        const lon = APP.climate_of_place.geoname.longitude;
+        const name = APP.climate_of_place.geoname.name;
+
+        viewLocationClimate(lat, lon, name).then(hideClimateOfPlacePopup);
+    }
+
+    /**
+     * Handle clicking climate of place popup.
+     */
+    APP.climate_of_place.popup_contents.onclick = view_place_climate;
+
+    /**
+     * Handle clicking the marker under the climate of place popup.
+     */
+    APP.climate_of_place.marker.on('click', view_place_climate);
+
+    /**
      * Handle search.
      */
     function do_search(search_query) {
         if (search_query) {
-            doSearch(search_query).then(([lat, lon, display_name]) => {
-                loadLocationClimate(lat, lon, display_name).then(([lat, lon, display_name]) => {
-                    updatePageState(lat, lon, display_name);
-                });
+            doSearch(search_query).then(([lat, lon, location_title]) => {
+                viewLocationClimate(lat, lon, location_title);
             });
         }
     }

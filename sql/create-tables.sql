@@ -67,6 +67,8 @@ CREATE TABLE geonames(
     name VARCHAR(200) NOT NULL,
     latitude DOUBLE(12, 10) NOT NULL,
     longitude DOUBLE(13, 10) NOT NULL,
+    feature_class CHAR(1) NOT NULL,
+    feature_code VARCHAR(10) NOT NULL,
     country CHAR(2),
     province VARCHAR(8),
     population BIGINT,

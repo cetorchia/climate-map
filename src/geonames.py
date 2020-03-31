@@ -2,6 +2,9 @@
 #
 # Loads geonames files into the database.
 #
+# Please read https://download.geonames.org/export/dump/ for
+# detailed technical information about this data.
+#
 # Copyright (c) 2020 Carlos Torchia
 #
 from MySQLdb import IntegrityError, DataError
@@ -51,6 +54,8 @@ def load_geonames(filename):
                     name,
                     latitude,
                     longitude,
+                    feature_class,
+                    feature_code,
                     country,
                     province,
                     population,
@@ -65,6 +70,8 @@ def load_geonames(filename):
                         name,
                         latitude,
                         longitude,
+                        feature_class,
+                        feature_code,
                         country,
                         None,
                         population,
@@ -81,6 +88,8 @@ def load_geonames(filename):
                         name,
                         latitude,
                         longitude,
+                        feature_class,
+                        feature_code,
                         country,
                         None,
                         population,

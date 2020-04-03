@@ -1549,8 +1549,16 @@ window.onload = async function() {
     /**
      * Handle zooming or panning.
      */
-    APP.climate_map.on('moveend', updateClimatesOfPlaces);
-    APP.climate_map.on('zoomend', updateClimatesOfPlaces);
+    APP.climate_map.on('moveend', function(e) {
+        if (APP.climate_map.getZoom() <= 4) {
+            updateClimatesOfPlaces();
+        }
+    });
+    APP.climate_map.on('zoomend', function(e) {
+        if (APP.climate_map.getZoom() <= 4) {
+            updateClimatesOfPlaces();
+        }
+    });
 
     /**
      * Handle search.

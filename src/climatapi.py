@@ -125,27 +125,8 @@ def search(query):
     except climatedb.NotFoundError:
         return jsonify({'error': 'Search found no results for "%s"' % query}), 404
 
-    if geoname['province']:
-        try:
-            province_geoname = geonamedb.fetch_geoname_by_province(geoname['province'], geoname['country'])
-
-            try:
-                geoname['province'] = geonamedb.fetch_abbreviation_by_geoname(province_geoname['geonameid'])
-            except climatedb.NotFoundError:
-                geoname['province'] = None
-
-        except climatedb.NotFoundError:
-            geoname['province'] = None
-
-    if geoname['country']:
-        try:
-            country_geoname = geonamedb.fetch_geoname_by_country(geoname['country'])
-
-            if country_geoname['geonameid'] == geoname['geonameid']:
-                geoname['country'] = None
-
-        except climatedb.NotFoundError:
-            pass
+    geoname['province'] = geonamedb.get_human_readable_province(geoname)
+    geoname['country'] = geonamedb.get_human_readable_country(geoname)
 
     return jsonify(geoname)
 

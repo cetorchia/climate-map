@@ -45,6 +45,45 @@ def search_geoname(query):
 
     raise NotFoundError('Could not find "%s" in geonames' % query)
 
+def get_human_readable_province(geoname):
+    '''
+    Gives the human readable province name for the specified
+    geoname. If no abbreviation is available none is given
+    assuming this would give the user cognitive load.
+    '''
+    try:
+        province_geoname = fetch_geoname_by_province(geoname['province'], geoname['country'])
+
+        if province_geoname['geonameid'] == geoname['geonameid']:
+            return None
+
+        try:
+            return fetch_abbreviation_by_geoname(province_geoname['geonameid'])
+        except NotFoundError:
+            return None
+
+    except NotFoundError:
+        return None
+
+def get_human_readable_country(geoname):
+    '''
+    Gives the human readable version of the specified country
+    code. For our purposes we just return the country code
+    as this is consise for the user. If the geoname is
+    for the country itself, we return none as the user
+    should only see the country name once.
+    '''
+    try:
+        country_geoname = fetch_geoname_by_country(geoname['country'])
+
+        if country_geoname['geonameid'] == geoname['geonameid']:
+            return None
+
+        return country_geoname['name']
+
+    except NotFoundError:
+        return geoname['country']
+
 def delete_geonames():
     '''
     Deletes all geonames.

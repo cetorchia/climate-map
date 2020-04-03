@@ -357,8 +357,6 @@ def fetch_populous_places_within_area(min_lat, max_lat, min_lon, max_lon):
     '''
     Fetches the top 20 populated cities in the specified area.
     '''
-    print(min_lat, max_lat, min_lon, max_lon)
-
     # If the antimeridian (longitude 180) is contained within
     # the viewport, we have to reverse the comparison in order
     # not end up excluding the area we are trying to include.

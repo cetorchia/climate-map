@@ -7,7 +7,7 @@
 import CONFIG from '../config/config.json';
 import './style.css';
 
-let L, Chart;
+let L, Chart, place_marker_icon;
 
 async function importDependencies()
 {
@@ -33,7 +33,9 @@ async function importDependencies()
             shadowUrl: markerShadow
         });
 
-        return [L, Chart];
+        const {default: place_marker_icon} = await import('../images/marker.png');
+
+        return [L, Chart, place_marker_icon];
     } catch (err) {
         showError('An error occurred fetching dependencies. Please try again later.');
         console.error(err);
@@ -42,7 +44,7 @@ async function importDependencies()
 }
 
 /**
- * Default error message.
+ * Default error messages.
  */
 const DEFAULT_ERROR_MESSAGE = 'An error occurred. Please try again later.';
 const NOT_FOUND_ERROR_MESSAGE = 'Could not find the specified resource.';
@@ -57,6 +59,10 @@ const DEFAULT_PAGE_TITLE = 'Climate Map';
 const API_URL = '/api';
 const APP_URL = '/';
 
+const PLACE_MARKER_ICON_SIZE = [36, 36];
+const PLACE_MARKER_ICON_ANCHOR = [18, 32]; // XY coordinates *within* image of the geographical centre
+const PLACE_MARKER_POPUP_ANCHOR = [0, -32]; // XY coordinates relative to icon anchor where popups arise
+
 const ALLOWED_TILE_FORMATS = ['png'];
 
 if (ALLOWED_TILE_FORMATS.indexOf(CONFIG.climate_tile_layer.format) === -1) {
@@ -64,8 +70,6 @@ if (ALLOWED_TILE_FORMATS.indexOf(CONFIG.climate_tile_layer.format) === -1) {
 }
 
 let APP = {};
-
-let CLIMATES_OF_PLACES = null;
 
 /**
  * Makes a request to the API.
@@ -143,16 +147,23 @@ async function fetchDataSources(date_range)
  * Fetches the places with climate normals indexed by
  * latitude and longitude.
  */
-async function fetchClimatesOfPlaces(data_source, date_range, measurement, period)
+async function fetchClimatesOfPlaces(data_source, date_range, measurement, period, bounds)
 {
-    const MIN_POPULATION = 500000;
+    const min_lat = bounds.getSouth();
+    const max_lat = bounds.getNorth();
+    const min_lon = bounds.getWest();
+    const max_lon = bounds.getEast();
 
     const url =
         API_URL + '/places/' +
         encodeURIComponent(data_source) + '/' +
         encodeURIComponent(date_range) + '/' +
-        encodeURIComponent(measurement) + '-' + encodeURIComponent(period) + '/' +
-        encodeURIComponent(MIN_POPULATION);
+        encodeURIComponent(measurement) + '-' + encodeURIComponent(period) +
+        '?' +
+        'min_lat=' + encodeURIComponent(min_lat) + '&' +
+        'max_lat=' + encodeURIComponent(max_lat) + '&' +
+        'min_lon=' + encodeURIComponent(min_lon) + '&' +
+        'max_lon=' + encodeURIComponent(max_lon);
 
     try {
         return await fetchFromAPI(url);
@@ -894,70 +905,62 @@ function updateClimatesOfPlaces()
     const measurement_select = document.getElementById('measurement');
     const period_select = document.getElementById('period');
 
+    const bounds = APP.climate_map.getBounds();
+
     return fetchClimatesOfPlaces(
         data_source_select.value,
         date_range_select.value,
         measurement_select.value,
-        period_select.value
-    ).then(function(places) {
-        CLIMATES_OF_PLACES = places;
-    });
+        period_select.value,
+        bounds
+    ).then(setClimatesOfPlaces);
 }
 
 /**
- * Returns the specified measurement for the populated place at the
- * specified coordinates. This is only used when the user hovers
- * over a populated major city. Showing temperature of literally
- * every spot they hover over will over-load the server and their
- * computer/device.
- *
- * Returns null if there is no data for that place.
+ * Sets the current climates of places with the specified geonames.
  */
-function getClimateOfPlace(lat, lon)
+function setClimatesOfPlaces(places)
 {
-    const lat_start = CLIMATES_OF_PLACES.lat_start;
-    const lat_delta = CLIMATES_OF_PLACES.lat_delta;
-    const lon_start = CLIMATES_OF_PLACES.lon_start;
-    const lon_delta = CLIMATES_OF_PLACES.lon_delta;
+    for (let i = 0; i <= places.length - 1; i++) {
+        const geoname = places[i];
 
-    const i = Math.round((lat - lat_start) / lat_delta)
-    const j = Math.round((lon - lon_start) / lon_delta)
-
-    if (i in CLIMATES_OF_PLACES.geonames) {
-        if (j in CLIMATES_OF_PLACES.geonames[i]) {
-            return CLIMATES_OF_PLACES.geonames[i][j];
+        if (APP.climates_of_places.markers[i] !== undefined) {
+            APP.climates_of_places.markers[i].remove();
         }
+
+        APP.climates_of_places.markers[i] = L.marker([0, 0], {
+            icon: APP.climates_of_places.icon,
+        }).addTo(APP.climate_map);
+
+        const marker = APP.climates_of_places.markers[i];
+        const lat = geoname.latitude;
+        const lon = geoname.longitude;
+
+        marker.setLatLng([lat, lon]);
+        marker.bindTooltip(climateOfPlaceTooltipText(geoname), {
+            direction: 'center',
+        });
+
+        marker.on('click', function() {
+            viewPlaceClimate(geoname);
+        });
     }
-    return null;
 }
 
 /**
- * Displays a popup to show the climate info of a place the
+ * Returns the text containing climate info of a place the
  * user has hovered over.
  */
-function viewClimateOfPlacePopup(lat, lon, date_range, measurement, period)
+function climateOfPlaceTooltipText(geoname)
 {
-    if (isLocationClimateOpen()) {
-        return;
-    }
+    const date_range = document.getElementById('date-range').value;
+    const period = document.getElementById('period').value;
+    const measurement = document.getElementById('measurement').value;
 
-    const geoname = getClimateOfPlace(lat, lon);
-
-    if (!geoname || geoname[measurement] === undefined) {
-        // Hide the popup if the user moves the mouse off the original location.
-        hideClimateOfPlacePopup();
-        return;
-    }
-
-    if (APP.climate_of_place.geoname && APP.climate_of_place.geoname.geonameid === geoname.geonameid) {
-        return;
-    }
-
-    APP.climate_of_place.geoname = geoname;
-
-    const div = APP.climate_of_place.popup_contents;
-    const actual_lat = geoname.latitude;
-    const actual_lon = geoname.longitude;
+    const popup = APP.climates_of_places.popup;
+    const div = document.createElement('div');
+    const lat = geoname.latitude;
+    const lon = geoname.longitude;
     const measurement_label = getMeasurementLabel(measurement);
     const period_label = getPeriodLabel(period);
 
@@ -978,10 +981,7 @@ function viewClimateOfPlacePopup(lat, lon, date_range, measurement, period)
     text += '<br>\n(' + date_range + ')';
     text += '<br>\n<i>Click for more details.</i>'
 
-    div.innerHTML = text;
-
-    APP.climate_of_place.popup.setLatLng([actual_lat, actual_lon]).setContent(div).openOn(APP.climate_map);
-    APP.climate_of_place.marker.setLatLng([actual_lat, actual_lon]).addTo(APP.climate_map);
+    return text;
 }
 
 /**
@@ -989,17 +989,21 @@ function viewClimateOfPlacePopup(lat, lon, date_range, measurement, period)
  */
 function hideClimateOfPlacePopup()
 {
-    APP.climate_of_place.geoname = null;
-    APP.climate_of_place.popup.remove();
-    APP.climate_of_place.marker.remove();
+    APP.climates_of_places.popup.remove();
 }
 
 /**
- * Returns true if the climate of place popup is showing on the map anywhere.
+ * Displays the climate charts for the place that
+ * the user is hovering over with their mouse.
+ * Called when the user clicks on a marker.
  */
-function isClimateOfPlacePopupOpen()
+function viewPlaceClimate(geoname)
 {
-    return APP.climate_of_place.popup.isOpen();
+    const lat = geoname.latitude;
+    const lon = geoname.longitude;
+    const name = geoname.name;
+
+    viewLocationClimate(lat, lon, name).then(hideClimateOfPlacePopup);
 }
 
 /**
@@ -1380,7 +1384,8 @@ function getContact(contact_name)
  * Loads the climate map.
  */
 window.onload = async function() {
-    [L, Chart] = await importDependencies();
+
+    [L, Chart, place_marker_icon] = await importDependencies();
 
     /**
      * Create the leaflet map.
@@ -1418,13 +1423,16 @@ window.onload = async function() {
 
     APP.location_marker = L.marker([0, 0]);
 
-    APP.climate_of_place = {
-        popup: L.popup({
-            closeOnClick: false,
+    APP.climates_of_places = {
+        markers: [],
+        popup: L.popup([0, 0]),
+        icon: L.icon({
+            iconUrl: place_marker_icon,
+            iconSize: PLACE_MARKER_ICON_SIZE,
+            iconAnchor: PLACE_MARKER_ICON_ANCHOR,
+            popupAnchor: PLACE_MARKER_POPUP_ANCHOR,
+            tooltipAnchor: PLACE_MARKER_POPUP_ANCHOR,
         }),
-        marker: L.marker([0, 0]),
-        popup_contents: document.createElement('div'),
-        geoname: null,
     };
 
 
@@ -1539,36 +1547,10 @@ window.onload = async function() {
     };
 
     /**
-     * Handle hovering over the map.
+     * Handle zooming or panning.
      */
-    APP.climate_map.on('mousemove', function(e) {
-        const lat = e.latlng.lat;
-        const lon = e.latlng.lng;
-
-        viewClimateOfPlacePopup(lat, lon, date_range_select.value, measurement_select.value, period_select.value);
-    });
-
-    /**
-     * Displays the climate charts for the place that
-     * the user is hovering over with their mouse.
-     */
-    function view_place_climate() {
-        const lat = APP.climate_of_place.geoname.latitude;
-        const lon = APP.climate_of_place.geoname.longitude;
-        const name = APP.climate_of_place.geoname.name;
-
-        viewLocationClimate(lat, lon, name).then(hideClimateOfPlacePopup);
-    }
-
-    /**
-     * Handle clicking climate of place popup.
-     */
-    APP.climate_of_place.popup_contents.onclick = view_place_climate;
-
-    /**
-     * Handle clicking the marker under the climate of place popup.
-     */
-    APP.climate_of_place.marker.on('click', view_place_climate);
+    APP.climate_map.on('moveend', updateClimatesOfPlaces);
+    APP.climate_map.on('zoomend', updateClimatesOfPlaces);
 
     /**
      * Handle search.

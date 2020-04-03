@@ -79,6 +79,8 @@ CREATE TABLE geonames(
 
 CREATE INDEX name ON geonames(name);
 CREATE INDEX population_name ON geonames(population, name);
+CREATE INDEX feature_code ON geonames(feature_code);
+CREATE INDEX lat_lon ON geonames(latitude, longitude);
 
 CREATE TABLE alternate_names(
     id INTEGER PRIMARY KEY,

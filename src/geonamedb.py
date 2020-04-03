@@ -353,23 +353,34 @@ def create_alternate_name(alternate_name_id, geonameid, lang, alternate_name, pr
         (alternate_name_id, geonameid, lang, alternate_name, preferred, abbrev)
     )
 
-def fetch_geonames_population_over(min_population):
+def fetch_populous_places_within_area(min_lat, max_lat, min_lon, max_lon):
     '''
-    Gives geonames which have a population of at least the specified minimum.
-    Sorts by population in ascending order because then the user will see
-    more populous places instead of less populous places.
+    Fetches the top 20 populated cities in the specified area.
+    '''
+    print(min_lat, max_lat, min_lon, max_lon)
 
-    Countries and provinces are excluded.
-    '''
+    # If the antimeridian (longitude 180) is contained within
+    # the viewport, we have to reverse the comparison in order
+    # not end up excluding the area we are trying to include.
+    # The formula below is just the minimum longitude from 0 to 360
+    # plus the distance between min and max longitude. If this
+    # is greater than 360, the max longitude is passing the antimeridian.
+    if (min_lon + 180) % 360 + max_lon - min_lon <= 360:
+        lon_sql = 'AND longitude >= %s AND longitude < %s'
+    else:
+        lon_sql = 'AND (longitude < %s OR longitude >= %s)'
+
     climatedb.db.cur.execute(
         '''
         SELECT geonameid, name, latitude, longitude, country, province, population, elevation
         FROM geonames
-        WHERE feature_code = 'PPLC'
-        OR (population > %s AND feature_class = 'P')
-        ORDER BY population ASC
+        WHERE feature_class = 'P'
+        AND latitude >= %s AND latitude < %s
+        ''' + lon_sql + '''
+        ORDER BY population DESC
+        LIMIT 20
         ''',
-        (min_population,)
+        (min_lat, max_lat, (min_lon + 180) % 360 - 180, (max_lon + 180) % 360 - 180)
     )
 
     rows = climatedb.db.cur.fetchall()
@@ -395,45 +406,3 @@ def fetch_geonames_population_over(min_population):
             elevation
         in rows
     )
-
-def places_by_latitude_and_longitude(min_population):
-    '''
-    Gives all geonames with at least the specified population,
-    indexed by latitude and longitude.
-
-    This dict will be indexed by integer, and it will have
-    'lat_start', 'lat_delta', 'lon_start', and 'lon_delta' keys, and
-    these can tell you how to fetch the place by its latitude and
-    longitude. If two places map to the same coordinates, the
-    one with higher population will be taken.
-    '''
-    LAT_START = 90
-    LAT_DELTA = -5
-    LON_START = -180
-    LON_DELTA = 5
-
-    geonames = fetch_geonames_population_over(min_population)
-
-    output = {
-        'lat_start': LAT_START,
-        'lat_delta': LAT_DELTA,
-        'lon_start': LON_START,
-        'lon_delta': LON_DELTA,
-        'geonames': {},
-    }
-
-    for geoname in geonames:
-        i = int(round((geoname['latitude'] - LAT_START) / LAT_DELTA))
-        j = int(round((geoname['longitude'] - LON_START) / LON_DELTA))
-
-        if output['geonames'].get(i) is None:
-            output['geonames'][i] = {}
-
-        output['geonames'][i][j] = {
-            'name': geoname['name'],
-            'geonameid': geoname['geonameid'],
-            'latitude': geoname['latitude'],
-            'longitude': geoname['longitude'],
-        }
-
-    return output

@@ -9,6 +9,7 @@ from datetime import date
 import numpy as np
 from flask import Flask
 from flask import jsonify
+from flask import request
 from werkzeug.routing import FloatConverter as BaseFloatConverter
 
 import climatedb
@@ -148,40 +149,24 @@ def search(query):
 
     return jsonify(geoname)
 
-@app.route('/places/<string:data_source>/<int:start_year>-<int:end_year>/<string:measurement>-<string:period>/<int:min_population>')
-def climates_of_places(data_source, start_year, end_year, measurement, period, min_population):
+@app.route('/places/<string:data_source>/<int:start_year>-<int:end_year>/<string:measurement>-<string:period>')
+def climates_of_places(data_source, start_year, end_year, measurement, period):
     '''
-    Gives the places with at least the specified  population, indexed by
-    latitude and longitude, together with the specified measurement data.
-    Only populous places or capitals are returned. Returning all possible
-    places would be slow.
+    Gives the list of the most populated places within the specified
+    bounding box, together with the specified measurements.
 
-    Keys in the response take the form of integers i and j.
-    For example:
-    {
-        "lat_start": 90,
-        "lat_delta": -0.5,
-        "lon_start": -180,
-        "lon_delta": 0.5,
-        1: {
-            2: {
-                "name": "Toronto",
-                ...
-                "tavg": {
-                    0: [-4, "degC"],
-                    1: [-4, "degC"],
-                    ...
-                },
-                ...
-            }
-        }
-    }
-
-    In this case, you can use the "lat_start", "lat_delta", "lon_start", and
-    "lon_delta" fields to figure out the index of any specific location. And
-    thus you can use the array to look up the data for a populous place. If two
-    places gets normalized to the same coordinates, the more populous one is used.
+    The bounding box must be specified in the min_lat, max_lat, min_lon, and max_lon
+    the GET parameters.
     '''
+    try:
+        min_lat = float(request.args.get('min_lat'))
+        max_lat = float(request.args.get('max_lat'))
+        min_lon = float(request.args.get('min_lon'))
+        max_lon = float(request.args.get('max_lon'))
+
+    except TypeError:
+        return jsonify({'error': 'Invalid coordinates'}), 400
+
     start_date = date(start_year, 1, 1)
     end_date = date(end_year, 12, 31)
     measurement_id = climatedb.fetch_measurement(measurement)['id']
@@ -191,7 +176,7 @@ def climates_of_places(data_source, start_year, end_year, measurement, period, m
     else:
         months = range(0, 12)
 
-    places = geonamedb.places_by_latitude_and_longitude(min_population)
+    geonames = list(geonamedb.fetch_populous_places_within_area(min_lat, max_lat, min_lon, max_lon))
 
     try:
         data_source_record = climatedb.fetch_data_source(data_source)
@@ -208,31 +193,29 @@ def climates_of_places(data_source, start_year, end_year, measurement, period, m
             if measurement_id == dataset['measurement_id']:
                 units = climatedb.fetch_unit_by_id(dataset['unit_id'])['code']
 
-                for i in places['geonames']:
-                    for j in places['geonames'][i]:
-                        geoname = places['geonames'][i][j]
+                for geoname in geonames:
+                    lat = geoname['latitude']
+                    lon = geoname['longitude']
 
-                        lat = geoname['latitude']
-                        lon = geoname['longitude']
+                    try:
+                        actual_lat, actual_lon, normals_arr = fetch_normals_by_location(dataset, lat, lon, False)
+                        mean = normals_arr[months].mean()
+                        geoname[measurement] = [mean, units]
 
-                        try:
-                            actual_lat, actual_lon, normals_arr = fetch_normals_by_location(dataset, lat, lon, False)
-                            mean = normals_arr[months].mean()
-                            geoname[measurement] = [mean, units]
+                    except climatedb.NotFoundError:
+                        # Presumably the place is in the ocean where there is no data.
+                        pass
 
-                        except climatedb.NotFoundError:
-                            # Presumably the place is in the ocean where there is no data.
-                            pass
-
-        return jsonify(places)
+        return jsonify(geonames)
 
     except climatedb.NotFoundError as e:
         return jsonify({'error': str(e)}), 404
 
 def fetch_normals_by_location(dataset, lat, lon, check_calibration=True):
     '''
-    Gives climate normals calibrated against a baseline dataset for a specific latitude and longitude.
-    If the dataset is not calibrated, we fetch the normals without calibrating.
+    Gives climate normals calibrated against a baseline dataset for a
+    specific latitude and longitude.  If the dataset is not calibrated,
+    we fetch the normals without calibrating.
     '''
     calibrated = dataset['calibrated']
 

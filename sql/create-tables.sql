@@ -65,8 +65,7 @@ CREATE TABLE provinces(
 CREATE TABLE geonames(
     geonameid INTEGER PRIMARY KEY,
     name VARCHAR(200) NOT NULL,
-    latitude DOUBLE(12, 10) NOT NULL,
-    longitude DOUBLE(13, 10) NOT NULL,
+    location POINT NOT NULL,
     feature_class CHAR(1) NOT NULL,
     feature_code VARCHAR(10) NOT NULL,
     country CHAR(2),
@@ -80,7 +79,7 @@ CREATE TABLE geonames(
 CREATE INDEX name ON geonames(name);
 CREATE INDEX population_name ON geonames(population, name);
 CREATE INDEX feature_code ON geonames(feature_code);
-CREATE INDEX lat_lon ON geonames(latitude, longitude);
+CREATE SPATIAL INDEX location ON geonames(location);
 
 CREATE TABLE alternate_names(
     id INTEGER PRIMARY KEY,

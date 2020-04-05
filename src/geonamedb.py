@@ -99,17 +99,16 @@ def create_geoname(geonameid, name, lat, lon, feature_class, feature_code, count
         INSERT INTO geonames(
             geonameid,
             name,
-            latitude,
-            longitude,
+            location,
             feature_class,
             feature_code,
             country,
             province,
             population,
             elevation)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        VALUES (%s, %s, POINT(%s, %s), %s, %s, %s, %s, %s, %s)
         ''',
-        (geonameid, name, lat, lon, feature_class, feature_code, country, province, population, elevation)
+        (geonameid, name, lon, lat, feature_class, feature_code, country, province, population, elevation)
     )
 
 def fetch_geoname(name, province=None, country=None):
@@ -127,8 +126,8 @@ def fetch_geoname(name, province=None, country=None):
         SELECT
             geonameid,
             name,
-            latitude,
-            longitude,
+            ST_Y(location) AS latitude,
+            ST_X(location) AS longitude,
             feature_class,
             feature_code,
             country,
@@ -224,7 +223,15 @@ def fetch_geoname_by_country(code):
     '''
     climatedb.db.cur.execute(
         '''
-        SELECT g.geonameid, g.name, g.latitude, g.longitude, g.country, g.province, g.population, g.elevation
+        SELECT
+            g.geonameid,
+            g.name,
+            ST_Y(g.location) AS latitude,
+            ST_X(g.location) AS longitude,
+            g.country,
+            g.province,
+            g.population,
+            g.elevation
         FROM countries AS c
         INNER JOIN geonames AS g ON c.geonameid = g.geonameid
         WHERE c.code = %s
@@ -285,8 +292,6 @@ def fetch_countries_by_alternate_name(name):
         in rows
     )
 
-
-
 def delete_provinces():
     '''
     Deletes all provinces
@@ -311,7 +316,15 @@ def fetch_geoname_by_province(province_code, country):
     '''
     climatedb.db.cur.execute(
         '''
-        SELECT g.geonameid, g.name, g.latitude, g.longitude, g.country, g.province, g.population, g.elevation
+        SELECT
+            g.geonameid,
+            g.name,
+            ST_Y(g.location) AS latitude,
+            ST_X(g.location) AS longitude,
+            g.country,
+            g.province,
+            g.population,
+            g.elevation
         FROM geonames AS g
         INNER JOIN provinces AS p ON p.geonameid = g.geonameid
         WHERE p.province_code = %s AND p.country = %s
@@ -402,23 +415,74 @@ def fetch_populous_places_within_area(min_lat, max_lat, min_lon, max_lon):
     # The formula below is just the minimum longitude from 0 to 360
     # plus the distance between min and max longitude. If this
     # is greater than 360, the max longitude is passing the antimeridian.
-    if (min_lon + 180) % 360 + max_lon - min_lon <= 360:
-        lon_sql = 'AND longitude >= %s AND longitude < %s'
+    if (min_lon + 180) % 360 + max_lon - min_lon >= 720:
+        raise Exception('Location range for geonames too big. Increase zoom level.')
+    elif (min_lon + 180) % 360 + max_lon - min_lon <= 360:
+        climatedb.db.cur.execute(
+            '''
+            SELECT
+                geonameid,
+                name,
+                ST_Y(location) AS latitude,
+                ST_X(location) AS longitude,
+                country,
+                province,
+                population,
+                elevation
+            FROM geonames
+            WHERE feature_class = 'P'
+            AND MBRWithin(location, ST_GeomFromText(\'LINESTRING(%s %s, %s %s)\'))
+            ORDER BY population DESC
+            LIMIT 20
+            ''',
+            ((min_lon + 180) % 360 - 180, min_lat, (max_lon + 180) % 360 - 180, max_lat)
+        )
     else:
-        lon_sql = 'AND (longitude < %s OR longitude >= %s)'
+        climatedb.db.cur.execute(
+            '''
+            (SELECT
+                geonameid,
+                name,
+                ST_Y(location) AS latitude,
+                ST_X(location) AS longitude,
+                country,
+                province,
+                population,
+                elevation
+            FROM geonames
+            WHERE feature_class = 'P'
+            AND MBRWithin(location, ST_GeomFromText(\'LINESTRING(%s %s, %s %s)\'))
+            ORDER BY population DESC
+            LIMIT 20)
 
-    climatedb.db.cur.execute(
-        '''
-        SELECT geonameid, name, latitude, longitude, country, province, population, elevation
-        FROM geonames
-        WHERE feature_class = 'P'
-        AND latitude >= %s AND latitude < %s
-        ''' + lon_sql + '''
-        ORDER BY population DESC
-        LIMIT 20
-        ''',
-        (min_lat, max_lat, (min_lon + 180) % 360 - 180, (max_lon + 180) % 360 - 180)
-    )
+            UNION ALL
+
+            (SELECT
+                geonameid,
+                name,
+                ST_Y(location) AS latitude,
+                ST_X(location) AS longitude,
+                country,
+                province,
+                population,
+                elevation
+            FROM geonames
+            WHERE feature_class = 'P'
+            AND MBRWithin(location, ST_GeomFromText(\'LINESTRING(%s %s, %s %s)\'))
+            ORDER BY population DESC
+            LIMIT 20)
+            ''',
+            (
+                (min_lon + 180) % 360 - 180,
+                min_lat,
+                180,
+                max_lat,
+                -180,
+                min_lat,
+                (max_lon + 180) % 360 - 180,
+                max_lat,
+            )
+        )
 
     rows = climatedb.db.cur.fetchall()
 

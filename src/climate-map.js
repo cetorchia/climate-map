@@ -898,29 +898,36 @@ function hideDateRangeSliderTooltip()
  */
 function updateClimatesOfPlaces()
 {
-    hideClimateOfPlacePopup();
+    const bounds = APP.climate_map.getBounds();
+    const restricted_bounds = L.latLngBounds(
+        bounds.getSouthWest(),
+        L.latLng(bounds.getNorth(), Math.min(bounds.getEast(), bounds.getWest() + 360)),
+    );
 
     const data_source_select = document.getElementById('data-source');
     const date_range_select = document.getElementById('date-range');
     const measurement_select = document.getElementById('measurement');
     const period_select = document.getElementById('period');
 
-    const bounds = APP.climate_map.getBounds();
-
     return fetchClimatesOfPlaces(
         data_source_select.value,
         date_range_select.value,
         measurement_select.value,
         period_select.value,
-        bounds
-    ).then(setClimatesOfPlaces);
+        restricted_bounds
+    ).then(function(places) {
+        setClimatesOfPlaces(places, bounds);
+    });
 }
 
 /**
  * Sets the current climates of places with the specified geonames.
  */
-function setClimatesOfPlaces(places)
+function setClimatesOfPlaces(places, bounds)
 {
+    const west_revolutions = Math.ceil((bounds.getWest() + 180) / 360);
+    const east_revolutions = Math.floor((bounds.getEast() + 180) / 360);
+
     for (let i = 0; i <= places.length - 1; i++) {
         const geoname = places[i];
 
@@ -934,7 +941,18 @@ function setClimatesOfPlaces(places)
 
         const marker = APP.climates_of_places.markers[i];
         const lat = geoname.latitude;
-        const lon = geoname.longitude;
+        let lon = geoname.longitude;
+
+        const normalized_west_bound = ((bounds.getWest() + 180) % 360 + 360) % 360 - 180;
+        const normalized_east_bound = ((bounds.getEast() + 180) % 360 + 360) % 360 - 180;
+
+        if (lon >= normalized_west_bound) {
+            lon += (west_revolutions - 1) * 360;
+        } else if (lon < normalized_east_bound) {
+            lon += east_revolutions * 360;
+        } else {
+            lon += west_revolutions * 360;
+        }
 
         marker.setLatLng([lat, lon]);
         marker.bindTooltip(climateOfPlaceTooltipText(geoname), {
@@ -957,10 +975,6 @@ function climateOfPlaceTooltipText(geoname)
     const period = document.getElementById('period').value;
     const measurement = document.getElementById('measurement').value;
 
-    const popup = APP.climates_of_places.popup;
-    const div = document.createElement('div');
-    const lat = geoname.latitude;
-    const lon = geoname.longitude;
     const measurement_label = getMeasurementLabel(measurement);
     const period_label = getPeriodLabel(period);
 
@@ -985,14 +999,6 @@ function climateOfPlaceTooltipText(geoname)
 }
 
 /**
- * Hides the climate of place popup.
- */
-function hideClimateOfPlacePopup()
-{
-    APP.climates_of_places.popup.remove();
-}
-
-/**
  * Displays the climate charts for the place that
  * the user is hovering over with their mouse.
  * Called when the user clicks on a marker.
@@ -1003,7 +1009,7 @@ function viewPlaceClimate(geoname)
     const lon = geoname.longitude;
     const name = geoname.name;
 
-    viewLocationClimate(lat, lon, name).then(hideClimateOfPlacePopup);
+    viewLocationClimate(lat, lon, name);
 }
 
 /**
@@ -1425,7 +1431,6 @@ window.onload = async function() {
 
     APP.climates_of_places = {
         markers: [],
-        popup: L.popup([0, 0]),
         icon: L.icon({
             iconUrl: place_marker_icon,
             iconSize: PLACE_MARKER_ICON_SIZE,
@@ -1547,18 +1552,9 @@ window.onload = async function() {
     };
 
     /**
-     * Handle zooming or panning.
+     * Handle zooming and panning.
      */
-    APP.climate_map.on('moveend', function(e) {
-        if (APP.climate_map.getZoom() <= 4) {
-            updateClimatesOfPlaces();
-        }
-    });
-    APP.climate_map.on('zoomend', function(e) {
-        if (APP.climate_map.getZoom() <= 4) {
-            updateClimatesOfPlaces();
-        }
-    });
+    APP.climate_map.on('moveend', updateClimatesOfPlaces);
 
     /**
      * Handle search.

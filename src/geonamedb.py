@@ -79,7 +79,7 @@ def get_human_readable_country(geoname):
         if country_geoname['geonameid'] == geoname['geonameid']:
             return None
 
-        return country_geoname['name']
+        return geoname['country']
 
     except NotFoundError:
         return geoname['country']

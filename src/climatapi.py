@@ -159,6 +159,10 @@ def climates_of_places(data_source, start_year, end_year, measurement, period):
 
     geonames = list(geonamedb.fetch_populous_places_within_area(min_lat, max_lat, min_lon, max_lon))
 
+    for geoname in geonames:
+        geoname['province'] = geonamedb.get_human_readable_province(geoname)
+        geoname['country'] = geonamedb.get_human_readable_country(geoname)
+
     try:
         data_source_record = climatedb.fetch_data_source(data_source)
         data_source_id = data_source_record['id']

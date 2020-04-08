@@ -99,9 +99,9 @@ async function search(query)
     const url = API_URL + '/search/' + encodeURIComponent(query);
 
     try {
-        const data = await fetchFromAPI(url);
+        const geoname = await fetchFromAPI(url);
         hideError();
-        return data;
+        return geoname;
     } catch(err) {
         if (err.message == NOT_FOUND_ERROR_MESSAGE) {
             showError(SEARCH_NOT_FOUND);
@@ -1007,7 +1007,7 @@ function viewPlaceClimate(geoname)
 {
     const lat = geoname.latitude;
     const lon = geoname.longitude;
-    const name = geoname.name;
+    const name = getPlaceName(geoname);
 
     viewLocationClimate(lat, lon, name);
 }
@@ -1173,23 +1173,32 @@ function isLocationClimateOpen()
  * and shows the climate of the location.
  */
 async function doSearch(search_query) {
-    const data = await search(search_query);
-    const lat = data['latitude'];
-    const lon = data['longitude'];
+    const geoname = await search(search_query);
+    const lat = geoname['latitude'];
+    const lon = geoname['longitude'];
 
     document.getElementById('search-container').style.display = 'none';
 
     APP.climate_map.setView([lat, lon], CONFIG.max_zoom);
 
-    let place_name = data['name'];
-
-    if (data['province']) {
-        place_name += ', ' + data['province'];
-    } else if (data['country']) {
-        place_name += ', ' + data['country'];
-    }
+    const place_name = getPlaceName(geoname);
 
     return [lat, lon, place_name];
+}
+
+/**
+ * Returns the full pace name of the given geoname.
+ * Particularly it appends the province or country to the name
+ * so that the name has a degree of uniqueness that allows us
+ * to look it up later (this will get specified in the URL).
+ */
+function getPlaceName(geoname)
+{
+    if (geoname['province']) {
+        return geoname['name'] + ', ' + geoname['province'];
+    } else if (geoname['country']) {
+        return geoname['name'] + ', ' + geoname['country'];
+    }
 }
 
 /**

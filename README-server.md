@@ -154,3 +154,22 @@ In addition to what's in [README.md](README.md), the following packages
 should be added.
 
 * rsync
+* unattended-upgrades
+
+## Automatic security updates
+
+In order to prevent hackers, install and enable `unattended-upgrades`, particularly
+for security updates. This is useful for zero-day exploits where a bug gets revealed
+and a hacker hacks your server because you didn't update the packages within 0 days.
+
+Enable the following in `/etc/apt/apt.conf.d/10periodic`:
+
+```
+APT::Periodic::Update-Package-Lists "1";
+APT::Periodic::Download-Upgradeable-Packages "1";
+APT::Periodic::AutocleanInterval "7";
+APT::Periodic::Unattended-Upgrade "1";
+```
+
+To be sure of the above, see the full documentation at
+[Automatic Updates](https://help.ubuntu.com/lts/serverguide/automatic-updates.html).

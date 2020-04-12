@@ -153,6 +153,42 @@ def fetch_measurement(measurement):
         'name': measurement_name,
     }
 
+def create_data_source(code, name, organisation, author, year, url, baseline):
+    '''
+    Creates the specified data source.
+
+    "Code" is the unique code of the data source usually used to look it up instead
+    of its numeric ID. Arguably this could have just been the PK. We use this approach
+    to make the API's URI's human readable and not cryptic, as the solution to humanity's
+    problems is to stop obfuscating reality.
+    '''
+    db.cur.execute(
+        '''
+        INSERT INTO data_sources(code, name, organisation, author, year, url, baseline)
+        VALUES
+        (%s, %s, %s, %s, %s, %s, %s)
+        ''',
+        (code, name, organisation, author, year, url, baseline)
+    )
+
+def update_data_source(code, name, organisation, author, year, url, baseline):
+    '''
+    Updates the specified data source.
+    '''
+    db.cur.execute(
+        '''
+        UPDATE data_sources SET
+            name = %s,
+            organisation = %s,
+            author = %s,
+            year = %s,
+            url = %s,
+            baseline = %s
+        WHERE code = %s
+        ''',
+        (name, organisation, author, year, url, baseline, code)
+    )
+
 def fetch_data_source_by_id(data_source_id):
     '''
     Fetches the specified data source

@@ -1,0 +1,4 @@
+search:
+  url: https://esgf.nci.org.au/esg-search/search/
+  project: CMIP6
+  variant: r1i1p1f1,r1i1p1f2

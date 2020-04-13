@@ -109,6 +109,7 @@ def data_sources_by_date_range(start_year, end_year):
             for data_source_record, calibrated in data_sources
             if calibrated or data_source_record['baseline']
         ]
+        selected_data_sources.sort(key=lambda data_source_record: data_source_record['name'])
 
         return jsonify(selected_data_sources)
 

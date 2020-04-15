@@ -64,8 +64,15 @@ body {
     color: #44e;
 }
 
-#about-button.map-button {
+#potet-button.map-button {
     top: 215px;
+    height: 26px;
+    padding-top: 3px;
+    color: #44e;
+}
+
+#about-button.map-button {
+    top: 250px;
     height: 26px;
     padding-top: 3px;
 }
@@ -85,7 +92,7 @@ body {
 #legend {
     z-index: 1000;
     position: absolute;
-    top: 260px;
+    top: 295px;
     left: 14px;
 }
 
@@ -261,7 +268,7 @@ body {
     margin-right:auto;
     z-index: 1000;
     bottom: 19px;
-    width: 350px;
+    width: 400px;
     max-width: 70vw;
 }
 

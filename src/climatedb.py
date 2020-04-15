@@ -15,6 +15,7 @@ import os.path
 import numpy as np
 
 import arrays
+import pack
 import config
 
 # Global database object
@@ -116,6 +117,19 @@ def fetch_unit(units):
         'code': units,
         'name': unit_name,
     }
+
+def fetch_measurements():
+    '''
+    Fetches a list containing each allowed measurement code.
+    E.g. ['tavg', 'tmin', ...]
+
+    We only return a list of the strings representing each measurement,
+    without other fields.
+    '''
+    db.cur.execute('SELECT code FROM measurements')
+    rows = db.cur.fetchall()
+
+    return [measurement_code for measurement_code, in rows]
 
 def fetch_measurement_by_id(measurement_id):
     '''
@@ -359,7 +373,7 @@ def fetch_datasets_by_date_range(start_date, end_date):
     '''
     db.cur.execute(
         '''
-        SELECT id, data_source_id, calibrated FROM datasets
+        SELECT id, data_source_id, measurement_id, calibrated FROM datasets
         WHERE start_date = %s AND end_date = %s
         ''',
         (start_date, end_date)
@@ -370,9 +384,10 @@ def fetch_datasets_by_date_range(start_date, end_date):
         {
             'id': dataset_id,
             'data_source_id': data_source_id,
+            'measurement_id': measurement_id,
             'calibrated': calibrated,
         }
-        for dataset_id, data_source_id, calibrated in rows
+        for dataset_id, data_source_id, measurement_id, calibrated in rows
     )
 
 def fetch_dataset(data_source_id, measurement_id, unit_id, start_date, end_date, calibrated):
@@ -600,6 +615,9 @@ def create_monthly_normals(
     or np.any(data_arr.fill_value != data_arr[data_arr.mask]) \
     or np.any(data_arr.fill_value == data_arr[~data_arr.mask]):
         raise Exception('Expected masked array with fill value in and only in the masked portion')
+
+    if data_arr.fill_value < pack.OUTPUT_DTYPE_MIN or data_arr.fill_value > pack.OUTPUT_DTYPE_MAX:
+        raise Exception('Expected a fill value within range of data type (e.g. the minimum allowed)')
 
     base_name = '%s-%d-%d-%s-%s' % (data_source, start_year, end_year, measurement, units)
     if calibrated:

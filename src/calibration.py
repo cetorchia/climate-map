@@ -137,10 +137,8 @@ def calibrate(
         above_threshold = above_absolute_threshold(calibrated_data, downscaled_differences, downscaled_abs_differences)
         calibrated_data[above_threshold] = baseline_data[above_threshold] + downscaled_abs_differences[above_threshold]
 
-    if np.any((calibrated_data > pack.OUTPUT_DTYPE_MAX) | (calibrated_data < pack.OUTPUT_DTYPE_MIN)):
-        raise Exception('Calibrated data is out of bounds for %s' % pack.OUTPUT_DTYPE)
-    else:
-        calibrated_data = calibrated_data.astype(pack.OUTPUT_DTYPE)
+    pack.mask_out_of_bounds(calibrated_data)
+    calibrated_data = calibrated_data.astype(pack.OUTPUT_DTYPE)
 
     climatedb.save_normals(
         baseline_lat,
@@ -225,6 +223,4 @@ def above_absolute_threshold(calibrated_normals, relative_differences, absolute_
     return (
         (relative_differences >= ABSOLUTE_THRESHOLD)
         | np.isnan(relative_differences)
-        | (calibrated_normals < pack.OUTPUT_DTYPE_MIN)
-        | (calibrated_normals > pack.OUTPUT_DTYPE_MAX)
     )

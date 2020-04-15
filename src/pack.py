@@ -6,6 +6,7 @@
 # Copyright (c) 2020 Carlos Torchia
 #
 
+import sys
 import numpy as np
 
 SCALE_FACTOR = 10
@@ -24,25 +25,38 @@ def pack_array(data_arr, units=None):
 
     data_arr *= SCALE_FACTOR
 
-    dtype = OUTPUT_DTYPE
-    MIN_DTYPE = OUTPUT_DTYPE_MIN
-    MAX_DTYPE = OUTPUT_DTYPE_MAX
-
     missing_value = data_arr.fill_value
 
-    if np.any(data_arr.mask) and (missing_value < MIN_DTYPE or missing_value > MAX_DTYPE):
-        new_missing_value = MIN_DTYPE
+    if (missing_value < OUTPUT_DTYPE_MIN or missing_value > OUTPUT_DTYPE_MAX):
+        new_missing_value = OUTPUT_DTYPE_MIN
 
-        if np.any(data_arr.base == new_missing_value):
+        if np.any(data_arr.data == new_missing_value):
             raise Exception('Data cannot contain %d as this is needed for missing values' % new_missing_value)
 
-        np.place(data_arr.base, data_arr.mask, new_missing_value)
+        if np.any(data_arr.mask):
+            np.place(data_arr.data, data_arr.mask, new_missing_value)
+
         data_arr.set_fill_value(new_missing_value)
 
-        if np.any(data_arr.mask != (data_arr.base == new_missing_value)):
+        if np.any(data_arr.mask != (data_arr.data == new_missing_value)):
             raise Exception('Expected mask to all and only contain new missing value')
 
-    if np.any((data_arr < MIN_DTYPE) | (data_arr > MAX_DTYPE)):
-        raise Exception('Data contains values out of range (%d..%d) for a %s' % (MIN_DTYPE, MAX_DTYPE, dtype))
+    mask_out_of_bounds(data_arr)
 
-    return np.round(data_arr).astype(dtype)
+    return np.round(data_arr).astype(OUTPUT_DTYPE)
+
+def mask_out_of_bounds(data_arr):
+    '''
+    Masks any values out of bounds for the OUTPUT_DTYPE
+    '''
+    out_of_bounds = (data_arr < OUTPUT_DTYPE_MIN) | (data_arr > OUTPUT_DTYPE_MAX)
+
+    if np.any(out_of_bounds):
+        num_out_of_bounds = len(np.where(out_of_bounds)[0])
+        print('Warning: Data contains %d values out of range (%d..%d) for a %s. Masking.' % (
+                 num_out_of_bounds, OUTPUT_DTYPE_MIN, OUTPUT_DTYPE_MAX, OUTPUT_DTYPE
+              ),
+              file=sys.stderr)
+
+        data_arr[out_of_bounds] = np.ma.masked
+        np.place(data_arr.data, out_of_bounds, data_arr.fill_value)

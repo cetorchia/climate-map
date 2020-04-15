@@ -21,7 +21,7 @@ def get_args(arguments):
     Determines command line arguments
     '''
     num_arguments = len(arguments)
-    if num_arguments < 3:
+    if num_arguments < 7:
         print('Usage: ' + arguments[0] + ' <baseline-data-source> <historical-data-source> <projection-data-source> <variable> <baseline-start-year>-<baseline-end-year> <projection-start-year>-<projection-end-year>\n'
               '\n'
               'Calibrates a projection dataset by adding the changes from historical to a\n'

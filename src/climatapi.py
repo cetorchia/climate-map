@@ -88,21 +88,25 @@ def date_ranges():
     '''
     return jsonify(list(climatedb.fetch_date_ranges()))
 
-@app.route('/data-sources/<int:start_year>-<int:end_year>')
-def data_sources_by_date_range(start_year, end_year):
+@app.route('/data-sources/<int:start_year>-<int:end_year>/<string:measurement>')
+def data_sources_by_date_range(start_year, end_year, measurement):
     '''
-    Gives all data-sources for the specified date range and
-    the corresponding dataset id for each one.
+    Gives all data-sources for the specified date range and measurement.
     '''
     start_date = date(start_year, 1, 1)
     end_date = date(end_year, 12, 31)
+    measurement_id = climatedb.fetch_measurement(measurement)['id']
     datasets = climatedb.fetch_datasets_by_date_range(start_date, end_date)
 
     if datasets:
-        data_source_ids = {(dataset['data_source_id'], dataset['calibrated']) for dataset in datasets}
+        data_source_ids = {
+            (dataset['data_source_id'], dataset['measurement_id'], dataset['calibrated'])
+            for dataset in datasets
+        }
         data_sources = [
             (climatedb.fetch_data_source_by_id(data_source_id), calibrated)
-            for data_source_id, calibrated in data_source_ids
+            for data_source_id, dataset_measurement_id, calibrated in data_source_ids
+            if dataset_measurement_id == measurement_id
         ]
         selected_data_sources = [
             data_source_record

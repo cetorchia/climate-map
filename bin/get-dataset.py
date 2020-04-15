@@ -31,7 +31,8 @@ def get_args(arguments):
 
     if num_arguments < 3 or num_arguments > 4:
         print('Usage: ' + arguments[0] + ' <data-source> <var> [frequency]', file=sys.stderr)
-        print('e.g. ' + arguments[0] + ' tas GFDL-ESM4.historical mon', file=sys.stderr)
+        print('e.g. ' + arguments[0] + ' TerraClimate pet', file=sys.stderr)
+        print('e.g. ' + arguments[0] + ' GFDL-ESM4.historical tas day', file=sys.stderr)
         sys.exit(1)
 
     data_source, variable_name = arguments[1:3]
@@ -114,20 +115,30 @@ def create_data_source(data_source_code, organisation, author, year, url):
     Creates the data source record in the database if one
     does not exist.
     '''
-    model, scenario = data_source_code.split('.')
+    if data_source_code.find('.') != -1:
+        model, scenario = data_source_code.split('.')
 
-    if scenario == 'ssp245':
-        name = model + ' middle of the road'
-    elif scenario == 'ssp585':
-        name = model + ' fossil fueled development'
+        if scenario == 'ssp245':
+            name = model + ' middle of the road'
+        elif scenario == 'ssp585':
+            name = model + ' fossil fueled development'
+        else:
+            name = model + ' ' + scenario
+
     else:
-        name = model + ' ' + scenario
+        name = data_source_code
+
+    if data_source_code in ('TerraClimate', 'worldclim'):
+        baseline = True
+    else:
+        baseline = False
 
     try:
         climatedb.fetch_data_source(data_source_code)
-        climatedb.update_data_source(data_source_code, name, organisation, author, year, url, baseline=False)
+        climatedb.update_data_source(data_source_code, name, organisation, author, year, url, baseline)
+
     except climatedb.NotFoundError:
-        climatedb.create_data_source(data_source_code, name, organisation, author, year, url, baseline=False)
+        climatedb.create_data_source(data_source_code, name, organisation, author, year, url, baseline)
 
     climatedb.commit()
 
@@ -198,7 +209,7 @@ def main(args):
         start_year = 1981
         end_year = 2010
 
-        file_url = 'http://thredds.northwestknowledge.net:8080/thredds/fileServer/TERRACLIMATE_ALL/summaries' \
+        file_url = 'http://thredds.northwestknowledge.net:8080/thredds/fileServer/TERRACLIMATE_ALL/summaries/' \
                    'TerraClimate%d%d_%s.nc' % (start_year, end_year, variable_name)
 
     else:
@@ -226,7 +237,9 @@ def main(args):
         file_url = get_file_url(thredds_url, thredds_id)
 
     file_path = get_file_path(file_url)
-    urllib.request.urlretrieve(file_url, file_path)
+
+    if not os.path.exists(file_path):
+        urllib.request.urlretrieve(file_url, file_path)
 
     create_data_source(data_source, organisation, author, year, article_url)
 

@@ -20,6 +20,7 @@
         <div id="search-expand-button" class="map-button">&#128270;</div>
         <div id="temperature-button" class="map-button">&#127777;</div>
         <div id="precipitation-button" class="map-button">&#127783;</div>
+        <div id="potet-button" class="map-button">&#127793;</div>
         <div id="about-button" class="map-button"><span id="about-question-mark">?</span></div>
 
         <div id="date-range-slider-container">
@@ -53,6 +54,7 @@
                 <select id="measurement">
                     <option value="tavg">Temperature (&#176;C)</option>
                     <option value="precip">Precipitation (mm)</option>
+                    <option value="potet">Potential Evapotranspiration (mm)</option>
                 </select>
             </div>
             <div id="period-filter">
@@ -164,8 +166,12 @@
             <p>
                 Total Annual Precipitation: <span id="total-precipitation"></span>
             </p>
+            <p>
+                Total Potential Evapotranspiration: <span id="total-potet"></span>
+            </p>
             <canvas id="location-temperature-chart" width="400" height="300"></canvas>
             <canvas id="location-precipitation-chart" width="400" height="300"></canvas>
+            <canvas id="location-potet-chart" width="400" height="300"></canvas>
         </div>
     </body>
 </html>

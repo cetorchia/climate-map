@@ -82,6 +82,7 @@ def main(args):
     tiling.save_contour_tiles(
         projected_y_arr,
         projected_x_arr,
+        measurement,
         units,
         normals,
         output_folder,
@@ -108,6 +109,7 @@ def main(args):
         tiling.save_contour_tiles(
             projected_y_arr,
             projected_x_arr,
+            measurement,
             units,
             aggregated_normals,
             output_folder,

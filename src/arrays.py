@@ -232,9 +232,9 @@ def downscale_array(baseline_lat_arr, baseline_lon_arr, lat_arr, lat_delta, lon_
     )
 
     downscaled_data_arr.mask[downscaled_lat_arr.mask, :] = True
-    downscaled_data_arr.base[downscaled_lat_arr.mask, :] = downscaled_data_arr.fill_value
+    downscaled_data_arr.data[downscaled_lat_arr.mask, :] = downscaled_data_arr.fill_value
     downscaled_data_arr.mask[:, downscaled_lon_arr.mask] = True
-    downscaled_data_arr.base[:, downscaled_lon_arr.mask] = downscaled_data_arr.fill_value
+    downscaled_data_arr.data[:, downscaled_lon_arr.mask] = downscaled_data_arr.fill_value
 
     downscaled_data_subarr = np.repeat(data_arr, lat_repeats, axis=0)
     downscaled_data_subarr = np.repeat(downscaled_data_subarr, lon_repeats, axis=1)

@@ -100,8 +100,8 @@ def main(args):
             transform.aggregate_normals(input_files, get_normals_function(month, start_time, end_time))
 
         units, normals = transform.data_to_standard_units(units, normals, month)
-        normals = pack.pack_array(normals, units)
         lon_arr, normals = transform.normalize_longitudes(lon_arr, normals)
+        normals = pack.pack_array(normals, units)
 
         measurement = transform.to_standard_variable_name(variable_name)
 

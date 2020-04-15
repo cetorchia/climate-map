@@ -56,6 +56,12 @@ def to_standard_variable_name(variable_name):
     elif variable_name == 'sfcWind':
         return 'wind'
 
+    elif variable_name in ('evspsbl', 'aet'):
+        return 'et'
+
+    elif variable_name in ('evspsblpot', 'pet'):
+        return 'potet'
+
     else:
         return variable_name
 
@@ -65,7 +71,7 @@ def standard_units_from_measurement(measurement):
     '''
     if measurement in ('tavg', 'tmin', 'tmax'):
         units = 'degC'
-    elif measurement == 'precip':
+    elif measurement in ('precip', 'et', 'potet'):
         units = 'mm'
     else:
         raise Exception('Do not know standard units of %s' % measurement)

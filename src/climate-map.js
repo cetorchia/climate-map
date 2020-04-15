@@ -129,11 +129,12 @@ async function fetchDateRanges()
 }
 
 /**
- * Gives a promise to the list of all active data sources.
+ * Gives a promise to the list of data sources that have
+ * datasets in the specified date range and measurement.
  */
-async function fetchDataSources(date_range)
+async function fetchDataSources(date_range, measurement)
 {
-    const url = API_URL + '/data-sources/' + encodeURIComponent(date_range);
+    const url = API_URL + '/data-sources/' + encodeURIComponent(date_range) + '/' + encodeURIComponent(measurement);
 
     try {
         return await fetchFromAPI(url);
@@ -231,20 +232,22 @@ async function fetchClimateDataForCoords(data_source, date_range, lat, lon)
 
     data = populateMissingTemperatureData(data);
 
-    if (data['tavg'][0] === undefined) {
-        data['tavg'][0] = getAverageTemperature(data['tavg']);
+    if (data['tavg'] !== undefined) {
+        if (data['tavg'][0] === undefined) {
+            data['tavg'][0] = getAverageTemperature(data['tavg']);
+        }
     }
 
-    if (data['tmin'][0] === undefined) {
-        data['tmin'][0] = getAverageTemperature(data['tmin']);
+    if (data['precip'] !== undefined) {
+        if (data['precip'][0] === undefined) {
+            data['precip'][0] = getTotalPrecipitation(data['precip']);
+        }
     }
 
-    if (data['tmax'][0] === undefined) {
-        data['tmax'][0] = getAverageTemperature(data['tmax']);
-    }
-
-    if (data['precip'][0] === undefined) {
-        data['precip'][0] = getTotalPrecipitation(data['precip']);
+    if (data['potet'] !== undefined) {
+        if (data['potet'][0] === undefined) {
+            data['potet'][0] = getTotalPrecipitation(data['potet']);
+        }
     }
 
     return data;
@@ -310,7 +313,7 @@ function createTileLayer()
 /**
  * Returns the colour for the specified value with units.
  */
-function colourForValueAndUnits(value, units)
+function colourForValueAndUnits(value, measurement, units)
 {
     let red, green, blue;
 
@@ -338,21 +341,41 @@ function colourForValueAndUnits(value, units)
             return 'rgb(' + red + ',' + green + ',' + blue + ')';
 
         case 'mm':
-            if (value >= 100) {
-                red = 0;
-                green = 255;
-                blue = 0;
-            } else if (value >= 50) {
-                red = 240 - 4.7 * (value - 50);
-                green = 255;
-                blue = red;
-            } else {
-                red = 230 - value / 3;
-                green = 230;
-                blue = 4.4 * value;
+            switch (measurement) {
+                case 'precip':
+                    if (value >= 100) {
+                        red = 0;
+                        green = 255;
+                        blue = 0;
+                    } else if (value >= 50) {
+                        red = 240 - 4.7 * (value - 50);
+                        green = 255;
+                        blue = red;
+                    } else {
+                        red = 230 - value / 3;
+                        green = 230;
+                        blue = 4.4 * value;
+                    }
+                    return 'rgb(' + red + ',' + green + ',' + blue + ')';
+
+                case 'et':
+                case 'potet':
+                    if (value < 25) {
+                        red = 100;
+                        green = 100;
+                        blue = 255;
+                    } else if (value < 80) {
+                        red = 2.25 * value;
+                        green = 255;
+                        blue = red;
+                    } else {
+                        red = Math.min(200 + (value - 80) / 7, 250);
+                        green = 230;
+                        blue = Math.max(200 - (value - 80) * 3 / 7, 0);
+                    }
+                    return 'rgb(' + red + ',' + green + ',' + blue + ')';
             }
 
-            return 'rgb(' + red + ',' + green + ',' + blue + ')';
 
         default:
             return '#22b';
@@ -364,13 +387,13 @@ function colourForValueAndUnits(value, units)
  * and units. This gives a visual sense of the temperature
  * or precipitation amount.
  */
-function coloursForMonthData(values, units)
+function coloursForMonthData(values, measurement, units)
 {
     let colours = [];
 
     for (let i = 0; i <= values.length - 1; i++) {
         const value = values[i];
-        const colour = colourForValueAndUnits(value, units);
+        const colour = colourForValueAndUnits(value, measurement, units);
         colours.push(colour);
     }
 
@@ -383,7 +406,7 @@ function coloursForMonthData(values, units)
  *
  * @return Chart
  */
-function createClimateChart(datasets, units, labels, type, canvas_id)
+function createClimateChart(datasets, measurement, units, labels, type, canvas_id)
 {
     const ctx = document.getElementById(canvas_id).getContext('2d');
 
@@ -441,7 +464,7 @@ function createClimateChart(datasets, units, labels, type, canvas_id)
             values.push([min_value, max_value]);
         }
 
-        const colours = coloursForMonthData(mean_values, units);
+        const colours = coloursForMonthData(mean_values, measurement, units);
         chart_datasets.push(
             {
                 label: labels[0],
@@ -479,8 +502,8 @@ function createClimateChart(datasets, units, labels, type, canvas_id)
                 }
             }
 
-            const colours = coloursForMonthData(values, units);
-            const avg_colour = colourForValueAndUnits(data[0][0], data[0][1]);
+            const colours = coloursForMonthData(values, measurement, units);
+            const avg_colour = colourForValueAndUnits(data[0][0], measurement, data[0][1]);
 
             if (type == 'line') {
                 /**
@@ -651,48 +674,63 @@ function getTotalPrecipitation(precipitations)
 /**
  * Updates the climate chart.
  */
-function updateClimateChart(data)
+function updateClimateCharts(data)
 {
-    const average_temperature = Math.round(data['tavg'][0][0] * 10) / 10;
-    const total_precipitation = Math.round(data['precip'][0][0] * 10) / 10;
+    updateClimateChart(data, 'tavg', 'location-temperature-chart', 'average-temperature');
+    updateClimateChart(data, 'precip', 'location-precipitation-chart', 'total-precipitation');
+    updateClimateChart(data, 'potet', 'location-potet-chart', 'total-potet');
+}
 
-    const temp_units = data['tavg'][0][1];
-    const temp_unit_label = getUnitLabel(temp_units);
-    const precip_units = data['precip'][0][1];
-    const precip_unit_label = getUnitLabel(precip_units);
-
-    document.getElementById('average-temperature').textContent = average_temperature + ' ' + temp_unit_label;
-    document.getElementById('total-precipitation').textContent = total_precipitation + ' ' + precip_unit_label;
-
-    if (APP.temp_chart !== undefined) {
-        APP.temp_chart.destroy();
+/**
+ * Updates the climate chart for the specified data and measurement.
+ */
+function updateClimateChart(data, measurement, chart_canvas_id, average_span_id)
+{
+    if (APP.charts[measurement] !== undefined) {
+        APP.charts[measurement].destroy();
     }
 
-    APP.temp_chart = createClimateChart(
-        [
+    if (data[measurement] === undefined) {
+        document.getElementById(average_span_id).parentNode.style.display = 'none';
+        document.getElementById(chart_canvas_id).style.display = 'none';
+        return;
+    } else {
+        document.getElementById(average_span_id).parentNode.style.display = 'block';
+        document.getElementById(chart_canvas_id).style.display = 'block';
+    }
+
+    const average = Math.round(data[measurement][0][0] * 10) / 10;
+
+    const units = data[measurement][0][1];
+    const unit_label = getUnitLabel(units);
+
+    document.getElementById(average_span_id).textContent = average + ' ' + unit_label;
+
+    let chart_data, chart_labels;
+    
+    if (measurement == 'tavg') {
+        chart_data = [
             data['tavg'],
             ('tmin' in data ? data['tmin'] : {}),
             ('tmax' in data ? data['tmax'] : {}),
-        ],
-        temp_units,
-        [
-            'Mean Temperature (' + temp_unit_label + ')',
-            'Min Temperature (' + temp_unit_label + ')',
-            'Max Temperature (' + temp_unit_label + ')',
-        ],
-        'bar',
-        'location-temperature-chart'
-    );
-
-    if (APP.precip_chart !== undefined) {
-        APP.precip_chart.destroy();
+        ];
+        chart_labels = [
+            'Mean Temperature (' + unit_label + ')',
+            'Min Temperature (' + unit_label + ')',
+            'Max Temperature (' + unit_label + ')',
+        ];
+    } else {
+        chart_data = [data[measurement]];
+        chart_labels = [getMeasurementLabel(measurement) + ' (' + unit_label + ')'];
     }
-    APP.precip_chart = createClimateChart(
-        [data['precip']],
-        precip_units,
-        ['Precipitation (' + precip_unit_label + ')'],
+
+    APP.charts[measurement] = createClimateChart(
+        chart_data,
+        measurement,
+        units,
+        chart_labels,
         'bar',
-        'location-precipitation-chart'
+        chart_canvas_id
     );
 }
 
@@ -709,8 +747,7 @@ function updateTilesAndChart()
         const data_source = data_source_select.value;
         const date_range = date_range_select.value;
 
-        fetchClimateDataForCoords(data_source, date_range, APP.clicked_lat, APP.clicked_lon).then(
-            updateClimateChart);
+        fetchClimateDataForCoords(data_source, date_range, APP.clicked_lat, APP.clicked_lon).then(updateClimateCharts);
     }
 }
 
@@ -727,6 +764,7 @@ function highlightMeasurementButton(measurement)
             selected_button = document.getElementById('temperature-button');
             unselected_buttons = [
                 document.getElementById('precipitation-button'),
+                document.getElementById('potet-button'),
             ];
             break;
 
@@ -734,6 +772,15 @@ function highlightMeasurementButton(measurement)
             selected_button = document.getElementById('precipitation-button');
             unselected_buttons = [
                 document.getElementById('temperature-button'),
+                document.getElementById('potet-button'),
+            ];
+            break;
+
+        case 'potet':
+            selected_button = document.getElementById('potet-button');
+            unselected_buttons = [
+                document.getElementById('temperature-button'),
+                document.getElementById('precipitation-button'),
             ];
             break;
 
@@ -759,6 +806,8 @@ function updateLegend(measurement)
         legend_img.src = '/legend-temp.png';
     } else if (measurement == 'precip') {
         legend_img.src = '/legend-precip.png';
+    } else if (measurement == 'potet') {
+        legend_img.src = '/legend-potet.png';
     }
 }
 
@@ -782,12 +831,13 @@ function updateLastDataSource(data_source_select)
 /**
  * Populates the data sources
  */
-async function populateDataSources(data_source_select, date_range_select)
+async function populateDataSources(data_source_select, date_range_select, measurement_select)
 {
     const date_range_option = date_range_select.options[date_range_select.selectedIndex];
     const date_range = date_range_option.value;
+    const measurement = measurement_select.value;
 
-    const data_sources = await fetchDataSources(date_range);
+    const data_sources = await fetchDataSources(date_range, measurement);
 
     /* Try to preserve the already selected data source, if any. */
     let selected_data_source;
@@ -1026,6 +1076,10 @@ function getMeasurementLabel(measurement)
             return 'Minimum Temperature';
         case 'tmax':
             return 'Maximum Temperature';
+        case 'et':
+            return 'Actual Evapotranspiration';
+        case 'potet':
+            return 'Potential Evapotranspiration';
         default:
             throw new Error('Unrecognized measurement: ' + measurement);
     }
@@ -1121,7 +1175,7 @@ function loadLocationClimate(lat, lon, location_title)
             updatePageState(lat, lon, location_title);
         });
 
-        updateClimateChart(data);
+        updateClimateCharts(data);
         showLocationTitle(location_title);
         showLocationClimate();
 
@@ -1436,6 +1490,8 @@ window.onload = async function() {
         }
     }
 
+    APP.charts = {};
+
     APP.location_marker = L.marker([0, 0]);
 
     APP.climates_of_places = {
@@ -1462,7 +1518,7 @@ window.onload = async function() {
      * URL path.
      */
     populateDateRanges(date_range_select).then(function() {
-        populateDataSources(data_source_select, date_range_select).then(function() {
+        populateDataSources(data_source_select, date_range_select, measurement_select).then(function() {
             APP.climate_tile_layer = createTileLayer().addTo(APP.climate_map);
             updateClimatesOfPlaces();
             highlightMeasurementButton(measurement_select.value);
@@ -1493,13 +1549,14 @@ window.onload = async function() {
      * Handle changing the date range dropdown.
      */
     function change_date_range() {
-        populateDataSources(data_source_select, date_range_select).then(change_data_source).then(function() {
-            if (!getLastDataSource(data_source_select)) {
-                updateLastDataSource(data_source_select);
+        populateDataSources(data_source_select, date_range_select, measurement_select).then(change_data_source).then(
+            function() {
+                if (!getLastDataSource(data_source_select)) {
+                    updateLastDataSource(data_source_select);
+                }
+                updateDescriptionTooltip(period_select.value, measurement_select.value, date_range_select.value);
             }
-            updateClimatesOfPlaces();
-            updateDescriptionTooltip(period_select.value, measurement_select.value, date_range_select.value);
-        });
+        );
     }
 
     date_range_select.onchange = function() {
@@ -1527,11 +1584,13 @@ window.onload = async function() {
      * Handle changing the measurement dropdown
      */
     function change_measurement() {
-        updateTileLayer(APP.climate_tile_layer);
-        updateClimatesOfPlaces();
-        highlightMeasurementButton(measurement_select.value);
-        updateLegend(measurement_select.value);
-        updateDescriptionTooltip(period_select.value, measurement_select.value, date_range_select.value);
+        populateDataSources(data_source_select, date_range_select, measurement_select).then(change_data_source).then(
+            function() {
+                highlightMeasurementButton(measurement_select.value);
+                updateLegend(measurement_select.value);
+                updateDescriptionTooltip(period_select.value, measurement_select.value, date_range_select.value);
+            }
+        );
     }
 
     measurement_select.onchange = change_measurement;
@@ -1617,6 +1676,11 @@ window.onload = async function() {
 
     document.getElementById('precipitation-button').onclick = function() {
         setDropDown('measurement', 'precip');
+        change_measurement();
+    };
+
+    document.getElementById('potet-button').onclick = function() {
+        setDropDown('measurement', 'potet');
         change_measurement();
     };
 

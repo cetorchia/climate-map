@@ -11,10 +11,13 @@ from flask import jsonify
 import os
 
 import tiling
+import climatedb
 
 app = Flask(__name__)
 
-ALLOWED_MEASUREMENTS = ('tavg', 'precip')
+climatedb.connect()
+
+ALLOWED_MEASUREMENTS = climatedb.fetch_measurements()
 
 ALLOWED_PERIODS = [
     '12_01_02',

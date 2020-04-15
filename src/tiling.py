@@ -72,7 +72,7 @@ def tile_folder(data_source, measurement, start_date, end_date, months=None):
 
     return tile_folder
 
-def save_contour_tiles(y_arr, x_arr, units, normals, output_folder, data_source_id):
+def save_contour_tiles(y_arr, x_arr, measurement, units, normals, output_folder, data_source_id):
     '''
     Generates map contour tiles for the specified climate normals
     in the specified output folder.
@@ -84,7 +84,7 @@ def save_contour_tiles(y_arr, x_arr, units, normals, output_folder, data_source_
     os.makedirs(os.path.dirname(full_output_file), exist_ok=True)
 
     # Do the first zoom level separately as it cannot be divided into quadrants.
-    save_contours(y_arr, x_arr, units, normals, full_output_file, META_TILE_LENGTH, MAP_EXTENT)
+    save_contours(y_arr, x_arr, measurement, units, normals, full_output_file, META_TILE_LENGTH, MAP_EXTENT)
     img = cv2.imread(full_output_file, cv2.IMREAD_UNCHANGED)
     os.remove(full_output_file)
     save_tiles(img, output_folder, data_source_id, max_zoom_level=MIN_ZOOM_LEVEL)
@@ -110,12 +110,12 @@ def save_contour_tiles(y_arr, x_arr, units, normals, output_folder, data_source_
                 0 if qy == 0 else 1 / 2,
                 1 / 2 if qy == 0 else 1,
             )
-            save_contours(y_arr, x_arr, units, normals, full_output_file, IMAGE_LENGTH, map_extent)
+            save_contours(y_arr, x_arr, measurement, units, normals, full_output_file, IMAGE_LENGTH, map_extent)
             img = cv2.imread(full_output_file, cv2.IMREAD_UNCHANGED)
             os.remove(full_output_file)
             save_tiles(img, output_folder, data_source_id, min_zoom_level=MIN_ZOOM_LEVEL + 1, tiles_extent=tiles_extent)
 
-def save_contours(y_arr, x_arr, units, normals, output_file, length, extent, contour=True):
+def save_contours(y_arr, x_arr, measurement, units, normals, output_file, length, extent, contour=True):
     '''
     Saves contours in the data as a PNG file that is displayable over
     the map.
@@ -136,8 +136,8 @@ def save_contours(y_arr, x_arr, units, normals, output_file, length, extent, con
     ax.set_axis_off()
     fig.add_axes(ax)
 
-    contour_levels = get_contour_levels(units)
-    contour_colours = get_contour_colours(contour_levels, units)
+    contour_levels = get_contour_levels(measurement, units)
+    contour_colours = get_contour_colours(contour_levels, measurement, units)
 
     if contour:
         cs = ax.contourf(x_arr, y_arr, normals, levels=contour_levels, colors=contour_colours, extend='both')
@@ -223,7 +223,7 @@ def save_tiles(img, output_folder, data_source_id,
 
             print()
 
-def get_contour_levels(units):
+def get_contour_levels(measurement, units):
     '''
     Returns a list of the contour levels for use with pyplot.contourf()
     '''
@@ -231,19 +231,24 @@ def get_contour_levels(units):
         return np.hstack((np.arange(-100, -40, 10), np.arange(-40, 40, 5), np.arange(40, 101, 10))) * pack.SCALE_FACTOR
 
     elif units == 'mm':
-        return np.hstack((np.arange(0, 100, 25), np.arange(100, 200, 50), np.arange(200, 1001, 100))) * pack.SCALE_FACTOR
+        if measurement == 'precip':
+            return np.hstack((np.arange(0, 100, 25), np.arange(100, 200, 50), np.arange(200, 1001, 100))) * pack.SCALE_FACTOR
+        elif measurement == 'et' or measurement == 'potet':
+            return np.hstack((np.arange(0, 100, 25), np.arange(100, 200, 50), np.arange(200, 1001, 100))) * pack.SCALE_FACTOR
+        else:
+            raise Exception('Expected precipitation or evapotranspiration for millimetres')
 
     else:
         raise Exception('Unknown units: ' + units)
 
-def get_contour_colours(levels, units):
+def get_contour_colours(levels, measurement, units):
     '''
     Returns a list of the contour colours for use with pyplot.contourf()
     '''
     levels = levels / pack.SCALE_FACTOR
-    return ['#%02X%02X%02X' % tuple(colour_for_amount(amount, units)) for amount in levels]
+    return ['#%02X%02X%02X' % tuple(colour_for_amount(amount, measurement, units)) for amount in levels]
 
-def colour_for_amount(amount, units):
+def colour_for_amount(amount, measurement, units):
     '''
     Returns the colour for the specified amount and units
     '''
@@ -251,7 +256,12 @@ def colour_for_amount(amount, units):
         return degrees_celsius_colour(amount)
 
     elif units == 'mm':
-        return precipitation_millimetres_colour(amount)
+        if measurement == 'precip':
+            return precipitation_millimetres_colour(amount)
+        elif measurement == 'et' or measurement == 'potet':
+            return evapotranspiration_millimetres_colour(amount)
+        else:
+            raise Exception('Expected precipitation or evapotranspiration for millimetres')
 
     else:
         raise Exception('Unknown units: ' + units)
@@ -312,6 +322,35 @@ def precipitation_millimetres_colour(amount):
         return 230, 230, 180
     else:
         return 245, 220, 100
+
+def evapotranspiration_millimetres_colour(amount):
+    '''
+    Returns the colour for the specified mm of evapotranspiration.
+    '''
+    if amount >= 500:
+        return 250, 200, 100
+    elif amount >= 200:
+        return 245, 220, 100
+    elif amount >= 150:
+        return 230, 230, 150
+    elif amount >= 100:
+        return 230, 230, 180
+    elif amount >= 80:
+        return 230, 240, 230
+    elif amount >= 70:
+        return 200, 255, 200
+    elif amount >= 60:
+        return 150, 255, 150
+    elif amount >= 50:
+        return 100, 255, 100
+    elif amount >= 30:
+        return 50, 255, 50
+    elif amount >= 20:
+        return 150, 150, 255
+    elif amount >= 10:
+        return 100, 100, 255
+    else:
+        return 50, 50, 255
 
 def fetch_tile(data_source, start_year, end_year, measurement, period, zoom_level, x, y, ext):
     '''

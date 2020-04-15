@@ -980,44 +980,49 @@ function setClimatesOfPlaces(places, bounds)
 
     for (let i = 0; i <= places.length - 1; i++) {
         const geoname = places[i];
+        const tooltip_text = climateOfPlaceTooltipText(geoname);
 
         if (APP.climates_of_places.markers[i] !== undefined) {
             APP.climates_of_places.markers[i].remove();
         }
 
-        APP.climates_of_places.markers[i] = L.marker([0, 0], {
-            icon: APP.climates_of_places.icon,
-        }).addTo(APP.climate_map);
+        if (tooltip_text) {
+            APP.climates_of_places.markers[i] = L.marker([0, 0], {
+                icon: APP.climates_of_places.icon,
+            }).addTo(APP.climate_map);
 
-        const marker = APP.climates_of_places.markers[i];
-        const lat = geoname.latitude;
-        let lon = geoname.longitude;
+            const marker = APP.climates_of_places.markers[i];
+            const lat = geoname.latitude;
+            let lon = geoname.longitude;
 
-        const normalized_west_bound = ((bounds.getWest() + 180) % 360 + 360) % 360 - 180;
-        const normalized_east_bound = ((bounds.getEast() + 180) % 360 + 360) % 360 - 180;
+            const normalized_west_bound = ((bounds.getWest() + 180) % 360 + 360) % 360 - 180;
+            const normalized_east_bound = ((bounds.getEast() + 180) % 360 + 360) % 360 - 180;
 
-        if (lon >= normalized_west_bound) {
-            lon += (west_revolutions - 1) * 360;
-        } else if (lon < normalized_east_bound) {
-            lon += east_revolutions * 360;
-        } else {
-            lon += west_revolutions * 360;
+            if (lon >= normalized_west_bound) {
+                lon += (west_revolutions - 1) * 360;
+            } else if (lon < normalized_east_bound) {
+                lon += east_revolutions * 360;
+            } else {
+                lon += west_revolutions * 360;
+            }
+
+            marker.setLatLng([lat, lon]);
+            marker.bindTooltip(tooltip_text, {
+                direction: 'center',
+            });
+
+            marker.on('click', function() {
+                viewPlaceClimate(geoname);
+            });
         }
-
-        marker.setLatLng([lat, lon]);
-        marker.bindTooltip(climateOfPlaceTooltipText(geoname), {
-            direction: 'center',
-        });
-
-        marker.on('click', function() {
-            viewPlaceClimate(geoname);
-        });
     }
 }
 
 /**
  * Returns the text containing climate info of a place the
  * user has hovered over.
+ *
+ * Returns null if measurement data is not available for this geoname.
  */
 function climateOfPlaceTooltipText(geoname)
 {
@@ -1029,23 +1034,28 @@ function climateOfPlaceTooltipText(geoname)
     const period_label = getPeriodLabel(period);
 
     const name = geoname.name;
-    let value = geoname[measurement][0];
-    const units = geoname[measurement][1];
 
-    if (units == 'mm' && period === 'year') {
-        value *= 12;
+    if (geoname[measurement] !== undefined) {
+        let value = geoname[measurement][0];
+        const units = geoname[measurement][1];
+
+        if (units == 'mm' && period === 'year') {
+            value *= 12;
+        }
+
+        let text = '<b>' + name + '</b>';
+        text += '<br>\nAverage ' + measurement_label + ' ' + period_label + ': ';
+        text += Math.round(value * 10) / 10 + ' ' + getUnitLabel(units);
+        if (units == 'mm' && period !== 'year') {
+            text += '/month';
+        }
+        text += '<br>\n(' + date_range + ')';
+        text += '<br>\n<i>Click for more details.</i>'
+
+        return text;
+    } else {
+        return null;
     }
-
-    let text = '<b>' + name + '</b>';
-    text += '<br>\nAverage ' + measurement_label + ' ' + period_label + ': ';
-    text += Math.round(value * 10) / 10 + ' ' + getUnitLabel(units);
-    if (units == 'mm' && period !== 'year') {
-        text += '/month';
-    }
-    text += '<br>\n(' + date_range + ')';
-    text += '<br>\n<i>Click for more details.</i>'
-
-    return text;
 }
 
 /**

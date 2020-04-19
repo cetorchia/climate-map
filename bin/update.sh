@@ -51,3 +51,22 @@ bin/calibrate-dataset.py TerraClimate CNRM-CM6-1-HR.historical CNRM-CM6-1-HR.ssp
 bin/calibrate-dataset.py TerraClimate CNRM-CM6-1-HR.historical CNRM-CM6-1-HR.ssp585 potet 1981-2010 2045-2075
 bin/tiles-from-dataset.py --calibrated CNRM-CM6-1-HR.ssp585 potet 2015 2045
 bin/tiles-from-dataset.py --calibrated CNRM-CM6-1-HR.ssp585 potet 2045 2075
+
+#
+# Geonames database
+#
+wget https://download.geonames.org/export/dump/admin1CodesASCII.txt -O datsets/admin1CodesASCII.txt
+wget https://download.geonames.org/export/dump/countryInfo.txt -O datasets/countryInfo.txt
+
+wget https://download.geonames.org/export/dump/allCountries.zip -O datasets/allCountries.zip
+unzip datasets/allCountries.zip -d datasets
+rm datasets/allCountries.zip
+
+wget https://download.geonames.org/export/dump/alternateNames.zip -O datasets/alternateNames.zip
+unzip datasets/alternateNames.zip -d datasets
+rm datasets/alternateNames.zip
+
+bin/load-countries.py datasets/countryInfo.txt
+bin/load-provinces.py datasets/admin1CodesASCII.txt
+bin/load-geonames.py datasets/allCountries.txt
+bin/load-alternate-names.py datasets/alternateNames.txt

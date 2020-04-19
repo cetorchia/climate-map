@@ -1486,12 +1486,17 @@ window.onload = async function() {
         const tile_layer = CONFIG.tile_layers[i];
 
         if (tile_layer.mapboxGL) {
-            L.mapboxGL({
-                attribution: tile_layer.attribution,
-                accessToken: tile_layer.access_token,
-                style: tile_layer.style_url,
-                zIndex: tile_layer.z_index,
-            }).addTo(APP.climate_map);
+            try {
+                L.mapboxGL({
+                    attribution: tile_layer.attribution,
+                    accessToken: tile_layer.access_token,
+                    style: tile_layer.style_url,
+                    zIndex: tile_layer.z_index,
+                }).addTo(APP.climate_map);
+            } catch (err) {
+                showError('Error loading map tiles: ' + err.message);
+                throw err;
+            }
         } else {
             L.tileLayer(tile_layer.url, {
                 attribution: tile_layer.attribution,

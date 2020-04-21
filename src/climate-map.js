@@ -679,6 +679,9 @@ function updateClimateCharts(data)
     updateClimateChart(data, 'tavg', 'location-temperature-chart', 'average-temperature');
     updateClimateChart(data, 'precip', 'location-precipitation-chart', 'total-precipitation');
     updateClimateChart(data, 'potet', 'location-potet-chart', 'total-potet');
+
+    const data_source_select = document.getElementById('data-source');
+    document.getElementById('chart-source').innerHTML = dataSourceAttribution(data_source_select, true);
 }
 
 /**
@@ -1148,13 +1151,14 @@ function updateDescriptionTooltip(period, measurement, date_range)
 /**
  * Gives the attribution for the selected data source.
  */
-function dataSourceAttribution(data_source_select)
+function dataSourceAttribution(data_source_select, link_only)
 {
     const selected_option = data_source_select.options[data_source_select.selectedIndex];
     const data_source_organisation = selected_option.getAttribute('data-organisation');
     const data_source_url = selected_option.getAttribute('data-url');
 
-    return 'Climate data &copy; <a href="' + data_source_url + '">' + data_source_organisation + '</a>';
+    const caption = link_only ? '' : 'Climate data: ';
+    return caption + '<a href="' + data_source_url + '">' + data_source_organisation + '</a>';
 }
 
 /**

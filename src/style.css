@@ -2,6 +2,8 @@ body {
     padding: 0;
     margin: 0;
     font: 12px sans-serif;
+    height: 100%;
+    overflow: hidden;
 }
 
 #climate-map {
@@ -213,7 +215,7 @@ body {
     right:0;
     margin-left:auto;
     margin-right:auto;
-    bottom: 53px;
+    bottom: 55px;
     width: 150px;
     max-width: 50vw;
     z-index: 1000;
@@ -271,6 +273,7 @@ body {
     bottom: 19px;
     width: 400px;
     max-width: 70vw;
+    max-height: 20px;
 }
 
 .tooltip {

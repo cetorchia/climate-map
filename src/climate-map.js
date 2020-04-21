@@ -1501,6 +1501,7 @@ window.onload = async function() {
             L.tileLayer(tile_layer.url, {
                 attribution: tile_layer.attribution,
                 zIndex: tile_layer.z_index,
+                maxNativeZoom: tile_layer.max_zoom,
             }).addTo(APP.climate_map);
         }
     }

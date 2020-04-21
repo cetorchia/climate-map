@@ -27,6 +27,7 @@ if [ $COPY_DATA ]; then
     rsync -ipRru --exclude=*-calibrated-* --del data "$DESTINATION" || exit 1
 elif [ $COPY_TILES ]; then
     rsync -ipRru --del tiles "$DESTINATION" || exit 1
+    rsync -ipRru --del public/map-tiles "$DESTINATION" || exit 1
 else
     rsync -ipRru --del --exclude=__pycache__ src "$DESTINATION" || exit 1
     rsync -ipRru --del --exclude=*bundle.js public/*.* "$DESTINATION" || exit 1

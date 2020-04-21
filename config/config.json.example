@@ -11,7 +11,8 @@
         {
             "url": "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
             "attribution": "Map tiles &copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors",
-            "z_index": 1
+            "z_index": 1,
+            "max_zoom": 10
         }
     ],
     "contact": {

@@ -2,6 +2,7 @@
 /node_modules/
 /public/bundle.js
 /public/*.bundle.js
+/public/map-tiles
 /npm-debug.log
 .*.swp
 __pycache__/

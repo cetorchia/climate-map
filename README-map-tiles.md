@@ -56,3 +56,38 @@ the following:
 
 The `mapboxGL` attribute tells the javascript code to create a mapbox GL layer
 instead of a regular tile layer.
+
+## Generating your own map tiles
+
+You can, of course, generate your own map tiles such as OpenStreetMap or
+Natural Earth Data.
+
+Natural Earth Data is actually a good choice because, in my opinion, you don't
+need very detailed objects on the map.
+
+Install the following package(s):
+
+```
+python3-mapnik
+```
+
+To generate map tiles for zoom levels 0 through 8, run:
+
+```
+bin/generate-map-tiles.py 0 8
+```
+
+This will download all the Natural Earth Data and use mapnik to generate
+many zoom levels of tiles. This will put tiles in `public/map-tiles`.
+Then specify this `config.json`:
+
+```
+    "tile_layers": [
+        {
+            "url": "/map-tiles/{z}/{x}/{y}.jpeg",
+            "attribution": "<a href=\"https://www.naturalearthdata.com/\">Natural Earth Data</a>",
+            "z_index": 1,
+            "max_zoom": 8
+        }
+    ],
+```

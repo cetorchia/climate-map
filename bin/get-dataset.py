@@ -185,7 +185,7 @@ def get_file_path(file_url):
     '''
     Gives the expected file path from the specified file URL.
     '''
-    file_basename = os.path.basename(file_url)
+    file_basename = file_url.split('/')[-1]
     file_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), DATASET_DIR_NAME)
     file_pathname = os.path.join(file_dir, file_basename)
 
@@ -239,6 +239,7 @@ def main(args):
     file_path = get_file_path(file_url)
 
     if not os.path.exists(file_path):
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
         urllib.request.urlretrieve(file_url, file_path)
 
     create_data_source(data_source, organisation, author, year, article_url)

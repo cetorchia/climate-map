@@ -1,0 +1,289 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE Map [
+    <!ENTITY srs4326 "+init=epsg:4326">
+    <!ENTITY srs900913 "+proj=merc +a=6378137 +b=6378137 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +no_defs +over">
+]>
+<!--
+ This helped a lot: https://github.com/openstreetmap/mapnik-stylesheets/
+ -->
+<Map background-color="#a9dff2" srs="&srs900913;">
+
+    <FontSet name="book-fonts">
+        <Font face-name="DejaVu Sans Book" />
+    </FontSet>
+
+    <FontSet name="bold-fonts">
+        <Font face-name="DejaVu Sans Bold" />
+    </FontSet>
+
+    <FontSet name="oblique-fonts">
+        <Font face-name="DejaVu Sans Oblique" />
+    </FontSet>
+
+    <Style name="populated-places">
+        <Rule>
+            <MaxScaleDenominator>50000000</MaxScaleDenominator>
+            <Filter>[pop_max] &gt;= 5000000 or ([adm0cap] = 1 and [pop_max] &gt;= 100000)</Filter>
+            <TextSymbolizer size="12" fill="black" fontset-name="book-fonts">[name]</TextSymbolizer>
+        </Rule>
+        <Rule>
+            <MaxScaleDenominator>30000000</MaxScaleDenominator>
+            <Filter>[pop_max] &gt;= 1000000 or [adm0cap] = 1</Filter>
+            <TextSymbolizer size="12" fill="black" fontset-name="book-fonts">[name]</TextSymbolizer>
+        </Rule>
+        <Rule>
+            <MaxScaleDenominator>10000000</MaxScaleDenominator>
+            <Filter>[pop_max] &gt;= 100000 or [adm0cap] = 1</Filter>
+            <TextSymbolizer size="12" fill="black" fontset-name="book-fonts">[name]</TextSymbolizer>
+        </Rule>
+        <Rule>
+            <MaxScaleDenominator>5000000</MaxScaleDenominator>
+            <Filter>[pop_max] &gt;= 10000 or [adm0cap] = 1</Filter>
+            <TextSymbolizer size="12" fill="black" fontset-name="book-fonts">[name]</TextSymbolizer>
+        </Rule>
+        <Rule>
+            <MaxScaleDenominator>1000000</MaxScaleDenominator>
+            <TextSymbolizer size="12" fill="black" fontset-name="book-fonts">[name]</TextSymbolizer>
+        </Rule>
+    </Style>
+
+    <Style name="land">
+        <Rule>
+            <PolygonSymbolizer fill="#f2eff9" />
+        </Rule>
+    </Style>
+
+    <Style name="lake-labels">
+        <Rule>
+            <MaxScaleDenominator>1000000</MaxScaleDenominator>
+            <TextSymbolizer size="11" fill="#44a" fontset-name="book-fonts">[name]</TextSymbolizer>
+        </Rule>
+    </Style>
+
+    <Style name="lakes">
+        <Rule>
+            <PolygonSymbolizer fill="#b5d0d0" />
+        </Rule>
+    </Style>
+
+    <Style name="lakes-small">
+        <Rule>
+            <MaxScaleDenominator>10000000</MaxScaleDenominator>
+            <PolygonSymbolizer fill="#b5d0d0" />
+        </Rule>
+    </Style>
+
+    <Style name="rivers">
+        <Rule>
+            <MaxScaleDenominator>5000000</MaxScaleDenominator>
+            <LineSymbolizer stroke="#b5d0d0" stroke-width="1.5" />
+            <TextSymbolizer size="10" fill="#08d" fontset-name="oblique-fonts" placement="line" spacing="100" dy="3">[name]</TextSymbolizer>
+        </Rule>
+    </Style>
+
+    <Style name="countries">
+        <Rule>
+            <MaxScaleDenominator>50000000</MaxScaleDenominator>
+            <MinScaleDenominator>1000000</MinScaleDenominator>
+            <Filter>[LABELRANK] &lt;= 3</Filter>
+            <TextSymbolizer size="16" fill="#222" fontset-name="book-fonts">[NAME]</TextSymbolizer>
+        </Rule>
+        <Rule>
+            <MaxScaleDenominator>1000000</MaxScaleDenominator>
+            <TextSymbolizer size="16" fill="#222" fontset-name="book-fonts">[NAME]</TextSymbolizer>
+        </Rule>
+    </Style>
+
+    <Style name="provinces">
+        <Rule>
+            <MaxScaleDenominator>10000000</MaxScaleDenominator>
+            <MinScaleDenominator>5000000</MinScaleDenominator>
+            <TextSymbolizer size="14" fill="#777" fontset-name="oblique-fonts">[name]</TextSymbolizer>
+        </Rule>
+    </Style>
+
+    <Style name="country-borders">
+        <Rule>
+            <LineSymbolizer stroke="#333" stroke-width="0.5" />
+        </Rule>
+    </Style>
+
+    <Style name="province-borders">
+        <Rule>
+            <MaxScaleDenominator>10000000</MaxScaleDenominator>
+            <LineSymbolizer stroke="#333" stroke-width="0.1" />
+        </Rule>
+    </Style>
+
+    <Style name="roads">
+        <Rule>
+            <MaxScaleDenominator>5000000</MaxScaleDenominator>
+            <Filter>[type] = "Major Highway" and [min_zoom] &lt; 7</Filter>
+            <LineSymbolizer stroke="#8d4346" stroke-width="1" />
+        </Rule>
+        <Rule>
+            <MaxScaleDenominator>1000000</MaxScaleDenominator>
+            <Filter>[type] = "Major Highway"</Filter>
+            <LineSymbolizer stroke="#8d4346" stroke-width="1"/>
+        </Rule>
+        <Rule>
+            <MaxScaleDenominator>1000000</MaxScaleDenominator>
+            <Filter>[type] = "Secondary Highway"</Filter>
+            <LineSymbolizer stroke="#a37b48" stroke-width="1"/>
+        </Rule>
+        <Rule>
+            <MaxScaleDenominator>1000000</MaxScaleDenominator>
+            <TextSymbolizer size="8" fill="#333" fontset-name="book-fonts" placement="line" dy="3">[name]</TextSymbolizer>
+        </Rule>
+    </Style>
+
+    <Style name="rail-roads">
+        <Rule>
+            <MaxScaleDenominator>1000000</MaxScaleDenominator>
+            <LineSymbolizer stroke="#222" stroke-dasharray="3,2" stroke-width="1" />
+        </Rule>
+    </Style>
+
+    <Style name="ports">
+        <Rule>
+            <MaxScaleDenominator>1000000</MaxScaleDenominator>
+            <TextSymbolizer size="20" fill="#338" fontset-name="book-fonts">"&#9875;"</TextSymbolizer>
+        </Rule>
+    </Style>
+
+    <Style name="airports">
+        <Rule>
+            <MaxScaleDenominator>1000000</MaxScaleDenominator>
+            <TextSymbolizer size="20" fill="#333" fontset-name="book-fonts">"&#9992;"</TextSymbolizer>
+        </Rule>
+    </Style>
+
+
+    <!--
+      I didn't see this documented anywhere, so here goes:
+
+      The order you specify layers is basically the opposite of what
+      will be shown. For example, "land" is specified first because it
+      shall appear BENEATH everything else.
+
+      In order to reverse this behaviour, you can use the comp-op="dst-over"
+      attribute on the Style element to specify that the layer shall be
+      prioritized over the previous element.
+      -->
+    <!-- 50m is used instead of 10m because 10m creates a missing region in Antarctica -->
+    <Layer name="land" srs="&srs4326;">
+        <StyleName>land</StyleName>
+        <Datasource>
+            <Parameter name="type">shape</Parameter>
+            <Parameter name="file">datasets/natural-earth/50m/physical/ne_50m_land.shp</Parameter>
+        </Datasource>
+    </Layer>
+
+    <Layer name="rivers" srs="&srs4326;">
+        <StyleName>rivers</StyleName>
+        <Datasource>
+            <Parameter name="type">shape</Parameter>
+            <Parameter name="file">datasets/natural-earth/10m/physical/ne_10m_rivers_lake_centerlines.shp</Parameter>
+        </Datasource>
+    </Layer>
+
+    <Layer name="lakes" srs="&srs4326;">
+        <StyleName>lakes</StyleName>
+        <StyleName>lake-labels</StyleName>
+        <Datasource>
+            <Parameter name="type">shape</Parameter>
+            <Parameter name="file">datasets/natural-earth/10m/physical/ne_10m_lakes.shp</Parameter>
+        </Datasource>
+    </Layer>
+
+    <Layer name="lakes-europe" srs="&srs4326;">
+        <StyleName>lakes-small</StyleName>
+        <StyleName>lake-labels</StyleName>
+        <Datasource>
+            <Parameter name="type">shape</Parameter>
+            <Parameter name="file">datasets/natural-earth/10m/physical/ne_10m_lakes_europe.shp</Parameter>
+        </Datasource>
+    </Layer>
+
+    <Layer name="lakes-north-america" srs="&srs4326;">
+        <StyleName>lakes-small</StyleName>
+        <StyleName>lake-labels</StyleName>
+        <Datasource>
+            <Parameter name="type">shape</Parameter>
+            <Parameter name="file">datasets/natural-earth/10m/physical/ne_10m_lakes_north_america.shp</Parameter>
+        </Datasource>
+    </Layer>
+
+    <Layer name="countries" srs="&srs4326;">
+        <StyleName>countries</StyleName>
+        <Datasource>
+            <Parameter name="type">shape</Parameter>
+            <Parameter name="file">datasets/natural-earth/10m/cultural/ne_10m_admin_0_countries.shp</Parameter>
+        </Datasource>
+    </Layer>
+
+    <Layer name="provinces" srs="&srs4326;">
+        <StyleName>provinces</StyleName>
+        <Datasource>
+            <Parameter name="type">shape</Parameter>
+            <Parameter name="file">datasets/natural-earth/10m/cultural/ne_10m_admin_1_states_provinces.shp</Parameter>
+        </Datasource>
+    </Layer>
+
+    <Layer name="country-borders" srs="&srs4326;">
+        <StyleName>country-borders</StyleName>
+        <Datasource>
+            <Parameter name="type">shape</Parameter>
+            <Parameter name="file">datasets/natural-earth/10m/cultural/ne_10m_admin_0_boundary_lines_land.shp</Parameter>
+        </Datasource>
+    </Layer>
+
+    <Layer name="province-borders" srs="&srs4326;">
+        <StyleName>province-borders</StyleName>
+        <Datasource>
+            <Parameter name="type">shape</Parameter>
+            <Parameter name="file">datasets/natural-earth/10m/cultural/ne_10m_admin_1_states_provinces_lines.shp</Parameter>
+        </Datasource>
+    </Layer>
+
+    <Layer name="rail-roads" srs="&srs4326;">
+        <StyleName>rail-roads</StyleName>
+        <Datasource>
+            <Parameter name="type">shape</Parameter>
+            <Parameter name="file">datasets/natural-earth/10m/cultural/ne_10m_roads.shp</Parameter>
+        </Datasource>
+    </Layer>
+
+    <Layer name="roads" srs="&srs4326;">
+        <StyleName>roads</StyleName>
+        <Datasource>
+            <Parameter name="type">shape</Parameter>
+            <Parameter name="file">datasets/natural-earth/10m/cultural/ne_10m_roads.shp</Parameter>
+        </Datasource>
+    </Layer>
+
+    <Layer name="ports" srs="&srs4326;">
+        <StyleName>ports</StyleName>
+        <Datasource>
+            <Parameter name="type">shape</Parameter>
+            <Parameter name="file">datasets/natural-earth/10m/cultural/ne_10m_ports.shp</Parameter>
+        </Datasource>
+    </Layer>
+
+    <Layer name="airports" srs="&srs4326;">
+        <StyleName>airports</StyleName>
+        <Datasource>
+            <Parameter name="type">shape</Parameter>
+            <Parameter name="file">datasets/natural-earth/10m/cultural/ne_10m_airports.shp</Parameter>
+        </Datasource>
+    </Layer>
+
+    <Layer name="populated-places" srs="&srs4326;">
+        <StyleName>populated-places</StyleName>
+        <Datasource>
+            <Parameter name="type">shape</Parameter>
+            <Parameter name="file">datasets/natural-earth/10m/cultural/ne_10m_populated_places_simple.shp</Parameter>
+        </Datasource>
+    </Layer>
+
+</Map>

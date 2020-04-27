@@ -14,7 +14,7 @@ OUTPUT_DTYPE = np.int16
 OUTPUT_DTYPE_MIN = np.iinfo(OUTPUT_DTYPE).min
 OUTPUT_DTYPE_MAX = np.iinfo(OUTPUT_DTYPE).max
 
-def pack_array(data_arr, units=None):
+def pack_array(data_arr):
     '''
     Masks the specified array with the specified missing value
     as a int16 array. If the numbers won't fit as int16, this

@@ -229,10 +229,6 @@ version.
 <script type="text/javascript" src="/climate-map.bundle.js?hash=58fce162760b3b36b1b5"></script>
 ```
 
-# Data source(s)
-
-* [ESRL : PSD : All Gridded Datasets](https://www.esrl.noaa.gov/psd/data/gridded/)
-
 # Data transformation
 
 You can transform the data from the NOAA or WorldClim (assuming permission allows) using
@@ -253,13 +249,39 @@ be used.
 
 CMIP6 and TerraClimate data are also supported.
 
+## Update script
+
+The update script has several commands for loading datasets preloaded.
+You can run it as follows:
+
+```
+bin/update.sh
+```
+
+TODO: update script not complete.
+
+## Getting datasets from the internet
+
+The following script can be used to download TerraClimate and CMIP6. TODO: worldclim
+
+```
+bin/get-dataset.py TerraClimate tmin
+bin/get-dataset.py TerraClimate tmax
+bin/get-dataset.py TerraClimate ppt
+bin/get-dataset.py TerraClimate elevation
+
+bin/get-dataset.py CNRM-CM6-1 tasmin
+bin/get-dataset.py CNRM-CM6-1 tas
+bin/get-dataset.py CNRM-CM6-1 pr
+```
+
 ## Transforming datasets into the database
 
 Use this command to load the climate data to the database as in the following
 example.
 
 ```
-bin/transform-dataset.py TerraClimate19812010_tavg.nc tavg 1981 2010 TerraClimate
+bin/transform-dataset.py TerraClimate19812010_tmin.nc TerraClimate19812010_tmax.nc tavg 1981 2010 TerraClimate
 bin/transform-dataset.py TerraClimate19812010_tmin.nc tmin 1981 2010 TerraClimate
 bin/transform-dataset.py TerraClimate19812010_ppt.nc precip 1981 2010 TerraClimate
 
@@ -341,6 +363,14 @@ dataset.)
 
 ```
 bin/generate-tiles.sh MRI-ESM2-0
+```
+
+## Loading elevation data
+
+For loading elevation data from a netCDF4 dataset, you can use the following command
+
+```
+bin/load-nontemporal-data.py terraclim_dem.nc elevation TerraClimate
 ```
 
 # Tiling scheme

@@ -23,9 +23,10 @@ db = None
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
 
-DATA_DTYPE = np.int16 # Data type of climate normal values stored in the database, helps save space
+DATA_DTYPE = pack.OUTPUT_DTYPE # Data type of climate normal values stored in the database, helps save space
 LAT_DTYPE = LON_DTYPE = np.float64
 FETCH_DTYPE = np.float64 # Data type returned from db, important for preventing integer overflow
+NONTEMPORAL_DTYPE = np.float64
 
 MONTHS_PER_YEAR = 12
 
@@ -276,14 +277,17 @@ def fetch_baseline_data_source():
         SELECT id
         FROM data_sources
         WHERE baseline
-        LIMIT 1
         '''
     )
-    row = db.cur.fetchone()
+    rows = db.cur.fetchall()
 
-    if row is None:
-        raise NotFoundError('Could not find baseline data source %d' % data_source_id)
+    if len(rows) == 0:
+        raise NotFoundError('Could not find baseline dataset. Please add at least one.')
 
+    if len(rows) > 1:
+        raise Exception('Expected exactly ONE baseline dataset. More than one NOT supported.')
+
+    row = rows[0]
     (data_source_id,) = row
 
     return data_source_id
@@ -323,7 +327,8 @@ def fetch_date_ranges_by_data_source_id(data_source_id):
         '''
         SELECT start_date, end_date FROM datasets
         WHERE data_source_id = %s
-        LIMIT 1
+        AND NOT (start_date = DATE(FROM_UNIXTIME(0)) AND end_date = DATE(FROM_UNIXTIME(0)))
+        ORDER BY start_date, end_date
         ''',
         (data_source_id,)
     )
@@ -358,6 +363,7 @@ def fetch_date_ranges():
         FROM datasets d
         INNER JOIN data_sources s ON s.id = d.data_source_id
         WHERE s.active
+        AND NOT (start_date = DATE(FROM_UNIXTIME(0)) AND end_date = DATE(FROM_UNIXTIME(0)))
         GROUP BY 1, 2
         ORDER BY 1, 2
         '''
@@ -579,6 +585,70 @@ def create_dataset(
 
     return fetch_dataset(data_source_id, measurement_id, unit_id, start_date, end_date, calibrated)
 
+def fetch_dataset_by_measurement_id(data_source_id, measurement_id, unit_id):
+    '''
+    Fetches the dataset for the specified measurement, units, and data source.
+
+    The dataset is assumed to not vary with time, and it is not calibrated
+    against some other dataset. In this case there should be at most one
+    such dataset.
+    '''
+    epoch = date.fromtimestamp(0)
+
+    return fetch_dataset(data_source_id, measurement_id, unit_id, start_date=epoch, end_date=epoch, calibrated=False)
+
+def create_coord_memmap(coord_pathname, coord_arr):
+    '''
+    Creates a latitude or longiude array memmap
+    '''
+    if os.path.exists(coord_pathname):
+        coord_mmap = np.memmap(coord_pathname, dtype=coord_arr.dtype, mode='r')
+        if np.any(coord_mmap[:] != coord_arr):
+            raise Exception('Expected coordinate array to be the same in %s' % os.path.basename(coord_pathname))
+    else:
+        coord_mmap = np.memmap(coord_pathname, dtype=coord_arr.dtype, mode='w+', shape=coord_arr.shape)
+        coord_mmap[:] = coord_arr
+
+def fetch_lat_memmap(dataset_record, lat):
+    '''
+    Fetches both the memmap with all latitudes and the index of the specified
+    latitude value.
+
+    E.g. if latitude 43.3 is passed in, you may get index 47 corresponding to
+    latitude 43.
+    '''
+    lat_pathname = os.path.join(DATA_DIR, dataset_record['lat_filename'])
+    lat_mmap = np.memmap(lat_pathname, dtype=LAT_DTYPE, mode='r')
+
+    lat_i = arrays.find_lat_index(lat_mmap, dataset_record['lat_delta'], lat)
+    actual_lat = lat_mmap[lat_i]
+    lat_error = abs(dataset_record['lat_delta'] / 2)
+
+    if abs(lat - actual_lat) > lat_error:
+        raise Exception('Expected latitude %g to be within %g of %g' % (lat, lat_error, actual_lat))
+
+    return lat_i, actual_lat, lat_mmap
+
+def fetch_lon_memmap(dataset_record, lon):
+    '''
+    Fetches both the memmap with all longitudes and the index of the specified
+    longitude value.
+
+    E.g. if longitude 20.6 is passed in, you may get index 41 corresponding to
+    longitude 20.5.
+    '''
+    lon_pathname = os.path.join(DATA_DIR, dataset_record['lon_filename'])
+    lon_mmap = np.memmap(lon_pathname, dtype=LON_DTYPE, mode='r')
+
+    lon_i = arrays.find_lon_index(lon_mmap, dataset_record['lon_delta'], lon)
+    actual_lon = lon_mmap[lon_i]
+    lon_error = abs(dataset_record['lon_delta'] / 2)
+
+    if abs(lon - actual_lon) > lon_error and abs(lon - 360 - actual_lon) > lon_error:
+        raise Exception('Expected longitude %g to be within %g of %g' % (lon, lon_error, actual_lon))
+
+    return lon_i, actual_lon, lon_mmap
+
 def create_monthly_normals(
         data_source,
         start_year,
@@ -611,10 +681,7 @@ def create_monthly_normals(
     if lon_arr.dtype != LON_DTYPE:
         raise Exception('Expected longitude datatype to be %s, got %s' % (LON_DTYPE, lon_arr.dtype))
 
-    if not isinstance(data_arr, np.ma.masked_array) \
-    or np.any(data_arr.fill_value != data_arr[data_arr.mask]) \
-    or np.any(data_arr.fill_value == data_arr[~data_arr.mask]):
-        raise Exception('Expected masked array with fill value in and only in the masked portion')
+    arrays.assert_fill_value(data_arr)
 
     if data_arr.fill_value < pack.OUTPUT_DTYPE_MIN or data_arr.fill_value > pack.OUTPUT_DTYPE_MAX:
         raise Exception('Expected a fill value within range of data type (e.g. the minimum allowed)')
@@ -641,23 +708,8 @@ def create_monthly_normals(
 
     del data_mmap
 
-    if os.path.exists(lat_pathname):
-        lat_mmap = np.memmap(lat_pathname, dtype=lat_arr.dtype, mode='r')
-        if np.any(lat_mmap[:] != lat_arr):
-            raise Exception('Expected latitude array to be the same')
-    else:
-        lat_mmap = np.memmap(lat_pathname, dtype=lat_arr.dtype, mode='w+', shape=lat_arr.shape)
-        lat_mmap[:] = lat_arr
-        del lat_mmap
-
-    if os.path.exists(lon_pathname):
-        lon_mmap = np.memmap(lon_pathname, dtype=lon_arr.dtype, mode='r')
-        if np.any(lon_mmap[:] != lon_arr):
-            raise Exception('Expected longitude array to be the same')
-    else:
-        lon_mmap = np.memmap(lon_pathname, dtype=lon_arr.dtype, mode='w+', shape=lon_arr.shape)
-        lon_mmap[:] = lon_arr
-        del lon_mmap
+    create_coord_memmap(lat_pathname, lat_arr)
+    create_coord_memmap(lon_pathname, lon_arr)
 
     return data_basename, lat_basename, lon_basename
 
@@ -665,27 +717,10 @@ def fetch_monthly_normals(dataset_record, lat, lon):
     '''
     Fetches the monthly normals for the specified location.
     '''
+    lat_i, actual_lat, lat_mmap = fetch_lat_memmap(dataset_record, lat)
+    lon_i, actual_lon, lon_mmap = fetch_lon_memmap(dataset_record, lon)
+
     data_pathname = os.path.join(DATA_DIR, dataset_record['data_filename'])
-    lat_pathname = os.path.join(DATA_DIR, dataset_record['lat_filename'])
-    lon_pathname = os.path.join(DATA_DIR, dataset_record['lon_filename'])
-
-    lat_mmap = np.memmap(lat_pathname, dtype=LAT_DTYPE, mode='r')
-    lon_mmap = np.memmap(lon_pathname, dtype=LON_DTYPE, mode='r')
-
-    lat_i = arrays.find_lat_index(lat_mmap, dataset_record['lat_delta'], lat)
-    actual_lat = lat_mmap[lat_i]
-    lat_error = abs(dataset_record['lat_delta'] / 2)
-
-    if abs(lat - actual_lat) > lat_error:
-        raise Exception('Expected latitude %g to be within %g of %g' % (lat, lat_error, actual_lat))
-
-    lon_i = arrays.find_lon_index(lon_mmap, dataset_record['lon_delta'], lon)
-    actual_lon = lon_mmap[lon_i]
-    lon_error = abs(dataset_record['lon_delta'] / 2)
-
-    if abs(lon - actual_lon) > lon_error and abs(lon - 360 - actual_lon) > lon_error:
-        raise Exception('Expected longitude %g to be within %g of %g' % (lon, lon_error, actual_lon))
-
     data_mmap = np.memmap(data_pathname, dtype=DATA_DTYPE, mode='r',
                           shape=(MONTHS_PER_YEAR, lat_mmap.size, lon_mmap.size))
 
@@ -766,10 +801,8 @@ def save_normals(
     start_date = date(start_time.year, 1, 1)
     end_date = date(end_time.year, 12, 31)
 
-    lat_start = lat_arr[0].item()
-    lat_delta = (lat_arr[lat_arr.size - 1] - lat_arr[0]) / (lat_arr.size - 1)
-    lon_start = lon_arr[0].item()
-    lon_delta = (lon_arr[lon_arr.size - 1] - lon_arr[0]) / (lon_arr.size - 1)
+    lat_start, lat_delta = arrays.start_delta(lat_arr)
+    lon_start, lon_delta = arrays.start_delta(lon_arr)
 
     fill_value = normals.fill_value
 
@@ -865,3 +898,168 @@ def save_normals(
         )
 
         commit()
+
+def save_nontemporal_data(lat_arr, lon_arr, units, data_arr, measurement, data_source):
+    '''
+    Saves the specified non-temporal data as a new dataset without a start
+    time, end time, or month.
+    '''
+    unit_id = fetch_unit(units)['id']
+    measurement_id = fetch_measurement(measurement)['id']
+    data_source_id = fetch_data_source(data_source)['id']
+
+    # Set start and end date to the epoch. In reality no start or end
+    # date are associated.
+    start_date = date.fromtimestamp(0)
+    end_date = date.fromtimestamp(0)
+
+    calibrated = False
+
+    lat_start, lat_delta = arrays.start_delta(lat_arr)
+    lon_start, lon_delta = arrays.start_delta(lon_arr)
+
+    fill_value = data_arr.fill_value
+
+    try:
+        dataset_record = fetch_dataset(data_source_id, measurement_id, unit_id, start_date, end_date, calibrated)
+
+        tolerance = 10**-10
+
+        if abs(lat_start - dataset_record['lat_start']) >= tolerance:
+            raise Exception('Expected latitude start %0.11g to be the same as the existing %0.11g' % (
+                lat_start, dataset_record['lat_start']
+            ))
+
+        if abs(lat_delta - dataset_record['lat_delta']) >= tolerance:
+            raise Exception('Expected latitude delta %0.11g to be the same as the existing %0.11g' % (
+                lat_delta, dataset_record['lat_delta']
+            ))
+
+        if abs(lon_start - dataset_record['lon_start']) >= tolerance:
+            raise Exception('Expected longitude start %0.11g to be the same as the existing %0.11g' % (
+                lon_start, dataset_record['lon_start']
+            ))
+
+        if abs(lon_delta - dataset_record['lon_delta']) >= tolerance:
+            raise Exception('Expected longitude delta %0.11g to be the same as the existing %0.11g' % (
+                lon_delta, dataset_record['lon_delta']
+            ))
+
+        if fill_value != dataset_record['fill_value']:
+            raise Exception('Expected fill value %g to be the same as the existing %g' % (
+                fill_value, dataset_record['fill_value']
+            ))
+
+        data_filename, lat_filename, lon_filename = create_nontemporal_data(
+            data_source,
+            measurement,
+            units,
+            lat_arr,
+            lon_arr,
+            data_arr
+        )
+
+        if data_filename != dataset_record['data_filename']:
+            raise Exception('Expected data filename "%s" to be the same as the existing "%s"' % (
+                data_filename, dataset_record['data_filename']
+            ))
+
+        if lat_filename != dataset_record['lat_filename']:
+            raise Exception('Expected latitude filename "%s" to be the same as the existing "%s"' % (
+                data_filename, dataset_record['lat_filename']
+            ))
+
+        if lon_filename != dataset_record['lon_filename']:
+            raise Exception('Expected longitude filename "%s" to be the same as the existing "%s"' % (
+                data_filename, dataset_record['lon_filename']
+            ))
+
+        commit()
+
+    except NotFoundError:
+        data_filename, lat_filename, lon_filename = create_nontemporal_data(
+            data_source,
+            measurement,
+            units,
+            lat_arr,
+            lon_arr,
+            data_arr
+        )
+
+        create_dataset(
+            data_source_id,
+            measurement_id,
+            unit_id,
+            start_date,
+            end_date,
+            lat_start,
+            lat_delta,
+            lon_start,
+            lon_delta,
+            fill_value,
+            data_filename,
+            lat_filename,
+            lon_filename,
+            calibrated
+        )
+
+        commit()
+
+def create_nontemporal_data(data_source, measurement, units, lat_arr, lon_arr, data_arr):
+    '''
+    Saves the specified specified data array as memmap.
+    This is useful for datasets that do not change with time,
+    and therefore do not have an associated date range.
+    '''
+    if data_arr.ndim != 2:
+        raise Exception('Expected 2-D array')
+
+    arrays.assert_fill_value(data_arr)
+
+    base_name = '%s-%s-%s' % (data_source, measurement, units)
+
+    data_basename = base_name + '-data.mmap'
+    lat_basename = base_name + '-lat.mmap'
+    lon_basename = base_name + '-lon.mmap'
+
+    data_pathname = os.path.join(DATA_DIR, data_basename)
+    lat_pathname = os.path.join(DATA_DIR, lat_basename)
+    lon_pathname = os.path.join(DATA_DIR, lon_basename)
+
+    if os.path.exists(data_pathname):
+        data_mmap = np.memmap(data_pathname, dtype=NONTEMPORAL_DTYPE, mode='r+', shape=data_arr.shape)
+    else:
+        # Bug? 'w+' replaces all contents of the array with 0
+        data_mmap = np.memmap(data_pathname, dtype=NONTEMPORAL_DTYPE, mode='w+', shape=data_arr.shape)
+
+    data_mmap[:] = data_arr.astype(NONTEMPORAL_DTYPE)
+
+    del data_mmap
+
+    create_coord_memmap(lat_pathname, lat_arr)
+    create_coord_memmap(lon_pathname, lon_arr)
+
+    return data_pathname, lat_pathname, lon_pathname
+
+def fetch_nontemporal_value(dataset_record, lat, lon):
+    '''
+    Fetches the specified data for the specified location.
+
+    This is specific to datasets that do NOT change with time,
+    and therefore do not have an associated date range.
+
+    For temperature and other temporal datasets, please
+    use fetch_monthly_normals() instead.
+    '''
+    lat_i, actual_lat, lat_mmap = fetch_lat_memmap(dataset_record, lat)
+    lon_i, actual_lon, lon_mmap = fetch_lon_memmap(dataset_record, lon)
+
+    data_pathname = os.path.join(DATA_DIR, dataset_record['data_filename'])
+    data_mmap = np.memmap(data_pathname, dtype=NONTEMPORAL_DTYPE, mode='r', shape=(lat_mmap.size, lon_mmap.size))
+
+    value = data_mmap[lat_i, lon_i]
+
+    if np.ma.is_masked(value) or value == dataset_record['fill_value']:
+        raise NotFoundError('No data at %g, %g' % (actual_lat, actual_lon))
+
+    return actual_lat, actual_lon, value.item()

@@ -2,7 +2,8 @@
 INSERT INTO units(code, name)
 VALUES
     ('degC', '°C'),
-    ('mm', 'Millimetres');
+    ('mm', 'Millimetres'),
+    ('m', 'Metres');
 
 INSERT INTO measurements(code, name)
 VALUES
@@ -11,7 +12,8 @@ VALUES
     ('tavg', 'Mean temperature'),
     ('precip', 'Total precipitation'),
     ('et', 'Actual Evapotranspiration'),
-    ('potet', 'Potential Evapotranspiration');
+    ('potet', 'Potential Evapotranspiration'),
+    ('elevation', 'Elevation');
 
 INSERT INTO data_sources(code, name, organisation, author, url, year, baseline, active)
     ('udel', 'University of Delaware Air Temperature and Precipitation', 'University of Delaware (via NOAA)', 'C. J. and K. Matsuura', 'https://www.esrl.noaa.gov/psd/data/gridded/data.UDel_AirT_Precip.html', '2001', true, false),

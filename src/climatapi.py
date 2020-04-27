@@ -74,6 +74,7 @@ def monthly_normals(data_source, start_year, end_year, lat, lon):
         normals.update({
             'lat': actual_lat,
             'lon': actual_lon,
+            'elevation': fetch_nontemporal_value('elevation', lat, lon),
         })
 
         return jsonify(normals)
@@ -236,6 +237,25 @@ def fetch_normals_by_location(dataset, lat, lon, check_calibration=True):
 
     else:
         return actual_lat, actual_lon, normals_arr / pack.SCALE_FACTOR
+
+def fetch_nontemporal_value(measurement_code, lat, lon):
+    '''
+    Fetches the elevation of the specified latitude and longitude
+    from the baseline data source.
+
+    Returns value, units, data_source
+    '''
+    data_source_id = climatedb.fetch_baseline_data_source()
+    measurement = climatedb.fetch_measurement(measurement_code)
+    unit = climatedb.fetch_unit('m')
+
+    dataset = climatedb.fetch_dataset_by_measurement_id(data_source_id, measurement['id'], unit['id'])
+
+    actual_lat, actual_lon, value = climatedb.fetch_nontemporal_value(dataset, lat, lon)
+
+    data_source = climatedb.fetch_data_source_by_id(data_source_id)
+
+    return value, unit['code'], data_source['code']
 
 if __name__ == '__main__':
     app.run(processes=3)

@@ -101,7 +101,7 @@ def main(args):
 
         units, normals = transform.data_to_standard_units(units, normals, month)
         lon_arr, normals = transform.normalize_longitudes(lon_arr, normals)
-        normals = pack.pack_array(normals, units)
+        normals = pack.pack_array(normals)
 
         measurement = transform.to_standard_variable_name(variable_name)
 

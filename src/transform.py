@@ -240,17 +240,10 @@ def netcdf4_main_variable(dataset):
     else:
         return undimensional_variables[0]
 
-def normals_from_netcdf4(input_file, variable_name, start_time, end_time, month):
+def values_from_netcdf4(dataset, variable_name):
     '''
-    Extracts climate normals from a NetCDF4 file.
-    Returns a masked numpy array.
+    Gives the values array and units from the specified netCDF4 file.
     '''
-    dataset = netCDF4.Dataset(input_file)
-
-    time_var = dataset.variables['time']
-    lat_arr = dataset.variables['lat'][:]
-    lon_arr = dataset.variables['lon'][:]
-
     if variable_name in dataset.variables:
         value_var = dataset.variables[variable_name]
     else:
@@ -268,10 +261,43 @@ def normals_from_netcdf4(input_file, variable_name, start_time, end_time, month)
     if not isinstance(value_arr, np.ma.masked_array):
         value_arr = np.ma.masked_values(value_arr, value_var.missing_value)
 
-    normals = calculate_normals(time_var, value_arr, units, variable_name, start_time, end_time, month)
-
     scale_factor = value_var.scale_factor if hasattr(value_var, 'scale_factor') else None
     add_offset = value_var.add_offset if hasattr(value_var, 'add_offset') else None
+
+    return value_arr, units, scale_factor, add_offset
+
+def data_from_netcdf4(input_file, variable_name, ignore_scale_factor=False):
+    '''
+    Extracts data from a NetCDF4 file.
+    Returns a masked numpy array.
+    '''
+    dataset = netCDF4.Dataset(input_file)
+
+    lat_arr = dataset.variables['lat'][:]
+    lon_arr = dataset.variables['lon'][:]
+
+    value_arr, units, scale_factor, add_offset = values_from_netcdf4(dataset, variable_name)
+
+    if not ignore_scale_factor:
+        value_arr = scale_array(value_arr, scale_factor, add_offset)
+
+    return (lat_arr, lon_arr, units, value_arr)
+
+def normals_from_netcdf4(input_file, variable_name, start_time, end_time, month):
+    '''
+    Extracts climate normals from a NetCDF4 file.
+    Returns a masked numpy array.
+    '''
+    dataset = netCDF4.Dataset(input_file)
+
+    time_var = dataset.variables['time']
+    lat_arr = dataset.variables['lat'][:]
+    lon_arr = dataset.variables['lon'][:]
+
+    value_arr, units, scale_factor, add_offset = values_from_netcdf4(dataset, variable_name)
+
+    normals = calculate_normals(time_var, value_arr, units, variable_name, start_time, end_time, month)
+
     normals = scale_array(normals, scale_factor, add_offset)
 
     return (lat_arr, lon_arr, units, normals)

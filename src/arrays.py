@@ -10,6 +10,16 @@ import numpy as np
 
 import pack
 
+def assert_fill_value(data_arr):
+    '''
+    Asserts that the specified array is masked and that
+    the fill value is in exactly the masked elements.
+    '''
+    if not isinstance(data_arr, np.ma.masked_array) \
+    or np.any(data_arr.fill_value != data_arr[data_arr.mask]) \
+    or np.any(data_arr.fill_value == data_arr[~data_arr.mask]):
+        raise Exception('Expected masked array with fill value in and only in the masked portion')
+
 def is_increasing(arr):
     # See https://stackoverflow.com/a/4983359
     return all(x<y for x, y in zip(arr, arr[1:]))
@@ -17,6 +27,19 @@ def is_increasing(arr):
 def is_decreasing(arr):
     # See https://stackoverflow.com/a/4983359
     return all(x>y for x, y in zip(arr, arr[1:]))
+
+def start_delta(arr):
+    '''
+    Returns the start value and delta value for the specific latitude or
+    longitude array.
+
+    For example, if the coordinate array is [-180, -179.5, 179, ..., 179.5],
+    then this function would return (-180, 0.5).
+    '''
+    start = arr[0].item()
+    delta = (arr[arr.size - 1] - arr[0]) / (arr.size - 1)
+
+    return start, delta
 
 def find_lat_index(lat_arr, lat_delta, lat):
     '''

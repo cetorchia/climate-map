@@ -209,8 +209,14 @@ def main(args):
         start_year = 1981
         end_year = 2010
 
-        file_url = 'http://thredds.northwestknowledge.net:8080/thredds/fileServer/TERRACLIMATE_ALL/summaries/' \
-                   'TerraClimate%d%d_%s.nc' % (start_year, end_year, variable_name)
+        if variable_name == 'elevation':
+            file_url = 'http://thredds.northwestknowledge.net:8080/thredds/fileServer/TERRACLIMATE_ALL/layers/terraclim_dem.nc'
+        else:
+            file_url = 'http://thredds.northwestknowledge.net:8080/thredds/fileServer/TERRACLIMATE_ALL/summaries/' \
+                       'TerraClimate%d%d_%s.nc' % (start_year, end_year, variable_name)
+
+    elif data_source == 'worldclim':
+        raise Exception('TODO: implement fetching worldclim dataset')
 
     else:
         model, scenario = data_source.split('.')

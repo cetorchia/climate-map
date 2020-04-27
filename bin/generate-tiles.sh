@@ -13,9 +13,17 @@ if [ -z "$1" -o -n "$2" ]; then
 fi
 
 SCRIPT='bin/tiles-from-dataset.py'
-MEASUREMENTS='tavg precip'
 
 MODEL="$1"
+
+case $MODEL in)
+    TerraClimate|CNRM*)
+        MEASUREMENTS='tavg precip potet'
+        ;;
+    *)
+        MEASUREMENTS='tavg precip'
+        ;;
+esac
 
 case $MODEL in
     TerraClimate)

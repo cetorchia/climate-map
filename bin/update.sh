@@ -23,10 +23,26 @@ cd $REPO
 # Baseline datasets
 #
 
+# TerraClimate average temperature
+bin/get-dataset.py TerraClimate tmin
+bin/get-dataset.py TerraClimate tmax
+bin/transform-dataset.py datasets/TerraClimate19812010_tmin.nc tmin 1981 2010 TerraClimate
+bin/transform-dataset.py datasets/TerraClimate19812010_tmin.nc datasets/TerraClimate19812010_tmax.nc tavg 1981 2010 TerraClimate
+bin/tiles-from-dataset.py TerraClimate tavg 1981 2010
+
+# TerraClimate precipitation
+bin/get-dataset.py TerraClimate ppt
+bin/transform-dataset.py datasets/TerraClimate19812010_ppt.nc ppt 1981 2010 TerraClimate
+bin/tiles-from-dataset.py TerraClimate precip 1981 2010
+
 # TerraClimate potential evapotranspiration
 bin/get-dataset.py TerraClimate pet
-bin/transform-dataset.py datasets/TerraClimate19812010_pet.nc potet 1981 2010 TerraClimate
+bin/transform-dataset.py datasets/TerraClimate19812010_pet.nc pet 1981 2010 TerraClimate
 bin/tiles-from-dataset.py TerraClimate potet 1981 2010
+
+# TerraClimate elevation
+bin/get-dataset.py TerraClimate elevation
+bin/load-nontemporal-data.py --ignore-scale-factor datasets/terraclim_dem.nc elevation TerraClimate
 
 #
 # Model datasets
@@ -70,3 +86,9 @@ bin/load-countries.py datasets/countryInfo.txt
 bin/load-provinces.py datasets/admin1CodesASCII.txt
 bin/load-geonames.py datasets/allCountries.txt
 bin/load-alternate-names.py datasets/alternateNames.txt
+
+#
+# Map tiles
+#
+rm -rf datasets/natural-earth
+bin/generate-map-tiles.py 0 8

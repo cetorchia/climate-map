@@ -738,6 +738,27 @@ function updateClimateChart(data, measurement, chart_canvas_id, average_span_id)
 }
 
 /**
+ * Updates the elevation displayed in the location climate
+ * window from the specified response data.
+ */
+function updateNontemporalValue(data, measurement, span_id)
+{
+    if (data[measurement] === undefined) {
+        document.getElementById(span_id).parentNode.style.display = 'none';
+        return;
+    } else {
+        document.getElementById(span_id).parentNode.style.display = 'block';
+    }
+
+    const elevation = Math.round(data[measurement][0] * 10) / 10;
+
+    const units = data[measurement][1];
+    const unit_label = getUnitLabel(units);
+
+    document.getElementById(span_id).textContent = elevation + ' ' + unit_label;
+}
+
+/**
  * Handle changes to the filters. We will update the map's colours.
  */
 function updateTilesAndChart()
@@ -1093,6 +1114,8 @@ function getMeasurementLabel(measurement)
             return 'Actual Evapotranspiration';
         case 'potet':
             return 'Potential Evapotranspiration';
+        case 'elevation':
+            return 'Elevation';
         default:
             throw new Error('Unrecognized measurement: ' + measurement);
     }
@@ -1129,6 +1152,8 @@ function getUnitLabel(units)
             return '°C';
         case 'mm':
             return 'mm';
+        case 'm':
+            return 'metres';
         default:
             throw new Error('Unrecognized units: ' + units);
     }
@@ -1190,6 +1215,8 @@ function loadLocationClimate(lat, lon, location_title)
         });
 
         updateClimateCharts(data);
+        updateNontemporalValue(data, 'elevation', 'elevation');
+
         showLocationTitle(location_title);
         showLocationClimate();
 

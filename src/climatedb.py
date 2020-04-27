@@ -1039,7 +1039,7 @@ def create_nontemporal_data(data_source, measurement, units, lat_arr, lon_arr, d
     create_coord_memmap(lat_pathname, lat_arr)
     create_coord_memmap(lon_pathname, lon_arr)
 
-    return data_pathname, lat_pathname, lon_pathname
+    return data_basename, lat_basename, lon_basename
 
 def fetch_nontemporal_value(dataset_record, lat, lon):
     '''

@@ -21,10 +21,25 @@ the vector tiles.
 
 Mapbox GL is a javascript library that lets you render vector tiles on your map.
 These are supposedly more efficient than raster tiles, though IMO they are
-worse because they require more resources on the user's device.
+worse because they require more resources on the user's device but less
+bandwidth is used.
 
-In order to use a Mapbox GL tileset, you can use a `config.json` similar to
-the following:
+First install the following node packages:
+
+```
+npm install mapbox-gl
+npm install mapbox-gl-leaflet
+```
+
+Uncommon the following lines in `src/climate-map.js`:
+
+```
+/* Enable this if you want to use mapboxGL */
+//await import(/* webpackChunkName: "mapbox-gl-leaflet" */ 'mapbox-gl-leaflet');
+//await import('mapbox-gl/dist/mapbox-gl.css');
+```
+
+Set up `config.json` with a mapboxGL tile layer similar to the following:
 
 ```
 {

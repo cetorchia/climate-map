@@ -16,8 +16,10 @@ async function importDependencies()
         const {default: Chart} = await import(/* webpackChunkName: "chartjs" */ 'chart.js/dist/Chart.bundle.js');
 
         await import('leaflet/dist/leaflet.css');
-        await import(/* webpackChunkName: "mapbox-gl-leaflet" */ 'mapbox-gl-leaflet');
-        await import('mapbox-gl/dist/mapbox-gl.css');
+
+        /* Enable this if you want to use mapboxGL */
+        //await import(/* webpackChunkName: "mapbox-gl-leaflet" */ 'mapbox-gl-leaflet');
+        //await import('mapbox-gl/dist/mapbox-gl.css');
 
         // Hack so that leaflet's images work after going through webpack
         // @see https://github.com/PaulLeCam/react-leaflet/issues/255#issuecomment-388492108

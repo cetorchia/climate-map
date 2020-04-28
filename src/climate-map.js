@@ -838,6 +838,104 @@ function updateLegend(measurement)
 }
 
 /**
+ * Updates the Shared Socioeconomic Pathway (SSP) button
+ * to reflect the currently selected SSP.
+ *
+ * Right now, the SSP is captured in the data source field.
+ * For example, if the selected data source is "CanESM5.ssp245",
+ * that means that SSP2 ("middle of the road") is being used.
+ */
+function updateSSPButton(data_source)
+{
+    const [model, ssp] = data_source.split('.ssp');
+
+    if (ssp) {
+        showSSPButton();
+        const ssp_img = document.getElementById('ssp-img');
+        switch (ssp[0]) {
+            case '2':
+                ssp_img.src = '/ssp2.png';
+                break;
+            case '5':
+                ssp_img.src = '/ssp5.png';
+                break;
+        }
+    } else {
+        hideSSPButton();
+    }
+}
+
+/**
+ * Shows the SSP button.
+ */
+function showSSPButton()
+{
+    const ssp_button = document.getElementById('ssp-button');
+    ssp_button.style.display = 'block';
+
+    /* We move the about button and legend down to make room. */
+    const about_button = document.getElementById('about-button');
+    const legend_div = document.getElementById('legend');
+
+    about_button.style.top = 285;
+    legend_div.style.top = 330;
+}
+
+/**
+ * Hides the SSP button.
+ */
+function hideSSPButton()
+{
+    const ssp_button = document.getElementById('ssp-button');
+    ssp_button.style.display = 'none';
+
+    /* We move the about button and legend back up. */
+    const about_button = document.getElementById('about-button');
+    const legend_div = document.getElementById('legend');
+
+    about_button.style.top = 250;
+    legend_div.style.top = 295;
+}
+
+/**
+ * Updates the SSP of the data source when the SSP button is clicked.
+ *
+ * We toggle the value of SSP, and load the appropriate data source,
+ * if it exists.
+ *
+ * The callback is run if the selected data source is modified to a valid
+ * data source.
+ */
+function updateSSP(callback)
+{
+    const data_source_select = document.getElementById('data-source');
+    const data_source = data_source_select.value;
+    const [model, ssp] = data_source.split('.ssp');
+
+    let new_data_source;
+
+    switch (ssp[0]) {
+        case '2':
+            new_data_source = model + '.ssp585';
+            break;
+        case '5':
+            new_data_source = model + '.ssp245';
+            break;
+        default:
+            return;
+    }
+
+    for (let i = 0; i <= data_source_select.options.length - 1;  i++) {
+        const option = data_source_select.options[i];
+        if (option.value == new_data_source) {
+            data_source_select.selectedIndex = i;
+            callback();
+            return;
+        }
+    }
+}
+
+/**
  * Returns the value of the last data source.
  */
 function getLastDataSource(data_source_select)
@@ -1583,6 +1681,7 @@ window.onload = async function() {
     function change_data_source() {
         updateTilesAndChart();
         updateClimatesOfPlaces();
+        updateSSPButton(data_source_select.value);
 
         APP.climate_tile_layer.remove();
         APP.climate_tile_layer.options.attribution = dataSourceAttribution(data_source_select);
@@ -1731,6 +1830,10 @@ window.onload = async function() {
     document.getElementById('potet-button').onclick = function() {
         setDropDown('measurement', 'potet');
         change_measurement();
+    };
+
+    document.getElementById('ssp-button').onclick = function() {
+        updateSSP(data_source_select.onchange);
     };
 
     document.getElementById('about-button').onclick = function() {

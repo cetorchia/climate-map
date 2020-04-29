@@ -1,7 +1,7 @@
 body {
     padding: 0;
     margin: 0;
-    font: 12px sans-serif;
+    font: 10pt sans-serif;
     height: 100%;
     overflow: hidden;
 }
@@ -72,8 +72,15 @@ body {
     width: 28px;
 }
 
-#about-button.map-button {
+#units-button.map-button {
     top: 250px;
+    padding-top: 6px;
+    font-size: 16px;
+    height: 23px;
+}
+
+#about-button.map-button {
+    top: 285px;
 }
 
 #about-question-mark {
@@ -91,7 +98,7 @@ body {
 #legend {
     z-index: 1000;
     position: absolute;
-    top: 295px;
+    top: 330px;
     left: 14px;
 }
 

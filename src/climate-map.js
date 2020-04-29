@@ -313,6 +313,79 @@ function createTileLayer()
 }
 
 /**
+ * Converts specified data to the specified units ('metric' or 'imperial').
+ *
+ * Returns cloned data with units updated.
+ */
+function convertDataUnits(data, new_units)
+{
+    let new_data = {};
+
+    for (let key in data) {
+        if (Array.isArray(data[key])) {
+            new_data[key] = convertToUnits(data[key], new_units);
+        } else if (typeof(data[key]) === 'object') {
+            new_data[key] = {};
+
+            for (let month in data[key]) {
+                new_data[key][month] = convertToUnits(data[key][month], new_units);
+            }
+        } else {
+            new_data[key] = data[key];
+        }
+    }
+
+    return new_data;
+}
+
+/**
+ * Converts a value-unit combination to the specified units ('metric' or 'imperial')
+ */
+function convertToUnits(datum, new_units)
+{
+    if (Array.isArray(datum) && datum.length >= 2) {
+        let [value, units] = datum;
+
+        switch (new_units) {
+            case 'metric':
+                break;
+
+            case 'imperial':
+                switch (units) {
+                    case 'degC':
+                        value = value * 9 / 5 + 32;
+                        units = 'degF';
+                        break;
+
+                    case 'm':
+                        value = value * 3.28;
+                        units = 'ft';
+                        break;
+
+                    case 'mm':
+                        value = value / 25.4;
+                        units = 'in';
+                        break;
+                }
+                break;
+
+            default:
+                throw Error('Unknown units: ' + new_units);
+        }
+
+        /* Retain any other elements after the first two. */
+        const new_datum = Array.from(datum);
+
+        new_datum[0] = value;
+        new_datum[1] = units;
+
+        return new_datum;
+    } else {
+        throw Error('Expected [value, units, [...]]');
+    }
+}
+
+/**
  * Returns the colour for the specified value with units.
  */
 function colourForValueAndUnits(value, measurement, units)
@@ -320,6 +393,9 @@ function colourForValueAndUnits(value, measurement, units)
     let red, green, blue;
 
     switch (units) {
+        case 'degF':
+            value = (value - 32) * 5 / 9;
+
         case 'degC':
 
             if (value >= 40) {
@@ -341,6 +417,9 @@ function colourForValueAndUnits(value, measurement, units)
             }
 
             return 'rgb(' + red + ',' + green + ',' + blue + ')';
+
+        case 'in':
+            value = value * 25.4;
 
         case 'mm':
             switch (measurement) {
@@ -678,6 +757,10 @@ function getTotalPrecipitation(precipitations)
  */
 function updateClimateCharts(data)
 {
+    data = convertDataUnits(data, APP.units);
+
+    updateNontemporalValue(data, 'elevation', 'elevation');
+
     updateClimateChart(data, 'tavg', 'location-temperature-chart', 'average-temperature');
     updateClimateChart(data, 'precip', 'location-precipitation-chart', 'total-precipitation');
     updateClimateChart(data, 'potet', 'location-potet-chart', 'total-potet');
@@ -740,7 +823,7 @@ function updateClimateChart(data, measurement, chart_canvas_id, average_span_id)
 }
 
 /**
- * Updates the elevation displayed in the location climate
+ * Updates a nontemporal value like elevation displayed in the location climate
  * window from the specified response data.
  */
 function updateNontemporalValue(data, measurement, span_id)
@@ -752,12 +835,12 @@ function updateNontemporalValue(data, measurement, span_id)
         document.getElementById(span_id).parentNode.style.display = 'block';
     }
 
-    const elevation = Math.round(data[measurement][0] * 10) / 10;
+    const value = Math.round(data[measurement][0] * 10) / 10;
 
     const units = data[measurement][1];
     const unit_label = getUnitLabel(units);
 
-    document.getElementById(span_id).textContent = elevation + ' ' + unit_label;
+    document.getElementById(span_id).textContent = value + ' ' + unit_label;
 }
 
 /**
@@ -773,7 +856,10 @@ function updateTilesAndChart()
         const data_source = data_source_select.value;
         const date_range = date_range_select.value;
 
-        fetchClimateDataForCoords(data_source, date_range, APP.clicked_lat, APP.clicked_lon).then(updateClimateCharts);
+        fetchClimateDataForCoords(data_source, date_range, APP.clicked_lat, APP.clicked_lon).then(function(data) {
+            APP.data = data;
+            updateClimateCharts(data);
+        });
     }
 }
 
@@ -873,12 +959,14 @@ function showSSPButton()
     const ssp_button = document.getElementById('ssp-button');
     ssp_button.style.display = 'block';
 
-    /* We move the about button and legend down to make room. */
+    /* We move the units button, about button and legend down to make room. */
+    const units_button = document.getElementById('units-button');
     const about_button = document.getElementById('about-button');
     const legend_div = document.getElementById('legend');
 
-    about_button.style.top = 285;
-    legend_div.style.top = 330;
+    units_button.style.top = 285;
+    about_button.style.top = 320;
+    legend_div.style.top = 365;
 }
 
 /**
@@ -889,12 +977,14 @@ function hideSSPButton()
     const ssp_button = document.getElementById('ssp-button');
     ssp_button.style.display = 'none';
 
-    /* We move the about button and legend back up. */
+    /* We move the units button, about button and legend back up. */
+    const units_button = document.getElementById('units-button');
     const about_button = document.getElementById('about-button');
     const legend_div = document.getElementById('legend');
 
-    about_button.style.top = 250;
-    legend_div.style.top = 295;
+    units_button.style.top = 250;
+    about_button.style.top = 285;
+    legend_div.style.top = 330;
 }
 
 /**
@@ -1090,6 +1180,7 @@ function updateClimatesOfPlaces()
         period_select.value,
         restricted_bounds
     ).then(function(places) {
+        APP.climates_of_places.places = places;
         setClimatesOfPlaces(places, bounds);
     });
 }
@@ -1160,10 +1251,9 @@ function climateOfPlaceTooltipText(geoname)
     const name = geoname.name;
 
     if (geoname[measurement] !== undefined) {
-        let value = geoname[measurement][0];
-        const units = geoname[measurement][1];
+        let [value, units] = convertToUnits(geoname[measurement], APP.units);
 
-        if (units == 'mm' && period === 'year') {
+        if ((units == 'mm' || units == 'in') && period === 'year') {
             value *= 12;
         }
 
@@ -1250,10 +1340,16 @@ function getUnitLabel(units)
     switch (units) {
         case 'degC':
             return '°C';
+        case 'degF':
+            return '°F';
         case 'mm':
             return 'mm';
+        case 'in':
+            return 'inches';
         case 'm':
             return 'metres';
+        case 'ft':
+            return 'feet';
         default:
             throw new Error('Unrecognized units: ' + units);
     }
@@ -1314,8 +1410,8 @@ function loadLocationClimate(lat, lon, location_title)
             updatePageState(lat, lon, location_title);
         });
 
+        APP.data = data;
         updateClimateCharts(data);
-        updateNontemporalValue(data, 'elevation', 'elevation');
 
         showLocationTitle(location_title);
         showLocationClimate();
@@ -1591,6 +1687,47 @@ function getContact(contact_name)
 }
 
 /**
+ * Toggles the units from metric to imperial or back.
+ */
+function updateUnits()
+{
+    if (APP.units === 'metric') {
+        APP.units = 'imperial';
+    } else {
+        APP.units = 'metric';
+    }
+
+    updateUnitsButton(APP.units);
+    window.localStorage.setItem('units', APP.units);
+
+    updateClimateCharts(APP.data);
+
+    const bounds = APP.climate_map.getBounds();
+    setClimatesOfPlaces(APP.climates_of_places.places, bounds);
+}
+
+/**
+ * Updates the units button with the specified units ('metric' or 'imperial').
+ */
+function updateUnitsButton(units)
+{
+    const units_button = document.getElementById('units-button');
+
+    switch (units) {
+        case 'metric':
+            units_button.innerHTML = '&#176;C';
+            break;
+
+        case 'imperial':
+            units_button.innerHTML = '&#176;F';
+            break;
+
+        default:
+            throw Error('Invalid units ' + units + ' must be "metric" or "imperial" here.');
+    }
+}
+
+/**
  * Loads the climate map.
  */
 window.onload = async function() {
@@ -1651,6 +1788,9 @@ window.onload = async function() {
             tooltipAnchor: PLACE_MARKER_POPUP_ANCHOR,
         }),
     };
+
+    APP.units = window.localStorage.getItem('units') ? window.localStorage.getItem('units') : 'metric';
+    updateUnitsButton(APP.units);
 
 
     const data_source_select = document.getElementById('data-source');
@@ -1835,6 +1975,8 @@ window.onload = async function() {
     document.getElementById('ssp-button').onclick = function() {
         updateSSP(data_source_select.onchange);
     };
+
+    document.getElementById('units-button').onclick = updateUnits;
 
     document.getElementById('about-button').onclick = function() {
         const about_div = document.getElementById('about');

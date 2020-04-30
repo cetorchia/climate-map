@@ -45,6 +45,7 @@ Set up `config.json` with a mapboxGL tile layer similar to the following:
 {
     "min_zoom": 2,
     "max_zoom": 10,
+    "search_zoom": 7,
     "climate_tile_layer": {
         "z_index": 2,
         "url": "/tiles/climate",

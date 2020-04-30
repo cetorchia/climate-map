@@ -1464,7 +1464,7 @@ async function doSearch(search_query) {
 
     document.getElementById('search-container').style.display = 'none';
 
-    APP.climate_map.setView([lat, lon], CONFIG.max_zoom);
+    APP.climate_map.setView([lat, lon], CONFIG.search_zoom);
 
     const place_name = getPlaceName(geoname);
 

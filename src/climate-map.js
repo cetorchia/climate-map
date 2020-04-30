@@ -910,17 +910,11 @@ function highlightMeasurementButton(measurement)
 /**
  * Update the legend for the specified measurement.
  */
-function updateLegend(measurement)
+function updateLegend(measurement, units)
 {
     const legend_img = document.getElementById('legend-img');
 
-    if (['tavg', 'tmin', 'tmax'].indexOf(measurement) !== -1) {
-        legend_img.src = '/legend-temp.png';
-    } else if (measurement == 'precip') {
-        legend_img.src = '/legend-precip.png';
-    } else if (measurement == 'potet') {
-        legend_img.src = '/legend-potet.png';
-    }
+    legend_img.src = '/legend-' + measurement + '-' + units + '.png';
 }
 
 /**
@@ -1699,11 +1693,6 @@ function updateUnits()
 
     updateUnitsButton(APP.units);
     window.localStorage.setItem('units', APP.units);
-
-    updateClimateCharts(APP.data);
-
-    const bounds = APP.climate_map.getBounds();
-    setClimatesOfPlaces(APP.climates_of_places.places, bounds);
 }
 
 /**
@@ -1810,7 +1799,7 @@ window.onload = async function() {
             updateClimatesOfPlaces();
             highlightMeasurementButton(measurement_select.value);
             updateDescriptionTooltip(period_select.value, measurement_select.value, date_range_select.value);
-            updateLegend(measurement_select.value);
+            updateLegend(measurement_select.value, APP.units);
             goToURL(document.location.pathname); 
         });
     });
@@ -1875,7 +1864,7 @@ window.onload = async function() {
         populateDataSources(data_source_select, date_range_select, measurement_select).then(change_data_source).then(
             function() {
                 highlightMeasurementButton(measurement_select.value);
-                updateLegend(measurement_select.value);
+                updateLegend(measurement_select.value, APP.units);
                 updateDescriptionTooltip(period_select.value, measurement_select.value, date_range_select.value);
             }
         );
@@ -1976,7 +1965,16 @@ window.onload = async function() {
         updateSSP(data_source_select.onchange);
     };
 
-    document.getElementById('units-button').onclick = updateUnits;
+    document.getElementById('units-button').onclick = function() {
+        updateUnits();
+
+        updateClimateCharts(APP.data);
+
+        const bounds = APP.climate_map.getBounds();
+        setClimatesOfPlaces(APP.climates_of_places.places, bounds);
+
+        updateLegend(measurement_select.value, APP.units);
+    };
 
     document.getElementById('about-button').onclick = function() {
         const about_div = document.getElementById('about');

@@ -420,7 +420,7 @@ def fetch_populous_places_within_area(min_lat, max_lat, min_lon, max_lon):
     elif (min_lon + 180) % 360 + max_lon - min_lon <= 360:
         climatedb.db.cur.execute(
             '''
-            SELECT
+            SELECT /*+ MAX_EXECUTION_TIME(5000) */
                 geonameid,
                 name,
                 ST_Y(location) AS latitude,
@@ -440,7 +440,7 @@ def fetch_populous_places_within_area(min_lat, max_lat, min_lon, max_lon):
     else:
         climatedb.db.cur.execute(
             '''
-            (SELECT
+            (SELECT /*+ MAX_EXECUTION_TIME(5000) */
                 geonameid,
                 name,
                 ST_Y(location) AS latitude,
@@ -457,7 +457,7 @@ def fetch_populous_places_within_area(min_lat, max_lat, min_lon, max_lon):
 
             UNION ALL
 
-            (SELECT
+            (SELECT /*+ MAX_EXECUTION_TIME(5000) */
                 geonameid,
                 name,
                 ST_Y(location) AS latitude,

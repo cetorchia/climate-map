@@ -31,7 +31,7 @@ elif [ $COPY_TILES ]; then
 else
     rsync -ipRru --del --exclude=__pycache__ src "$DESTINATION" || exit 1
     rsync -ipRru --del --exclude=*bundle.js public/*.* "$DESTINATION" || exit 1
-    rsync -ipRru --del images "$DESTINATION" || exit 1
+    rsync -ipRru --exclude=*.xcf --del images "$DESTINATION" || exit 1
     rsync -ipRru --del sql "$DESTINATION" || exit 1
     rsync -ipRu package.json webpack.config.js "$DESTINATION" || exit 1
     rsync -ipRru --del config/config.yaml.example "$DESTINATION" || exit 1

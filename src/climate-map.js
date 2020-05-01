@@ -1358,7 +1358,11 @@ function updateDescriptionTooltip(period, measurement, date_range)
     const tooltip = document.getElementById('description-tooltip');
     const period_label = getPeriodLabel(period);
     const measurement_label = getMeasurementLabel(measurement);
-    const text = 'Average ' + period_label + ' ' + measurement_label + ', ' + date_range;
+    let text = period_label + ' ' + measurement_label + ', ' + date_range;
+
+    if (measurement !== 'potet') {
+        text = 'Average ' + text;
+    }
 
     tooltip.textContent = text;
 }

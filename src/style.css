@@ -231,10 +231,10 @@ body {
 
 .slider {
     -webkit-appearance: none;
-    height: 10px;
+    height: 7px;
     width: 100%;
     border-radius: 5px;
-    background: #888;
+    background: #444;
     outline: none;
     opacity: 0.7;
     -webkit-transition: .2s;
@@ -248,18 +248,18 @@ body {
 .slider::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 25px;
+    width: 15px;
     height: 25px;
-    border-radius: 50%;
-    background: #444;
+    border-radius: 3px;
+    background: #000;
     cursor: pointer;
 }
 
 .slider::-moz-range-thumb {
-    width: 25px;
+    width: 15px;
     height: 25px;
-    border-radius: 50%;
-    background: #444;
+    border-radius: 3px;
+    background: #000;
     cursor: pointer;
 }
 
@@ -280,8 +280,8 @@ body {
     z-index: 1000;
     bottom: 19px;
     width: 400px;
-    max-width: 70vw;
-    max-height: 20px;
+    height: 18px;
+    padding: 3px;
 }
 
 .tooltip {

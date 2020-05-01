@@ -286,10 +286,34 @@ body {
 
 .tooltip {
     position: relative;
-    background-color: #555;
+    background-color: #333;
     color: #fff;
     text-align: center;
     border-radius: 6px;
     padding: 5px 0;
+}
+
+.tooltip-hover {
+    position: absolute;
+    background-color: #000;
+    color: #fff;
+    font-size: 8pt;
+    text-align: center;
+    padding: 5px;
+    border-radius: 2px;
+    border: 1px solid #333;
+    visibility: hidden;
+    max-width: 50vw;
+    opacity: 0;
     transition: opacity 0.3s;
+}
+
+.has-tooltip:hover .tooltip-hover {
+    visibility: visible;
+    opacity: 1;
+}
+
+#date-range-slider-container .tooltip-hover {
+    left: -70px;
+    bottom: -5px;
 }

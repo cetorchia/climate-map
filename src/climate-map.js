@@ -1700,15 +1700,15 @@ function updateUnits()
  */
 function updateUnitsButton(units)
 {
-    const units_button = document.getElementById('units-button');
+    const units_button_text = document.getElementById('units-button-text');
 
     switch (units) {
         case 'metric':
-            units_button.innerHTML = '&#176;C';
+            units_button_text.innerHTML = '&#176;C';
             break;
 
         case 'imperial':
-            units_button.innerHTML = '&#176;F';
+            units_button_text.innerHTML = '&#176;F';
             break;
 
         default:

@@ -304,6 +304,7 @@ body {
     border: 1px solid #333;
     visibility: hidden;
     max-width: 50vw;
+    left: 35px;
     opacity: 0;
     transition: opacity 0.3s;
 }

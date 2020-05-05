@@ -13,6 +13,7 @@ from datetime import date
 import numpy as np
 import math
 import netCDF4
+import netcdftime
 from osgeo import gdal
 import json
 import stat
@@ -307,24 +308,11 @@ def calculate_normals(time_var, value_arr, units, variable_name, start_time, end
     Calculates the means (or totals) through the given time period.
     '''
     # Parse the time units
-    if time_var.size == 12:
-        time_units = 'months'
-    elif re.search('^hours since \d{4}-\d{2}-\d{2} \d{1,2}:\d{1,2}:\d{1,2}$', time_var.units):
-        oldest_time = datetime.strptime(time_var.units, 'hours since %Y-%m-%d %H:%M:%S')
-        time_units = 'hours'
-    elif re.search('^days since \d{4}-\d{2}-\d{2} \d{1,2}:\d{1,2}:\d{1,2}\.\d{1,6}$', time_var.units):
-        oldest_time = datetime.strptime(time_var.units, 'days since %Y-%m-%d %H:%M:%S.%f')
-        time_units = 'days'
-    elif re.search('^days since \d{4}-\d{2}-\d{2} \d{1,2}:\d{1,2}:\d{1,2}$', time_var.units):
-        oldest_time = datetime.strptime(time_var.units, 'days since %Y-%m-%d %H:%M:%S')
-        time_units = 'days'
-    elif re.search('^days since \d{4}-\d{1,2}-\d{1,2}$', time_var.units):
-        oldest_time = datetime.strptime(time_var.units, 'days since %Y-%m-%d')
-        time_units = 'days'
-    else:
-        raise Exception('Don\'t understand the time units "%s"' % time_var.units)
+    # The calendar in some CMIP6 model outputs is "360 day"
+    # so you can't take the "days since 1850-01-01" literally.
+    cdftime = netcdftime.utime(time_var.units, time_var.calendar)
 
-    if time_units == 'months':
+    if time_var.size == 12:
         #
         # In this case, the file only contains 12 time indexes,
         # so they are not actual moments in time and the data
@@ -334,27 +322,19 @@ def calculate_normals(time_var, value_arr, units, variable_name, start_time, end
             filtered_time_indexes = np.arange(0, 12)
         else:
             filtered_time_indexes = np.array([month - 1])
-
     else:
+        if time_var.calendar == '360_day' and end_time.day == 31:
+            end_time = end_time - timedelta(days=1)
+
         # Determine start and end times in the time units
-        start_delta = start_time - oldest_time
-        end_delta = end_time - oldest_time
+        start = cdftime.date2num(start_time)
+        end = cdftime.date2num(end_time)
 
-        if time_units == 'hours':
-            start = start_delta.days * 24
-            end = end_delta.days * 24
-            time_delta = lambda time_value: timedelta(hours=time_value)
-        elif time_units == 'days':
-            start = start_delta.days
-            end = end_delta.days
-            time_delta = lambda time_value: timedelta(days=time_value)
-        else:
-            raise Exception('Unexpected time units "%s"' % time_units)
-
-        earliest_time = oldest_time + time_delta(time_var[0])
+        earliest_time = cdftime.num2date(time_var[0])
         if earliest_time.month != 1:
-            print('Warning: Models that do not start in January (starting on %s) seem to contain errors sometimes. '
-                  'Double check the output and make sure to calibrate.' % earliest_time,
+            print('Warning: Earliest time does not start in January (starting on %s). '
+                  'High probability of the time variable being wrong.'
+                  'Check variables[\'time\'].calendar' % earliest_time,
                   file=sys.stderr)
 
         # Determine the time indexes that correspond for this range and month
@@ -365,7 +345,7 @@ def calculate_normals(time_var, value_arr, units, variable_name, start_time, end
             filtered_time_indexes = []
             for time_i in time_indexes_range:
                 time_value = time_var[time_i]
-                time = oldest_time + time_delta(time_value)
+                time = cdftime.num2date(time_value)
                 if time.month == month:
                     filtered_time_indexes.append(time_i)
         else:

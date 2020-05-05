@@ -137,11 +137,13 @@ def downscale_axis_arr(baseline_axis_arr, axis_arr, left_axis_limit_arr, right_a
         raise Exception('Expected baseline axis to have size mask_left + axis_repeats + mask_right = %d' % (
                         mask_left + axis_repeats.sum() + mask_right))
 
+    right_idx = baseline_axis_arr.size - mask_right
+
     downscaled_axis_arr = np.ma.zeros(baseline_axis_arr.size)
     downscaled_axis_arr.mask = np.repeat(False, downscaled_axis_arr.size)
     downscaled_axis_arr.mask[:mask_left] = True
-    downscaled_axis_arr.mask[-mask_right:] = True
-    downscaled_axis_arr[mask_left:-mask_right] = np.repeat(axis_arr, axis_repeats)
+    downscaled_axis_arr.mask[right_idx:] = True
+    downscaled_axis_arr[mask_left:right_idx] = np.repeat(axis_arr, axis_repeats)
 
     num_downscaled = np.nonzero(~downscaled_axis_arr.mask)[0].size
 
@@ -262,7 +264,9 @@ def downscale_array(baseline_lat_arr, baseline_lon_arr, lat_arr, lat_delta, lon_
     downscaled_data_subarr = np.repeat(data_arr, lat_repeats, axis=0)
     downscaled_data_subarr = np.repeat(downscaled_data_subarr, lon_repeats, axis=1)
 
-    downscaled_data_arr[lat_mask_left:-lat_mask_right, lon_mask_left:-lon_mask_right] = downscaled_data_subarr
+    lat_right_idx = downscaled_lat_arr.size - lat_mask_right
+    lon_right_idx = downscaled_lon_arr.size - lon_mask_right
+    downscaled_data_arr[lat_mask_left:lat_right_idx, lon_mask_left:lon_right_idx] = downscaled_data_subarr
 
     fix_missing_longitudes(baseline_lon_arr, lon_arr, lon_delta, downscaled_data_arr, lon_mask_left,
                            lon_mask_left + lon_mask_right)

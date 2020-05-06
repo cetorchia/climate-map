@@ -41,21 +41,21 @@ done
 #
 # Geonames database
 #
-wget https://download.geonames.org/export/dump/admin1CodesASCII.txt -O datsets/admin1CodesASCII.txt
-wget https://download.geonames.org/export/dump/countryInfo.txt -O datasets/countryInfo.txt
+wget https://download.geonames.org/export/dump/admin1CodesASCII.txt -O datsets/admin1CodesASCII.txt || exit 1
+wget https://download.geonames.org/export/dump/countryInfo.txt -O datasets/countryInfo.txt || exit 1
 
-wget https://download.geonames.org/export/dump/allCountries.zip -O datasets/allCountries.zip
-unzip datasets/allCountries.zip -d datasets
+wget https://download.geonames.org/export/dump/allCountries.zip -O datasets/allCountries.zip || exit 1
+unzip datasets/allCountries.zip -d datasets || exit 1
 rm datasets/allCountries.zip
 
-wget https://download.geonames.org/export/dump/alternateNames.zip -O datasets/alternateNames.zip
-unzip datasets/alternateNames.zip -d datasets
+wget https://download.geonames.org/export/dump/alternateNames.zip -O datasets/alternateNames.zip || exit 1
+unzip datasets/alternateNames.zip -d datasets || exit 1
 rm datasets/alternateNames.zip
 
-bin/load-countries.py datasets/countryInfo.txt
-bin/load-provinces.py datasets/admin1CodesASCII.txt
-bin/load-geonames.py datasets/allCountries.txt
-bin/load-alternate-names.py datasets/alternateNames.txt
+bin/load-countries.py datasets/countryInfo.txt || exit 1
+bin/load-provinces.py datasets/admin1CodesASCII.txt || exit 1
+bin/load-geonames.py datasets/allCountries.txt || exit 1
+bin/load-alternate-names.py datasets/alternateNames.txt || exit 1
 
 #
 # Map tiles

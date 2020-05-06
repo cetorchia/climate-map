@@ -1,0 +1,85 @@
+baseline: TerraClimate
+
+esgf:
+  search:
+    url: https://esgf-node.llnl.gov/esg-search/search/
+    project: CMIP6
+    variant: r1i1p1f1,r1i1p1f2,r1i1p1f3
+
+TerraClimate:
+  organisation: TerraClimate
+  author: 'Abatzoglou, J.T., S.Z. Dobrowski, S.A. Parks, K.C. Hegewisch'
+  year: '2018'
+  article_url: https://doi.org/10.1038/sdata.2017.191
+  summary_url: http://thredds.northwestknowledge.net:8080/thredds/fileServer/TERRACLIMATE_ALL/summaries/TerraClimate19812010_%s.nc
+  elevation_url: http://thredds.northwestknowledge.net:8080/thredds/fileServer/TERRACLIMATE_ALL/layers/terraclim_dem.nc
+  date_range: '1981-2010'
+  measurements:
+    - tavg
+    - tmin
+    - precip
+    - potet
+    - elevation
+
+worldclim:
+  organisation: WorldClim.org
+  author: 'Fick, S.E. and R.J. Hijmans'
+  year: '2017'
+  article_url: https://rmets.onlinelibrary.wiley.com/doi/abs/10.1002/joc.5086
+  summary_url: http://biogeo.ucdavis.edu/data/worldclim/v2.1/base/wc2.1_2.5m_%s.zip
+  date_range: '1960-1990'
+  measurements:
+    - tavg
+    - tmin
+    - precip
+
+models:
+  CNRM-CM6-1:
+    experiments:
+      - ssp245
+      - ssp585
+    date_ranges:
+      - '2021-2050'
+      - '2061-2090'
+    measurements:
+      - tavg
+      - tmin
+      - precip
+      - potet
+
+  CanESM5:
+    experiments:
+      - ssp245
+      - ssp585
+    date_ranges:
+      - '2021-2050'
+      - '2061-2090'
+    measurements:
+      - tavg
+      - tmin
+      - precip
+
+  MRI-ESM2-0:
+    experiments:
+      - ssp245
+      - ssp585
+    date_ranges:
+      - '2021-2050'
+      - '2061-2090'
+    measurements:
+      - tavg
+      - tmin
+      - precip
+
+  HadGEM3-GC31-LL:
+    experiments:
+      - ssp126
+      - ssp585
+    date_ranges:
+      - '2021-2050'
+      - '2061-2090'
+    measurements:
+      - tavg
+      - tmin
+      - precip
+      - potet

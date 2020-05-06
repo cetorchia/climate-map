@@ -2,6 +2,14 @@
 
 Copyright (c) 2020 Carlos Emilio Torchia
 
+# About
+
+Climate Map is a web application showing the user a map with colours representing
+temperature, precipitation, and other climate normals. The user can also click
+on the map and see climate normals for a specified location. This repo contains
+both an Python API, JavaScript UI, and Python scripts to load climate datasets
+into the database.
+
 # System requirements
 
 The following system specifications are recommended.
@@ -23,12 +31,10 @@ Please don't worry; this is actually really easy. Just look at one step at a tim
 
 Install the following Ubuntu packages, or equivalent:
 
+API and web server:
 * npm
 * python3
 * python3-numpy
-* python3-netcdf4
-* python3-gdal
-* python3-matplotlib
 * python3-opencv
 * python3-flask
 * python3-mysqldb
@@ -36,6 +42,15 @@ Install the following Ubuntu packages, or equivalent:
 * nginx
 * uwsgi
 * uwsgi-plugin-python3
+
+Climate data transformation and tile generation:
+* python3-netcdf4
+* python3-gdal
+* python3-cdo
+* python3-matplotlib
+
+See the other `README-*.md` files for other packages that may or may not be
+necessary, e.g. for system administration and base map tile generation.
 
 ## JavaScript setup
 
@@ -54,6 +69,8 @@ See `config/config.json.example`.
 
 The database is used to store climate data, and for the application
 to look up the climate data and display it to the user.
+(The actual climate is stored as numpy memory maps, but meta data
+about the datasets are stored in MySQL.)
 
 Run the scripts in the `sql/` folder as the `climate_map` user.
 Make sure you change the password of the `climate_map` user.
@@ -71,7 +88,8 @@ SET PASSWORD FOR climate_map = PASSWORD('a_mKWpF60'); -- Change this!
 Specify the database connection details in the `config/config.yaml`
 file. See `config/config.yaml.example`.
 
-You then need to import climate datasets into this database.
+You then need to import climate datasets into this database. See the
+[Data transformation](#data-transformation) section.
 
 ## Nginx setup
 
@@ -169,8 +187,7 @@ sudo service nginx restart
 ## uWSGI
 
 uWSGI is used to run the API server. The main nginx server passes
-traffic headed to `/api/` to the server running on port 5000.
-The tile API server runs on port 5001.
+traffic headed to `/api/*` to the server running on port 5000.
 
 Create `/etc/uwsgi/apps-available/climatapi.ini` to have:
 
@@ -185,7 +202,8 @@ http = 127.0.0.1:5000
 processes = 3
 ```
 
-Also create `/etc/uwsgi/apps-available/tile-api.ini` to have:
+The tile API server (`/tiles/*`) runs on port 5001.
+Create `/etc/uwsgi/apps-available/tile-api.ini` to have:
 
 ```
 [uwsgi]
@@ -207,47 +225,71 @@ sudo ln -s /etc/uwsgi/apps-available/tile-api.ini /etc/uwsgi/apps-enabled/
 sudo service uwsgi restart
 ```
 
-# Loading climate data: Important notes
-
-* Coordinates in Postgis and geoJSON are `[longitude, latitude]`, but coordinates
-in the datasets and the transformation code are `[latitude, longitude]`. Make sure
-you know which is which in every case.
-
-* OpenStreetMap's coordinates go from latitude 85.051129 to -85.051129, so any images
-should map to those bounds, or they may not align with the OSM tiles. See
-[Web Mercator projection](https://en.wikipedia.org/wiki/Web_Mercator_projection#Formulas).
-
-* When updating the code in `climate-map.js`, after running `npm run build`, it is
-recommended that you update the hash of `climate-map.bundle.js` in `public/index.html`.
-This will force the update of that file by the user's browser cache. If not, they
-have to press Ctrl+Shift+R to force a refresh. Another option is to put your release
-version.
-
-* If you update any API code (including the tile API) you have to run `service uwsgi restart`.
-
-```
-<script type="text/javascript" src="/climate-map.bundle.js?hash=58fce162760b3b36b1b5"></script>
-```
-
 # Data transformation
 
-You can transform the data from the NOAA or WorldClim (assuming permission allows) using
-`transform-dataset.py`.
-This data transformation script is used to process the netCDF4 files into
-various formats (including inserting into the database) so that the web application can
-read the climate data from the server.
+You can transform the data from the NOAA, WorldClim, and other datasets
+(assuming permission allows) using the scripts described below.
 
-The script takes input file and output file as arguments. The script will detect
-the desired format based on the output file extension.
+These data transformation scripts are used to process the netCDF4 files into
+numpy arrays grouped by month as well as coloured climate tiles so that the
+web application can read these climate data from the server and display them
+to the user.
 
-University of Delaware gridded temperature and precipitation data can be used
-for this purpose, but other datasets may be used as well if they are in
-netCDF4 format and are grouped by month.
+Input datasets must be gridded datasets indexed by time, latitude, and longitude.
+They can be grouped by month or day, and they can be multi-year or aggregated.
 
-Also WorldClim geotiff data that is 2-dimensional and already aggregated by month can also
-be used.
+CMIP6 and TerraClimate data are supported and used by default in the main
+update script.
 
-CMIP6 and TerraClimate data are also supported.
+## Finding datasets
+
+You can find gridded climate datasets in a variety of places, depending on whether you're
+looking for historical observations or model projections.
+
+TerraClimate, WorldClim, and NOAA provide historical datasets.
+
+* NOAA: https://psl.noaa.gov/data/gridded/
+* WorldClim: https://worldclim.org/
+* TerraClimate: http://www.climatologylab.org/terraclimate.html
+
+CMIP6 provides model projections:
+
+* https://esgf-node.llnl.gov/search/cmip6/
+
+## Configuring the update script
+
+The update script uses `config/config-update.yaml` to tell it what to download
+and transform. Some measurements like potential evapotranspiration are not
+available for all models. This config file will tell which datasets to retrieve
+and which measurements for each model to load, among other information.
+
+The information in this config file should be straightforward to understand without explanation.
+
+For example, the following snippet would tell the update script to load
+experiments `ssp126` and `1pctCO2` for `CanESM5`. And the measurements to
+be loaded are average temperature, minimum temperature, and precipitation.
+And the date ranges to be loaded are 2021-2050 and 2061 to 2090.
+
+```
+models:
+  CanESM5:
+    experiments:
+      - ssp126
+      - 1pctCO2
+    measurements:
+      - tavg
+      - tmin
+      - precip
+    date_ranges:
+      - '2021-2050'
+      - '2061-2090'
+```
+
+With this configuration, the update script would download the specified model
+output from one of the CMIP6 data nodes automatically (using `get-dataset.py`).
+
+The config file also tells what URL to download historical data. Since this
+may be outdated, you may have to update this.
 
 ## Update script
 
@@ -258,11 +300,37 @@ You can run it as follows:
 bin/update.sh
 ```
 
-TODO: update script not complete.
+Open and look at `update.sh` to see which datasets come by default.
+
+To update individual datasets, you can run similar to the following with
+any specified model and measurement:
+
+```
+bin/update-dataset.sh TerraClimate tavg
+bin/update-dataset.sh TerraClimate tmin
+bin/update-dataset.sh TerraClimate precip
+bin/update-dataset.sh TerraClimate potet
+
+bin/update-dataset.sh CanESM5 tavg
+bin/update-dataset.sh CanESM5 tmin
+bin/update-dataset.sh CanESM5 precip
+bin/update-dataset.sh CanESM5 potet
+
+...
+```
+
+This will take care of downloading, transforming, and loading the specified
+datasets.
+
+The commands below are run by the above commands, but you may need to run
+them individually sometimes. And you'll have to modify them if they cannot
+understand a new dataset you are trying to load. Inevitably you'll have
+to modify the code if you want to add new variables such as runoff or
+soil moisture.
 
 ## Getting datasets from the internet
 
-The following script can be used to download TerraClimate and CMIP6. TODO: worldclim
+The following script can be used to download TerraClimate and CMIP6.
 
 ```
 bin/get-dataset.py TerraClimate tmin
@@ -275,10 +343,19 @@ bin/get-dataset.py CNRM-CM6-1 tas
 bin/get-dataset.py CNRM-CM6-1 pr
 ```
 
+**N.B.**: that you have to specify the variable name specified on the remote server,
+not the measurement code in the measurements table in the MySQL database.
+For example, TerraClimate calls precipitation "ppt", whereas Climate Map
+calls it "precip". In most of these commands you must provide the Climate Map
+measurement, but for `get-dataset.py` you must provide the remote variable name.
+
 ## Transforming datasets into the database
 
-Use this command to load the climate data to the database as in the following
-example.
+Use the transform script to load the climate data to the database.
+The script takes input file, measurement, date range, and data source as arguments.
+It will detect the desired format based on the output file extension.
+These can be netCDF4, GeoTIFF, or anything `gdal` can handle. Units can be
+in Kelvin, Celsius, mm, or kg/m^2/s (or "kg m-2 s-1", which is the same as mm/s).
 
 ```
 bin/transform-dataset.py TerraClimate19812010_tmin.nc TerraClimate19812010_tmax.nc tavg 1981 2010 TerraClimate
@@ -294,8 +371,27 @@ bin/transform-dataset.py tasmin_day_CanESM5_ssp245_r1i1p1f1_gn_20150101-21001231
 bin/transform-dataset.py pr_day_CanESM5_ssp245_r1i1p1f1_gn_20150101-21001231.nc pr 2015 2045 CanESM5.ssp245
 ```
 
+You can pass multiple files to the script, and it will calculate the average of
+all of them. This is useful if you only have maximum and minimum datasets but
+not average.
+```
+bin/transform-dataset.py TerraClimate19812010_tmin.nc TerraClimate19812010_tmax.nc tavg 1981 2010 TerraClimate
+```
+
 Note that maximum temperature datasets do not need to be loaded as it can be
-calculated using average and minimum temperature.
+calculated using average and minimum temperature. However you must have average
+temperature datasets in order to draw the coloured climate tiles.
+
+If you have two separate files for the same measurement but for different
+time ranges, and you want to average them, then you have to use `cdo` to
+combine them first.
+
+```
+cdo -selall file1.nc file2.nc file.nc
+```
+
+This is done automatically by `get-dataset.py` when you retrieve a dataset
+that is split up over different time ranges.
 
 ## Calibrating projection datasets against historical data
 
@@ -325,16 +421,6 @@ This will generate a new dataset with the same data source name with a "calibrat
 flag. This flag distinguishes that dataset in order to generate tiles for the
 calibrated dataset and not the uncalibrated one.
 
-As a shortcut, the following command will calibrate the model for all measurements, date
-ranges, and scenarios.
-
-```
-bin/calibrate.sh CanESM5
-```
-
-You may have to update `bin/calibrate.sh` if you will provide a different set of
-scenarios and date range(s).
-
 ## Generating PNG tiles
 
 To improve efficiency, tiles are generated that divide the map so that Leaflet
@@ -358,11 +444,12 @@ in order to generate tiles for the calibrated dataset instead of the uncalibrate
 dataset.
 
 The following command is a shortcut to generate tiles for the model for all
-measurements, scenarios, and date ranges. (It automatically uses the calibrated
-dataset.)
+scenarios, and date ranges. (It automatically uses the calibrated dataset.)
 
 ```
-bin/generate-tiles.sh MRI-ESM2-0
+bin/generate-tiles.sh MRI-ESM2-0 tavg
+bin/generate-tiles.sh MRI-ESM2-0 tmin
+bin/generate-tiles.sh MRI-ESM2-0 precip
 ```
 
 ## Loading elevation data
@@ -448,3 +535,46 @@ Set up nginx as described above.
 
 Set up uWSGI as described above.
 Whenever the API code changes you have to restart uWSGI.
+
+# Important notes
+
+* Coordinates in Postgis and geoJSON are `[longitude, latitude]`, but coordinates
+in the datasets and the transformation code are `[latitude, longitude]`. Make sure
+you know which is which in every case.
+
+* OpenStreetMap's coordinates go from latitude 85.051129 to -85.051129, so any images
+must map to those bounds, or they may not align with the OSM tiles. See
+[Web Mercator projection](https://en.wikipedia.org/wiki/Web_Mercator_projection#Formulas).
+
+* NetCDF4 climate model outputs often use a 360 day calendar to make it "easier" to
+generate monthly climate normals. This apparently will not make grouping by month
+inaccurate. The transform code now supports the 360 day calendar using the `netcdftime`
+module.
+See my question here for more details:
+[Create a netcdf time Dimension using a 360 day calendar](https://gist.github.com/paultgriffiths/266ffe20a2d0d3ac8985#gistcomment-3290314)
+
+* CMIP6 datasets often have multiple variants for each model. Usually they
+start with the one called "r1i1p1f1", but sometimes this one does not exist.
+The `config/config-update.yaml` file specifies which variants the `get-dataset.py`
+script tries to fetch. If none of them exist for the desired model, you will
+need to add a variant label that does exist to the `variant` field in the config.
+
+* To add a new type of measurement, such as soil moisture, add a record to the
+`measurements` table. Ideally, add the record to `sql/insert-meta-data.sql` to
+keep track of it. You will also have to modify the code in several places.
+TODO: Document where the code would need to be modified.
+
+* When updating any JavaScript or CSS code, after running `npm run build`, it is
+recommended that you update the hash of `climate-map.bundle.js` in `public/index.html`
+before deploying the code to the production site.
+The hash can be found in the output of `npm run build` beside `climate-map.js`.
+
+```
+<script type="text/javascript" src="/climate-map.bundle.js?hash=58fce162760b3b36b1b5"></script>
+```
+
+Doing this will force the update of all javascript and CSS code by the user's browser cache.
+If not, they have to press Ctrl+Shift+R to force a refresh. Another option is to put your
+release version as a query parameter instead of the hash.
+
+* If you update any API code (including the tile API) you have to run `service uwsgi restart`.

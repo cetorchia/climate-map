@@ -1,47 +1,45 @@
 #!/bin/bash
 #
 # Runs the tiles-from-dataset.py script on the specified
-# dataset and date range for all measurements.
+# dataset and date range for all date ranges and experiments
+# defined in config-update.yaml.
 #
 
-if [ -z "$1" -o -n "$2" ]; then
-    echo "Usage: $(basename $0) <model>" >&2
+if [ -z "$2" -o -n "$3" ]; then
+    echo "Usage: $(basename $0) <model> <measurement>" >&2
     echo >&2
-    echo "  E.g. $(basename $0) CanESM5" >&2
-    echo "       $(basename $0) TerraClimate" >&2
+    echo "  E.g. $(basename $0) CanESM5 tavg" >&2
+    echo "       $(basename $0) TerraClimate potet" >&2
     exit 1
 fi
 
 SCRIPT='bin/tiles-from-dataset.py'
 
 MODEL="$1"
+MEASUREMENT="$2"
 
-case $MODEL in)
-    TerraClimate|CNRM*)
-        MEASUREMENTS='tavg precip potet'
+case $MEASUREMENT in
+    tavg|precip|potet)
         ;;
     *)
-        MEASUREMENTS='tavg precip'
+        exit 0
         ;;
 esac
 
-case $MODEL in
-    TerraClimate)
-        DATE_RANGES='1981-2010'
-        DATA_SOURCES='TerraClimate'
-        CALIBRATED=''
-        ;;
-    worldclim)
-        DATE_RANGES='1960-1990'
-        DATA_SOURCES='worldclim'
-        CALIBRATED=''
-        ;;
-    *)
-        DATE_RANGES='2015-2045 2045-2075'
-        DATA_SOURCES="$MODEL.ssp245 $MODEL.ssp585"
-        CALIBRATED='--calibrated'
-        ;;
-esac
+source config/config.sh
+
+if [ -n "$(get_config_value $MODEL 2>&-)" ]; then
+    DATE_RANGES=$(get_config_value $MODEL 'date_range') || exit 1
+    DATA_SOURCES="$MODEL"
+    CALIBRATED=''
+else
+    DATE_RANGES=$(get_config_list 'models' $MODEL 'date_ranges') || exit 1
+    DATA_SOURCES=''
+    for EXPERIMENT in $(get_config_list 'models' $MODEL 'experiments'); do
+        DATA_SOURCES="$DATA_SOURCES $MODEL.$EXPERIMENT"
+    done
+    CALIBRATED='--calibrated'
+fi
 
 for DATA_SOURCE in $DATA_SOURCES; do
     for DATE_RANGE in $DATE_RANGES; do
@@ -49,9 +47,7 @@ for DATA_SOURCE in $DATA_SOURCES; do
         START_YEAR=${DATE_RANGE_ARRAY[0]}
         END_YEAR=${DATE_RANGE_ARRAY[1]}
 
-        for MEASUREMENT in $MEASUREMENTS; do
-            echo $DATA_SOURCE $MEASUREMENT $START_YEAR $END_YEAR
-            $SCRIPT $CALIBRATED $DATA_SOURCE $MEASUREMENT $START_YEAR $END_YEAR || exit $?
-        done
+        echo $DATA_SOURCE $MEASUREMENT $START_YEAR $END_YEAR
+        $SCRIPT $CALIBRATED $DATA_SOURCE $MEASUREMENT $START_YEAR $END_YEAR || exit $?
     done
 done

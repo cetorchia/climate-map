@@ -15,13 +15,15 @@ import urllib.parse
 import yaml
 import json
 import xml.etree.ElementTree
+import cdo
 
 import climatedb
 
 DATASET_DIR_NAME = 'datasets'
-CONFIG_DIR_NAME = 'config'
-CONFIG_FILENAME = 'config-esgf.yaml'
+CONFIG_FILENAME = os.path.join('config', 'config-update.yaml')
 SEARCH_FORMAT = 'application/solr+json'
+
+DATASET_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), DATASET_DIR_NAME)
 
 def get_args(arguments):
     '''
@@ -45,8 +47,7 @@ def load_config():
     '''
     Loads the config variables
     '''
-    config_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), CONFIG_DIR_NAME)
-    config_file = os.path.join(config_dir, CONFIG_FILENAME)
+    config_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), CONFIG_FILENAME)
 
     with open(config_file, 'r') as f:
         yaml_data = yaml.load(f)
@@ -56,7 +57,12 @@ def load_config():
 def search_esgf(search_url, project, variable_name, model, scenario, frequency, variant):
     '''
     Searches for the specified dataset in the ESGF database.
+    Returns a list of datasets sorted by variant label.
+    Raises an exception if there are no datasets found.
     '''
+    # Limit needs to be 1 to get a unique dataset.
+    # The datasets returned in the THREDDS response will still contain
+    # multiple files if the files are split over multiple date ranges.
     search_parameters = {
         'offset': 0,
         'limit': 1,
@@ -80,11 +86,17 @@ def search_esgf(search_url, project, variable_name, model, scenario, frequency, 
     if res.code >= 400:
         raise Exception('Could not search for dataset: %d %s' % (res.code, res.reason))
 
-    data = json.load(res)
+    search_results = json.load(res)
 
-    return data
+    datasets = search_results['response']['docs']
+    datasets.sort(key=lambda dataset: dataset['variant_label'])
 
-def get_citation(url):
+    if len(datasets) == 0:
+        raise Exception('No datasets in response')
+
+    return datasets
+
+def get_citation_from_url(url):
     '''
     Fetches citation details from the specified URL
     '''
@@ -110,7 +122,7 @@ def get_citation(url):
 
     return author, year, article_url
 
-def create_data_source(data_source_code, organisation, author, year, url):
+def create_data_source(data_source_code, organisation, author, year, url, baseline):
     '''
     Creates the data source record in the database if one
     does not exist.
@@ -127,11 +139,6 @@ def create_data_source(data_source_code, organisation, author, year, url):
 
     else:
         name = data_source_code
-
-    if data_source_code in ('TerraClimate', 'worldclim'):
-        baseline = True
-    else:
-        baseline = False
 
     try:
         climatedb.fetch_data_source(data_source_code)
@@ -158,7 +165,7 @@ def get_thredds_url(dataset_info):
 
     raise Exception('No THREDDS URL in this dataset. Change the code here to get the dataset some other way.')
 
-def get_file_url(thredds_url, thredds_id):
+def get_file_urls_from_thredds(thredds_url, thredds_id):
     '''
     Fetches the specified THREDDS dataset and returns
     the URL to the file itself.
@@ -173,23 +180,64 @@ def get_file_url(thredds_url, thredds_id):
 
     # Retrieve the first dataset in the list. (They may be broken down by different date ranges.)
     ns = {'catalog': 'http://www.unidata.ucar.edu/namespaces/thredds/InvCatalog/v1.0'}
-    dataset_element = xml_root.find('catalog:dataset[@ID=\'%s\']/catalog:dataset' % thredds_id, ns)
+    dataset_elements = xml_root.findall('catalog:dataset[@ID=\'%s\']/catalog:dataset' % thredds_id, ns)
     service_element = xml_root.find('catalog:service/*[@serviceType=\'HTTPServer\']', ns)
 
     p = urllib.parse.urlparse(thredds_url)
-    url = p.scheme + '://' + p.netloc + service_element.get('base') + dataset_element.get('urlPath')
 
-    return url
+    for dataset_element in dataset_elements:
+        if 'urlPath' in dataset_element.attrib:
+            url = p.scheme + '://' + p.netloc + service_element.get('base') + dataset_element.get('urlPath')
+            yield url
 
 def get_file_path(file_url):
     '''
     Gives the expected file path from the specified file URL.
     '''
     file_basename = file_url.split('/')[-1]
-    file_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), DATASET_DIR_NAME)
-    file_pathname = os.path.join(file_dir, file_basename)
+    file_pathname = os.path.join(DATASET_DIR, file_basename)
 
     return file_pathname
+
+def get_citation_from_config(config, data_source):
+    '''
+    Returns citation information for the specified data source
+    from the config.
+    '''
+    organisation = config[data_source]['organisation']
+    author = config[data_source]['author']
+    year = config[data_source]['year']
+    article_url = config[data_source]['article_url']
+
+    return organisation, author, year, article_url
+
+def get_file_url_from_config(config, data_source, variable_name):
+    '''
+    Returns the file URL of the specified variable name
+    for the specified data source from the config.
+    '''
+    if variable_name == 'elevation':
+        return config[data_source]['elevation_url']
+    else:
+        summary_url = config[data_source]['summary_url']
+        return summary_url % variable_name
+
+def fetch_urls(file_urls):
+    '''
+    Fetches each specified file URL and returns a list of paths to
+    each file in the same order.
+    '''
+    file_paths = []
+
+    for file_url in file_urls:
+        file_path = get_file_path(file_url)
+        file_paths.append(file_path)
+
+        if not os.path.exists(file_path):
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            urllib.request.urlretrieve(file_url, file_path)
+
+    return file_paths
 
 def main(args):
     '''
@@ -199,56 +247,50 @@ def main(args):
 
     variable_name, data_source, frequency = get_args(args)
 
-    if data_source == 'TerraClimate':
-        # This will have to be updated manually, as this is not
-        # in machine-readable format anywhere.
-        organisation = 'TerraClimate'
-        author = 'Abatzoglou, J.T., S.Z. Dobrowski, S.A. Parks, K.C. Hegewisch'
-        year = '2018'
-        article_url = 'https://doi.org/10.1038/sdata.2017.191'
-        start_year = 1981
-        end_year = 2010
+    config = load_config()
 
-        if variable_name == 'elevation':
-            file_url = 'http://thredds.northwestknowledge.net:8080/thredds/fileServer/TERRACLIMATE_ALL/layers/terraclim_dem.nc'
-        else:
-            file_url = 'http://thredds.northwestknowledge.net:8080/thredds/fileServer/TERRACLIMATE_ALL/summaries/' \
-                       'TerraClimate%d%d_%s.nc' % (start_year, end_year, variable_name)
-
-    elif data_source == 'worldclim':
-        raise Exception('TODO: implement fetching worldclim dataset')
+    if data_source in config:
+        organisation, author, year, article_url = get_citation_from_config(config, data_source)
+        file_url = get_file_url_from_config(config, data_source, variable_name)
+        file_urls = [file_url]
 
     else:
         model, scenario = data_source.split('.')
 
-        config = load_config()
-        search_url = config['search']['url']
-        project = config['search']['project']
-        variant = config['search']['variant']
+        search_url = config['esgf']['search']['url']
+        project = config['esgf']['search']['project']
+        variant = config['esgf']['search']['variant']
 
-        search_results = search_esgf(search_url, project, variable_name, model, scenario, frequency, variant)
+        datasets = search_esgf(search_url, project, variable_name, model, scenario, frequency, variant)
 
-        datasets = search_results['response']['docs']
-        datasets.sort(key=lambda dataset: dataset['variant_label'])
-
-        if len(datasets) == 0:
-            raise Exception('No datasets in response')
-
-        dataset_info = search_results['response']['docs'][0]
-
+        dataset_info = datasets[0]
         organisation = dataset_info['institution_id'][0]
-        author, year, article_url = get_citation(dataset_info['citation_url'][0])
+        author, year, article_url = get_citation_from_url(dataset_info['citation_url'][0])
 
         thredds_url, thredds_id = get_thredds_url(dataset_info)
-        file_url = get_file_url(thredds_url, thredds_id)
+        file_urls = get_file_urls_from_thredds(thredds_url, thredds_id)
 
-    file_path = get_file_path(file_url)
+    file_paths = fetch_urls(file_urls)
 
-    if not os.path.exists(file_path):
-        os.makedirs(os.path.dirname(file_path), exist_ok=True)
-        urllib.request.urlretrieve(file_url, file_path)
+    if len(file_paths) == 0:
+        print('No datasets found', file=sys.stderr)
+        return 1
 
-    create_data_source(data_source, organisation, author, year, article_url)
+    file_base, ext = file_paths[0].rsplit(os.path.extsep)
+    output_file_path = os.path.join(DATASET_DIR, '%s-%s.%s' % (data_source, variable_name, ext))
+    os.path.exists(output_file_path) and os.remove(output_file_path)
+
+    if len(file_paths) == 1:
+        os.symlink(os.path.basename(file_path), output_file_path)
+
+    else:
+        if ext == 'nc':
+            cdo.Cdo().selall(input=sorted(file_paths), output=output_file_path, options='-f nc4')
+
+    baseline = (config['baseline'] == data_source)
+    create_data_source(data_source, organisation, author, year, article_url, baseline)
+
+    return 0
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv))

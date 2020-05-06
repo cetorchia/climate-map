@@ -1,13 +1,10 @@
 #!/bin/bash
 #
-# Work-in-progress: the goal is to have all
-# commands to load the desired data in the database.
+# Downloads the datasets from the internet and loads them
+# into the database and creates map tiles showing the climate colours.
+# And loads the geonames. And generates base map tiles.
 #
-# This will do everything from download the datasets from the
-# servers to creating map tiles showing the climate colours.
-#
-# TODO: Add temperature and precipitation datasets here. I did these
-# manually before I created this helper script.
+# (c) Carlos Emilio Torchia
 #
 
 if [ $# -gt 0 ]; then
@@ -16,57 +13,30 @@ if [ $# -gt 0 ]; then
 fi
 
 REPO=$(dirname "$0")/..
-
 cd $REPO
+
+source config/config.sh
+
+BASELINE=$(get_config_value 'baseline') || exit 1
+BASELINE_MEASUREMENTS=$(get_config_list $BASELINE 'measurements') || exit 1
+PROJECTION_MODELS=$(get_config_keys 'models') || exit 1
 
 #
 # Baseline datasets
 #
-
-# TerraClimate average temperature
-bin/get-dataset.py TerraClimate tmin
-bin/get-dataset.py TerraClimate tmax
-bin/transform-dataset.py datasets/TerraClimate19812010_tmin.nc tmin 1981 2010 TerraClimate
-bin/transform-dataset.py datasets/TerraClimate19812010_tmin.nc datasets/TerraClimate19812010_tmax.nc tavg 1981 2010 TerraClimate
-bin/tiles-from-dataset.py TerraClimate tavg 1981 2010
-
-# TerraClimate precipitation
-bin/get-dataset.py TerraClimate ppt
-bin/transform-dataset.py datasets/TerraClimate19812010_ppt.nc ppt 1981 2010 TerraClimate
-bin/tiles-from-dataset.py TerraClimate precip 1981 2010
-
-# TerraClimate potential evapotranspiration
-bin/get-dataset.py TerraClimate pet
-bin/transform-dataset.py datasets/TerraClimate19812010_pet.nc pet 1981 2010 TerraClimate
-bin/tiles-from-dataset.py TerraClimate potet 1981 2010
-
-# TerraClimate elevation
-bin/get-dataset.py TerraClimate elevation
-bin/load-nontemporal-data.py --ignore-scale-factor datasets/terraclim_dem.nc elevation TerraClimate
+for MEASUREMENT in $BASELINE_MEASUREMENTS; do
+    bin/update-dataset.sh $BASELINE $MEASUREMENT || exit $?
+done
 
 #
 # Model datasets
 #
-
-# CNRM potential evapotranspiration
-bin/get-dataset.py CNRM-CM6-1-HR.historical evspsblpot
-bin/transform-dataset.py datasets/evspsblpot_Emon_CNRM-CM6-1-HR_historical_r1i1p1f2_gr_185001-201412.nc evspsblpot 1981 2010 CNRM-CM6-1-HR.historical
-
-bin/get-dataset.py CNRM-CM6-1-HR.ssp245 evspsblpot
-bin/transform-dataset.py datasets/evspsblpot_Emon_CNRM-CM6-1-HR_ssp245_r1i1p1f2_gr_201501-210012.nc evspsblpot 2015 2045 CNRM-CM6-1-HR.ssp245
-bin/transform-dataset.py datasets/evspsblpot_Emon_CNRM-CM6-1-HR_ssp245_r1i1p1f2_gr_201501-210012.nc evspsblpot 2045 2075 CNRM-CM6-1-HR.ssp245
-bin/calibrate-dataset.py TerraClimate CNRM-CM6-1-HR.historical CNRM-CM6-1-HR.ssp245 potet 1981-2010 2015-2045
-bin/calibrate-dataset.py TerraClimate CNRM-CM6-1-HR.historical CNRM-CM6-1-HR.ssp245 potet 1981-2010 2045-2075
-bin/tiles-from-dataset.py --calibrated CNRM-CM6-1-HR.ssp245 potet 2015 2045
-bin/tiles-from-dataset.py --calibrated CNRM-CM6-1-HR.ssp245 potet 2045 2075
-
-bin/get-dataset.py CNRM-CM6-1-HR.ssp585 evspsblpot
-bin/transform-dataset.py datasets/evspsblpot_Emon_CNRM-CM6-1-HR_ssp585_r1i1p1f2_gr_201501-210012.nc evspsblpot 2015 2045 CNRM-CM6-1-HR.ssp585
-bin/transform-dataset.py datasets/evspsblpot_Emon_CNRM-CM6-1-HR_ssp585_r1i1p1f2_gr_201501-210012.nc evspsblpot 2045 2075 CNRM-CM6-1-HR.ssp585
-bin/calibrate-dataset.py TerraClimate CNRM-CM6-1-HR.historical CNRM-CM6-1-HR.ssp585 potet 1981-2010 2015-2045
-bin/calibrate-dataset.py TerraClimate CNRM-CM6-1-HR.historical CNRM-CM6-1-HR.ssp585 potet 1981-2010 2045-2075
-bin/tiles-from-dataset.py --calibrated CNRM-CM6-1-HR.ssp585 potet 2015 2045
-bin/tiles-from-dataset.py --calibrated CNRM-CM6-1-HR.ssp585 potet 2045 2075
+for MODEL in $PROJECTION_MODELS; do
+    MEASUREMENTS=$(get_config_list 'models' $MODEL 'measurements') || exit 1
+    for MEASUREMENT in $MEASUREMENTS; do
+        bin/update-dataset.sh $MODEL $MEASUREMENT || exit $?
+    done
+done
 
 #
 # Geonames database

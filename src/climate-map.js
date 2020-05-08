@@ -933,6 +933,9 @@ function updateSSPButton(data_source)
         showSSPButton();
         const ssp_img = document.getElementById('ssp-img');
         switch (ssp[0]) {
+            case '1':
+                ssp_img.src = '/ssp1.png';
+                break;
             case '2':
                 ssp_img.src = '/ssp2.png';
                 break;
@@ -994,29 +997,42 @@ function updateSSP(callback)
 {
     const data_source_select = document.getElementById('data-source');
     const data_source = data_source_select.value;
-    const [model, ssp] = data_source.split('.ssp');
+    const [selected_model, selected_ssp] = data_source.split('.ssp');
 
-    let new_data_source;
+    let ssp_idx = {};
 
-    switch (ssp[0]) {
+    for (let i = 0; i <= data_source_select.options.length - 1;  i++) {
+        const option = data_source_select.options[i];
+        const option_model = option.value.split('.', 1)[0];
+
+        if (option_model === selected_model) {
+            if (option.value.indexOf('.ssp') !== -1) {
+                const option_ssp = option.value.split('.ssp', 2)[1][0];
+                ssp_idx[option_ssp] = i;
+            }
+        }
+    }
+
+    const selected_idx = data_source_select.selectedIndex;
+    let new_data_source_idx;
+
+    switch (selected_ssp[0]) {
+        case '1':
+            new_data_source_idx = ssp_idx['2'] !== undefined ? ssp_idx['2'] : (ssp_idx['5'] !== undefined ? ssp_idx['5'] : selected_idx);
+            break;
         case '2':
-            new_data_source = model + '.ssp585';
+            new_data_source_idx = ssp_idx['5']!== undefined ? ssp_idx['5'] : (ssp_idx['1'] !== undefined ? ssp_idx['1'] : selected_idx);
             break;
         case '5':
-            new_data_source = model + '.ssp245';
+            new_data_source_idx = ssp_idx['1']!== undefined ? ssp_idx['1'] : (ssp_idx['2'] !== undefined ? ssp_idx['2'] : selected_idx);
             break;
         default:
             return;
     }
 
-    for (let i = 0; i <= data_source_select.options.length - 1;  i++) {
-        const option = data_source_select.options[i];
-        if (option.value == new_data_source) {
-            data_source_select.selectedIndex = i;
-            callback();
-            return;
-        }
-    }
+    data_source_select.selectedIndex = new_data_source_idx;
+
+    callback();
 }
 
 /**

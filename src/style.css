@@ -14,7 +14,7 @@ body {
 #filter-container.map-window {
     top: 73px;
     min-height: 100px;
-    width: 360px;
+    width: 370px;
     padding-top: 10px;
     z-index: 1001;
 }

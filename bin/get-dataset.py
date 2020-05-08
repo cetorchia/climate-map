@@ -132,6 +132,8 @@ def create_data_source(data_source_code, organisation, author, year, url, baseli
 
         if scenario == 'ssp245':
             name = model + ' middle of the road'
+        elif scenario == 'ssp126':
+            name = model + ' sustainability'
         elif scenario == 'ssp585':
             name = model + ' fossil fueled development'
         else:
@@ -247,6 +249,8 @@ def main(args):
 
     variable_name, data_source, frequency = get_args(args)
 
+    print(data_source, variable_name)
+
     config = load_config()
 
     if data_source in config:
@@ -281,6 +285,7 @@ def main(args):
     os.path.exists(output_file_path) and os.remove(output_file_path)
 
     if len(file_paths) == 1:
+        file_path = file_paths[0]
         os.symlink(os.path.basename(file_path), output_file_path)
 
     else:

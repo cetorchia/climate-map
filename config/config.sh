@@ -3,7 +3,7 @@
 # Functions to retrieve values from config.
 #
 
-CONFIG_FILE='config/config-update.yaml'
+CONFIG_FILE=${1:-config/config-update.yaml}
 
 function get_config_value {
     INDEX=

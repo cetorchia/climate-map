@@ -327,7 +327,7 @@ def fetch_date_ranges_by_data_source_id(data_source_id):
         '''
         SELECT start_date, end_date FROM datasets
         WHERE data_source_id = %s
-        AND NOT (start_date = DATE(FROM_UNIXTIME(0)) AND end_date = DATE(FROM_UNIXTIME(0)))
+        AND NOT (start_date IS NULL AND end_date IS NULL)
         ORDER BY start_date, end_date
         ''',
         (data_source_id,)
@@ -363,7 +363,7 @@ def fetch_date_ranges():
         FROM datasets d
         INNER JOIN data_sources s ON s.id = d.data_source_id
         WHERE s.active
-        AND NOT (start_date = DATE(FROM_UNIXTIME(0)) AND end_date = DATE(FROM_UNIXTIME(0)))
+        AND NOT (start_date IS NULL AND end_date IS NULL)
         GROUP BY 1, 2
         ORDER BY 1, 2
         '''
@@ -414,11 +414,15 @@ def fetch_dataset(data_source_id, measurement_id, unit_id, start_date, end_date,
             lon_filename
         FROM datasets
         WHERE data_source_id = %s
-        AND measurement_id = %s AND unit_id = %s
-        AND start_date = %s AND end_date = %s
+        AND measurement_id = %s
+        AND unit_id = %s
         AND calibrated = %s
-        ''',
-        (data_source_id, measurement_id, unit_id, start_date, end_date, calibrated)
+        '''
+        + ('AND start_date = %s' if start_date else 'AND start_date IS NULL') + ' '
+        + ('AND end_date = %s' if end_date else 'AND end_date IS NULL'),
+        (data_source_id, measurement_id, unit_id, calibrated)
+        + ((start_date,) if start_date else ())
+        + ((end_date,) if end_date else ())
     )
     row = db.cur.fetchone()
 
@@ -593,9 +597,7 @@ def fetch_dataset_by_measurement_id(data_source_id, measurement_id, unit_id):
     against some other dataset. In this case there should be at most one
     such dataset.
     '''
-    epoch = date.fromtimestamp(0)
-
-    return fetch_dataset(data_source_id, measurement_id, unit_id, start_date=epoch, end_date=epoch, calibrated=False)
+    return fetch_dataset(data_source_id, measurement_id, unit_id, start_date=None, end_date=None, calibrated=False)
 
 def create_coord_memmap(coord_pathname, coord_arr):
     '''
@@ -910,8 +912,8 @@ def save_nontemporal_data(lat_arr, lon_arr, units, data_arr, measurement, data_s
 
     # Set start and end date to the epoch. In reality no start or end
     # date are associated.
-    start_date = date.fromtimestamp(0)
-    end_date = date.fromtimestamp(0)
+    start_date = None
+    end_date = None
 
     calibrated = False
 

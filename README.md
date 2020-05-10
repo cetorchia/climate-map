@@ -488,7 +488,7 @@ for the zoom level is `2^z - 1`. For example, to request the one tile at zoom le
 The deploy script is used to send files to the server. SSH is used.
 
 ```
-bin/deploy.sh myclimatemap.org
+bin/deploy.sh myclimatemap.org --code
 bin/deploy.sh myclimatemap.org --tiles
 bin/deploy.sh myclimatemap.org --data
 ```
@@ -506,6 +506,13 @@ Next, build the javascript.
 
 ```
 bin/deploy.sh myclimatemap.org --build
+```
+
+You can also deploy other things, see the usage for full details.
+
+```
+bin/deploy.sh myclimatemap.org --geonames
+bin/deploy.sh myclimatemap.org --map-tiles
 ```
 
 ## Database setup

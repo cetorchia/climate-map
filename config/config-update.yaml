@@ -83,3 +83,29 @@ models:
       - tmin
       - precip
       - potet
+
+  BCC-CSM2-MR:
+    experiments:
+      - ssp126
+      - ssp245
+      - ssp585
+    date_ranges:
+      - '2021-2050'
+      - '2061-2090'
+    measurements:
+      - tavg
+      - tmin
+      - precip
+
+  GISS-E2-1-G:
+    experiments:
+      - ssp126
+      - ssp245
+      - ssp585
+    date_ranges:
+      - '2021-2050'
+      - '2061-2090'
+    measurements:
+      - tavg
+      - tmin
+      - precip

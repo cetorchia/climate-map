@@ -26,7 +26,7 @@ case $MEASUREMENT in
         ;;
 esac
 
-source config/config.sh
+source config/config.sh config/config-update.yaml
 
 if [ -n "$(get_config_value $MODEL 2>&-)" ]; then
     DATE_RANGES=$(get_config_value $MODEL 'date_range') || exit 1

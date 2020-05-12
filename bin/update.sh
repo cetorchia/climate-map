@@ -15,7 +15,7 @@ fi
 REPO=$(dirname "$0")/..
 cd $REPO
 
-source config/config.sh
+source config/config.sh config/config-update.yaml
 
 BASELINE=$(get_config_value 'baseline') || exit 1
 BASELINE_MEASUREMENTS=$(get_config_list $BASELINE 'measurements') || exit 1

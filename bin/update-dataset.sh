@@ -19,7 +19,7 @@ FREQUENCY="$3"
 REPO=$(dirname "$0")/..
 cd $REPO
 
-source config/config.sh
+source config/config.sh config/config-update.yaml
 
 case $MODEL in
     TerraClimate)

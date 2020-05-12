@@ -190,8 +190,9 @@ def climates_of_places(data_source, start_year, end_year, measurement, period):
 
                     try:
                         actual_lat, actual_lon, normals_arr = fetch_normals_by_location(dataset, lat, lon, False)
-                        mean = normals_arr[months].mean()
-                        geoname[measurement] = [mean, units]
+                        if not np.ma.is_masked(normals_arr[months]):
+                            mean = normals_arr[months].mean()
+                            geoname[measurement] = [mean, units]
 
                     except climatedb.NotFoundError:
                         # Presumably the place is in the ocean where there is no data.

@@ -728,8 +728,8 @@ def fetch_monthly_normals(dataset_record, lat, lon):
 
     normals_arr = np.ma.masked_values(data_mmap[:, lat_i, lon_i], dataset_record['fill_value'])
 
-    if np.all(normals_arr.mask):
-        raise NotFoundError('No data at %g, %g' % (actual_lat, actual_lon))
+    if np.ma.is_masked(normals_arr):
+        raise NotFoundError('Some months missing data at %g, %g' % (actual_lat, actual_lon))
 
     return actual_lat, actual_lon, normals_arr.astype(FETCH_DTYPE)
 

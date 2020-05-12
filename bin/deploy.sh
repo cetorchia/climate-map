@@ -66,15 +66,15 @@ function copy_tables {
 
 cd $REPO
 
+if [ $COPY_TILES ]; then
+    $RSYNC tiles "$DESTINATION" || exit 1
+fi
+
 if [ $COPY_DATA ]; then
     $RSYNC --exclude=data/*-calibrated-* data "$DESTINATION" || exit 1
     if [ $(read -p 'Copy database tables? [y/n]' A && echo $A) == 'y' ]; then
         copy_tables data_sources datasets measurements units || exit 1
     fi
-fi
-
-if [ $COPY_TILES ]; then
-    $RSYNC tiles "$DESTINATION" || exit 1
 fi
 
 if [ $COPY_MAP_TILES ]; then

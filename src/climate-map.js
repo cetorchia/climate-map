@@ -1737,6 +1737,30 @@ function updateUnitsButton(units)
 }
 
 /**
+ * Loads the About HTML.
+ */
+async function loadAboutHtml()
+{
+    const {default: about_html} = await import(/* webpackChunkName: "about" */ '../html/about.html');
+
+    const div = document.getElementById('about-text');
+
+    div.innerHTML += '\n' + about_html;
+
+    displaySupportContact();
+}
+
+/**
+ * Display the support contact.
+ */
+function displaySupportContact()
+{
+    const support_contact = getContact('support');
+    document.getElementById('support-contact').innerHTML =
+        '<a href="mailto:' + support_contact + '">' + support_contact + '</a>';
+}
+
+/**
  * Loads the climate map.
  */
 window.onload = async function() {
@@ -1800,6 +1824,8 @@ window.onload = async function() {
 
     APP.units = window.localStorage.getItem('units') ? window.localStorage.getItem('units') : 'metric';
     updateUnitsButton(APP.units);
+
+    loadAboutHtml();
 
 
     const data_source_select = document.getElementById('data-source');
@@ -2014,11 +2040,4 @@ window.onload = async function() {
             goToPageState(e.state);
         }
     };
-
-    /**
-     * Display the support contact.
-     */
-    const support_contact = getContact('support');
-    document.getElementById('support-contact').innerHTML =
-        '<a href="mailto:' + support_contact + '">' + support_contact + '</a>';
 };

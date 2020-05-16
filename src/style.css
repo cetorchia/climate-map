@@ -91,8 +91,18 @@ body {
     top: 10px;
     padding-top: 10px;
     bottom: 78px;
+    width: 400px;
     z-index: 1001;
     overflow-y: scroll;
+}
+
+.help-point {
+    clear: both;
+    padding: 5px;
+}
+
+.help-point img {
+    float: left;
 }
 
 #legend {

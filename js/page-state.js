@@ -9,6 +9,7 @@
 import { loadLocationClimate, hideClimateCharts } from './charts.js';
 import { doSearch } from './search.js';
 
+import CONFIG from '../config/config.json';
 import APP from './app.js';
 
 import { APP_URL, DEFAULT_PAGE_TITLE } from './app.js';
@@ -54,7 +55,7 @@ export function goToPageState(state)
 {
     if (state.lat !== null && state.lon !== null) {
         loadLocationClimate(state.lat, state.lon, state.location).then(function() {
-            APP.climate_map.setView([state.lat, state.lon], APP.climate_map.options.maxZoom);
+            APP.climate_map.setView([state.lat, state.lon], CONFIG.search_zoom);
         });
     } else if (state.location !== null) {
         doSearch(state.location).then(([lat, lon, location_title]) => {

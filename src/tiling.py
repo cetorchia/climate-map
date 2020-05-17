@@ -14,6 +14,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import cv2
+import re
 
 import climatedb
 import arrays
@@ -44,6 +45,9 @@ MAP_EXTENT = (
 
 WATERMARK_IMAGE = os.path.join(os.path.dirname(os.path.dirname(__file__)), config.images.watermark.filename)
 WATERMARK_OPACITY = config.images.watermark.opacity
+
+# This pattern ensures tile paths are sanitized against hacking
+FILE_PATH_PART_RE = re.compile('^[A-Za-z0-9\-\+_]+(\.[A-Za-z0-9\-\+_]+)?$')
 
 if (MAX_ZOOM_LEVEL + 1) % ZOOM_LEVELS_PER_TILE != 0:
     raise Exception('The number of zoom levels, which is %d, must be divisible by the number of zoom levels per tile, which is %d.' % (MAX_ZOOM_LEVEL + 1, ZOOM_LEVELS_PER_TILE))
@@ -445,7 +449,9 @@ def build_path(*parts):
             return None
         elif part.find(os.sep) != -1:
             return None
-        elif path.find('..') != -1:
+        elif part.find('..') != -1:
+            return None
+        elif not FILE_PATH_PART_RE.search(part):
             return None
         elif part not in os.listdir(path):
             return None

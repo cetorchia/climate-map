@@ -16,8 +16,8 @@ import climatedb
 app = Flask(__name__)
 
 climatedb.connect()
-
 ALLOWED_MEASUREMENTS = climatedb.fetch_measurements()
+climatedb.close()
 
 ALLOWED_PERIODS = [
     '12_01_02',

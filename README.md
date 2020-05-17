@@ -154,19 +154,7 @@ server {
     }
 
     location /location {
-        rewrite ^/location/([^/]+)$ /index.html?location=$1 last;
         rewrite ^/location/ /index.html last;
-    }
-
-    location /index.html {
-        if ($arg_location) {
-            set $title "Climate of $arg_location";
-        }
-        if ($arg_location = "") {
-            set $title "Climate Map";
-        }
-        sub_filter "<title>Climate Map</title>" "<title>$title</title>";
-        sub_filter "<meta name=\"description\" content=\"Climate map showing past and future temperature and precipitation\">" "<meta name=\"description\" content=\"$title\">";
     }
 ```
 

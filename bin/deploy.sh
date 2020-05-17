@@ -89,6 +89,9 @@ if [ $COPY_CODE ]; then
     $RSYNC --exclude=__pycache__ src "$DESTINATION" || exit 1
     $RSYNC --exclude=public/*bundle.js public/*.* "$DESTINATION" || exit 1
     $RSYNC --exclude=images/*.xcf images "$DESTINATION" || exit 1
+    $RSYNC html "$DESTINATION" || exit 1
+    $RSYNC js "$DESTINATION" || exit 1
+    $RSYNC css "$DESTINATION" || exit 1
     $RSYNC sql "$DESTINATION" || exit 1
     $RSYNC package.json webpack.config.js "$DESTINATION" || exit 1
     $RSYNC config/config.yaml.example "$DESTINATION" || exit 1

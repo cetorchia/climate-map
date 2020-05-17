@@ -2,7 +2,7 @@ const path = require('path');
 
 module.exports = {
     entry: {
-        'climate-map': './src/climate-map.js',
+        'main': './js/main.js',
     },
     output: {
         filename: '[name].bundle.js?hash=[chunkhash]',

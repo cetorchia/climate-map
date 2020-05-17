@@ -31,7 +31,7 @@ npm install mapbox-gl
 npm install mapbox-gl-leaflet
 ```
 
-Uncommon the following lines in `src/climate-map.js`:
+Uncommon the following lines in `js/main.js`:
 
 ```
 /* Enable this if you want to use mapboxGL */

@@ -88,7 +88,7 @@ fi
 if [ $COPY_CODE ]; then
     $RSYNC --exclude=__pycache__ src "$DESTINATION" || exit 1
     $RSYNC --exclude=public/*bundle.js public/*.* "$DESTINATION" || exit 1
-    $RSYNC --exclude=images/*.xcf images "$DESTINATION" || exit 1
+    $RSYNC --exclude=images/src images "$DESTINATION" || exit 1
     $RSYNC html "$DESTINATION" || exit 1
     $RSYNC js "$DESTINATION" || exit 1
     $RSYNC css "$DESTINATION" || exit 1

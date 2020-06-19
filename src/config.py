@@ -17,7 +17,7 @@ def _load():
     config_file = os.path.join(config_dir, CONFIG_FILENAME)
 
     with open(config_file, 'r') as f:
-        yaml_data = yaml.load(f)
+        yaml_data = yaml.load(f, Loader=yaml.SafeLoader)
 
     return yaml_data
 

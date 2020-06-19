@@ -50,7 +50,7 @@ def load_config():
     config_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), CONFIG_FILENAME)
 
     with open(config_file, 'r') as f:
-        yaml_data = yaml.load(f)
+        yaml_data = yaml.load(f, Loader=yaml.SafeLoader)
 
     return yaml_data
 

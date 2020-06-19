@@ -186,7 +186,7 @@ chdir = /path/to/climate-map
 pythonpath = /path/to/climate-map/src
 wsgi-file = src/climatapi.py
 callable = app
-http = 127.0.0.1:5000
+http-socket = :5000         # Replace with http = 127.0.0.1:5000 for Ubuntu 18.04
 processes = 3
 ```
 
@@ -200,7 +200,7 @@ chdir = /path/to/climate-map
 pythonpath = /path/to/climate-map/src
 wsgi-file = src/tile-api.py
 callable = app
-http = 127.0.0.1:5001
+http-socket = :5001         # Replace with http = 127.0.0.1:5001 for Ubuntu 18.04
 processes = 3
 disable-logging = True
 ```

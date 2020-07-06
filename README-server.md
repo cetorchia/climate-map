@@ -148,6 +148,13 @@ sudo iptables -P FORWARD DROP
 sudo iptables -P OUTPUT DROP
 ```
 
+To save the rules, you can install `iptables-persistent` and this will
+ask if you want to save the current rules.
+
+```
+sudo apt-get install iptables-persistent
+```
+
 ## Set up packages
 
 In addition to what's in [README.md](README.md), the following packages
@@ -173,3 +180,19 @@ APT::Periodic::Unattended-Upgrade "1";
 
 To be sure of the above, see the full documentation at
 [Automatic Updates](https://help.ubuntu.com/lts/serverguide/automatic-updates.html).
+
+### Automatic restarts
+
+Also be sure to automatically restart the server every so often in case
+some updates require a restart. It is wise to do this when few people would
+be using the server.
+
+```
+sudo crontab -e
+```
+
+In the crontab, put:
+
+```
+0 5 * * sun /sbin/shutdown -r now
+```

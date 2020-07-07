@@ -16,7 +16,7 @@ function get_config_value {
     python3 -c "
 import yaml
 with open('$CONFIG_FILE') as f:
-    print(yaml.load(f)$INDEX)
+    print(yaml.load(f, Loader=yaml.SafeLoader)$INDEX)
     "
 }
 
@@ -31,7 +31,7 @@ function get_config_list {
     python3 -c "
 import yaml
 with open('$CONFIG_FILE') as f:
-    print(' '.join(yaml.load(f)$INDEX))
+    print(' '.join(yaml.load(f, Loader=yaml.SafeLoader)$INDEX))
     "
 }
 
@@ -46,6 +46,6 @@ function get_config_keys {
     python3 -c "
 import yaml
 with open('$CONFIG_FILE') as f:
-    print(' '.join(yaml.load(f)$INDEX.keys()))
+    print(' '.join(yaml.load(f, Loader=yaml.SafeLoader)$INDEX.keys()))
     "
 }

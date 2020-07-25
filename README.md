@@ -88,6 +88,16 @@ SET PASSWORD FOR climate_map = PASSWORD('a_mKWpF60'); -- Change this!
 Specify the database connection details in the `config/config.yaml`
 file. See `config/config.yaml.example`.
 
+You should also specify database connection details in your `.my.cnf`
+in order to be able to use the `mysql` command-line client to access
+the database. Paste the following in `~/.my.cnf`:
+
+```
+[client]
+user = climate_map
+password = <password>
+```
+
 You then need to import climate datasets into this database. See the
 [Data transformation](#data-transformation) section.
 
@@ -521,6 +531,16 @@ mysql> \. climate_map.sql
 ```
 
 Again, make sure to **change the password** of the climate_map user for security!
+
+You also need to specify the connection details for the `mysql` command-line
+client on the server, because the `deploy.sh` script uses it. Paste the following
+into `~/.my.cnf` on the web server in the `climatemap` user's home directory:
+
+```
+[client]
+user = climate_map
+password = <password>
+```
 
 ## Nginx
 

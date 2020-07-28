@@ -24,32 +24,32 @@
         <Rule>
             <MaxScaleDenominator>50000000</MaxScaleDenominator>
             <Filter>[pop_max] &gt;= 5000000 or ([adm0cap] = 1 and [pop_max] &gt;= 100000)</Filter>
-            <TextSymbolizer size="12" fill="black" fontset-name="book-fonts">[name]</TextSymbolizer>
+            <TextSymbolizer size="16" fill="black" fontset-name="book-fonts">[name]</TextSymbolizer>
         </Rule>
         <Rule>
             <MaxScaleDenominator>30000000</MaxScaleDenominator>
             <Filter>[pop_max] &gt;= 1000000 or [adm0cap] = 1</Filter>
-            <TextSymbolizer size="12" fill="black" fontset-name="book-fonts">[name]</TextSymbolizer>
+            <TextSymbolizer size="16" fill="black" fontset-name="book-fonts">[name]</TextSymbolizer>
         </Rule>
         <Rule>
             <MaxScaleDenominator>10000000</MaxScaleDenominator>
             <Filter>[pop_max] &gt;= 100000 or [adm0cap] = 1</Filter>
-            <TextSymbolizer size="12" fill="black" fontset-name="book-fonts">[name]</TextSymbolizer>
+            <TextSymbolizer size="14" fill="black" fontset-name="book-fonts">[name]</TextSymbolizer>
         </Rule>
         <Rule>
             <MaxScaleDenominator>5000000</MaxScaleDenominator>
             <Filter>[pop_max] &gt;= 10000 or [adm0cap] = 1</Filter>
-            <TextSymbolizer size="12" fill="black" fontset-name="book-fonts">[name]</TextSymbolizer>
+            <TextSymbolizer size="14" fill="black" fontset-name="book-fonts">[name]</TextSymbolizer>
         </Rule>
         <Rule>
             <MaxScaleDenominator>1000000</MaxScaleDenominator>
-            <TextSymbolizer size="12" fill="black" fontset-name="book-fonts">[name]</TextSymbolizer>
+            <TextSymbolizer size="14" fill="black" fontset-name="book-fonts">[name]</TextSymbolizer>
         </Rule>
     </Style>
 
     <Style name="land">
         <Rule>
-            <PolygonSymbolizer fill="#f2eff9" />
+            <PolygonSymbolizer fill="#fcfcfc" />
         </Rule>
     </Style>
 
@@ -98,13 +98,13 @@
         <Rule>
             <MaxScaleDenominator>10000000</MaxScaleDenominator>
             <MinScaleDenominator>5000000</MinScaleDenominator>
-            <TextSymbolizer size="14" fill="#777" fontset-name="oblique-fonts">[name]</TextSymbolizer>
+            <TextSymbolizer size="12" fill="#777" fontset-name="oblique-fonts">[name]</TextSymbolizer>
         </Rule>
     </Style>
 
     <Style name="country-borders">
         <Rule>
-            <LineSymbolizer stroke="#333" stroke-width="0.5" />
+            <LineSymbolizer stroke="#111" stroke-width="0.5" />
         </Rule>
     </Style>
 

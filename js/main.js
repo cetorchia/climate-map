@@ -95,12 +95,12 @@ function updateTilesAndChart()
 }
 
 /**
- * Updates the description tooltip to give the user
+ * Updates the description caption to give the user
  * an idea about what they're seeing.
  */
-function updateDescriptionTooltip(period, measurement, date_range)
+function updateDescriptionCaption(period, measurement, date_range)
 {
-    const tooltip = document.getElementById('description-tooltip');
+    const container = document.getElementById('description-container');
     const period_label = getPeriodLabel(period);
     const measurement_label = getMeasurementLabel(measurement);
     let text = period_label + ' ' + measurement_label + ', ' + date_range;
@@ -109,7 +109,7 @@ function updateDescriptionTooltip(period, measurement, date_range)
         text = 'Average ' + text;
     }
 
-    tooltip.textContent = text;
+    container.textContent = text;
 }
 
 /**
@@ -166,7 +166,7 @@ window.onload = async function() {
             APP.climate_tile_layer = createClimateTileLayer().addTo(APP.climate_map);
             updateClimatesOfPlaces();
             highlightMeasurementButton(measurement_select.value);
-            updateDescriptionTooltip(period_select.value, measurement_select.value, date_range_select.value);
+            updateDescriptionCaption(period_select.value, measurement_select.value, date_range_select.value);
             updateLegend(measurement_select.value, APP.units);
             goToURL(document.location.pathname); 
         });
@@ -197,7 +197,7 @@ window.onload = async function() {
                 if (!getLastDataSource(data_source_select)) {
                     updateLastDataSource(data_source_select);
                 }
-                updateDescriptionTooltip(period_select.value, measurement_select.value, date_range_select.value);
+                updateDescriptionCaption(period_select.value, measurement_select.value, date_range_select.value);
             }
         );
     });
@@ -210,7 +210,7 @@ window.onload = async function() {
     measurement_select.addEventListener('change', function() {
         populateDataSources(data_source_select, date_range_select, measurement_select).then(change_data_source).then(
             function() {
-                updateDescriptionTooltip(period_select.value, measurement_select.value, date_range_select.value);
+                updateDescriptionCaption(period_select.value, measurement_select.value, date_range_select.value);
             }
         );
     });
@@ -220,7 +220,7 @@ window.onload = async function() {
      */
     period_select.onchange = function() {
         updateClimateTileLayer(APP.climate_tile_layer);
-        updateDescriptionTooltip(period_select.value, measurement_select.value, date_range_select.value);
+        updateDescriptionCaption(period_select.value, measurement_select.value, date_range_select.value);
         updateClimatesOfPlaces();
     };
 

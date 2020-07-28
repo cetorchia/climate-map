@@ -1,7 +1,10 @@
+html {
+    font: 12pt sans-serif;
+}
+
 body {
     padding: 0;
     margin: 0;
-    font: 10pt sans-serif;
     height: 100%;
     overflow: hidden;
 }
@@ -12,24 +15,22 @@ body {
 }
 
 #filter-container.map-window {
-    top: 73px;
+    top: 5.3rem;
     min-height: 100px;
-    width: 370px;
-    padding-top: 10px;
+    width: 27rem;
     z-index: 1001;
 }
 
 #filter-button.map-button {
-    top: 75px;
-    height: 30px;
-    padding-top: 0;
+    top: 5.3rem;
+    height: 2rem;
+    padding-top: 0.2rem;
 }
 
 #location-climate.map-window {
-    top: 11px;
-    width: 450px;
-    left: 50px;
-    bottom: 78px;
+    top: 0.4rem;
+    width: 40em;
+    bottom: 16vh;
     overflow-y: scroll;
 }
 
@@ -41,57 +42,57 @@ body {
 }
 
 #search-expand-button.map-button {
-    top: 110px;
+    top: 7.9rem;
 }
 
 #search-container.map-window {
-    top: 109px;
-    height: 40px;
-    max-width: 290px;
+    top: 7.9rem;
+    max-width: 17rem;
     padding: 5px;
     z-index: 1001;
 }
 
 #temperature-button.map-button {
-    top: 145px;
+    top: 10.5rem;
     color: #f44;
 }
 
 #precipitation-button.map-button {
-    top: 180px;
+    top: 13rem;
     color: #44e;
 }
 
 #potet-button.map-button {
-    top: 215px;
+    top: 15.5rem;
 }
 
 #ssp-button.map-button {
-    top: 250px;
-    padding-left: 3px;
-    width: 28px;
+    top: 15.5rem;
+    padding-left: 0.3rem;
 }
 
 #units-button.map-button {
-    top: 250px;
-    padding-top: 6px;
-    font-size: 16px;
-    height: 23px;
+    top: 18.1rem;
+    padding-top: 0.5rem;
+    font-size: 1rem;
+    height: 1.7rem;
+    padding-left: 0.5rem;
+    width: 1.8rem;
 }
 
 #about-button.map-button {
-    top: 285px;
+    top: 20.6rem;
 }
 
 #about-question-mark {
-    margin-left: 5px;
+    margin-left: 0.3rem;
 }
 
 #about.map-window {
-    top: 10px;
-    padding-top: 10px;
-    bottom: 78px;
-    width: 400px;
+    top: 0.4rem;
+    bottom: 10vh;
+    width: 30rem;
+    padding-top: 0;
     z-index: 1001;
     overflow-y: scroll;
 }
@@ -108,18 +109,25 @@ body {
 #legend {
     z-index: 1000;
     position: absolute;
-    top: 330px;
-    left: 14px;
+    top: 23.3rem;
+    left: 0.4rem;
+}
+
+#legend > img {
+    width: 2.4rem;
 }
 
 #error-container.map-window {
     z-index: 1005;
     padding: 10px;
     position: absolute;
-    top: 10px;
-    left: 25vw;
-    max-width: 55vw;
-    width: auto;
+    top: 0.4rem;
+    left: 0;
+    right: 0;
+    margin-left: auto;
+    margin-right: auto;
+    max-width: 65vw;
+    width: 30rem;
     text-align: center;
     background: #ebb;
 }
@@ -132,12 +140,12 @@ body {
 }
 
 .map-window {
-    left: 45px;
+    left: 3rem;
     position: absolute;
     max-width: 75vw;
-    width: 340px;
+    width: 40rem;
     max-height: 90vh;
-    padding: 15px;
+    padding: 0.7rem;
     border-left: 1px solid #aaa;
     background-color: #fff;
     border: 1px solid #ccc;
@@ -151,15 +159,15 @@ body {
  */
 .map-button {
     position: absolute;
-    left: 10px;
+    left: 0.4rem;
     display: inline-block;
     cursor: pointer;
-    font-size: 20px;
+    font-size: 15pt;
     background-color: #fff;
-    padding-left: 5px;
-    padding-top: 3px;
-    width: 26px;
-    height: 26px;
+    padding-left: 0.4rem;
+    padding-top: 0.4rem;
+    width: 1.8rem;
+    height: 1.8rem;
     border-radius: 4px;
     border: 2px solid rgba(0,0,0,0.2);
     z-index: 1000;
@@ -178,7 +186,7 @@ body {
     position: absolute;
     right: 4px;
     top: 2px;
-    padding: 2px;
+    padding: 0.2rem;
     border: 1px solid #444;
     border-radius: 3px;
     cursor: pointer;
@@ -190,7 +198,7 @@ body {
 }
 
 .container-close-large.container-close {
-    font-size: 13px;
+    font-size: 1rem;
     right: 0;
 }
 
@@ -198,17 +206,17 @@ body {
  * Hamburger courtesy https://www.w3schools.com/howto/howto_css_menu_icon.asp
  */
 .hamburger-bar1, .hamburger-bar2, .hamburger-bar3 {
-    width: 22px;
-    height: 2px;
+    width: 80%;
+    height: 0.12rem;
     background-color: #333;
-    margin: 6px 0;
+    margin: 0.4rem 0;
     transition: 0.4s;
 }
 
-/* Rotate first bar */
+/* Rotate the first bar */
 .hamburger-close .hamburger-bar1 {
-    -webkit-transform: rotate(-45deg) translate(-6px, 5px) ;
-    transform: rotate(-45deg) translate(-6px, 5px) ;
+    -webkit-transform: rotate(-45deg) translate(-25%, 240%) ;
+    transform: rotate(-45deg) translate(-25%, 240%);
 }
 
 /* Fade out the second bar */
@@ -216,10 +224,10 @@ body {
     opacity: 0;
 }
 
-/* Rotate last bar */
+/* Rotate the third bar */
 .hamburger-close .hamburger-bar3 {
-    -webkit-transform: rotate(45deg) translate(-6px, -6px) ;
-    transform: rotate(45deg) translate(-6px, -6px) ;
+    -webkit-transform: rotate(45deg) translate(-30%, -330%) ;
+    transform: rotate(45deg) translate(-30%, -330%);
 }
 
 /**
@@ -233,18 +241,18 @@ body {
     right:0;
     margin-left:auto;
     margin-right:auto;
-    bottom: 55px;
-    width: 150px;
+    bottom: 2.8em;
+    width: 15em;
     max-width: 50vw;
     z-index: 1000;
 }
 
 .slider {
     -webkit-appearance: none;
-    height: 7px;
+    height: 0.5em;
     width: 100%;
     border-radius: 5px;
-    background: #444;
+    background: #111;
     outline: none;
     opacity: 0.7;
     -webkit-transition: .2s;
@@ -258,16 +266,16 @@ body {
 .slider::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 15px;
-    height: 25px;
+    width: 1em;
+    height: 1.7em;
     border-radius: 3px;
     background: #000;
     cursor: pointer;
 }
 
 .slider::-moz-range-thumb {
-    width: 15px;
-    height: 25px;
+    width: 1em;
+    height: 1.7em;
     border-radius: 3px;
     background: #000;
     cursor: pointer;
@@ -276,22 +284,21 @@ body {
 /* Tooltip based on https://www.w3schools.com/howto/tryit.asp?filename=tryhow_css_tooltip */
 #date-range-slider-tooltip {
     z-index: 1001;
-    top: -10px;
-    left: 2px;
-    font-size: 120%;
+    top: -0.6em;
+    left: 0.1em;
 }
 
-#description-tooltip {
+#description-container {
     position:absolute;
     left:0;
     right:0;
     margin-left:auto;
     margin-right:auto;
     z-index: 1000;
-    bottom: 19px;
-    width: 400px;
-    height: 18px;
-    padding: 3px;
+    bottom: 0.4em;
+    width: 30rem;
+    height: 1.1rem;
+    padding: 0.3em;
 }
 
 .tooltip {
@@ -307,14 +314,14 @@ body {
     position: absolute;
     background-color: #000;
     color: #fff;
-    font-size: 8pt;
+    font-size: 12pt;
     text-align: center;
     padding: 5px;
     border-radius: 2px;
     border: 1px solid #333;
     visibility: hidden;
     max-width: 50vw;
-    left: 35px;
+    left: 3rem;
     opacity: 0;
     transition: opacity 0.3s;
 }
@@ -325,6 +332,46 @@ body {
 }
 
 #date-range-slider-container .tooltip-hover {
-    left: -70px;
-    bottom: -5px;
+    left: -6.6em;
+    bottom: -0.3rem;
+}
+
+/**
+ * Make Leaflet controls responsive to text zooming
+ * to improve accessibility.
+ */
+.leaflet-left .leaflet-control {
+    margin-left: 0.4rem !important;
+}
+
+.leaflet-top .leaflet-control {
+    margin-top: 0.4rem !important;
+}
+
+.leaflet-touch .leaflet-bar a {
+    width: 2.2rem !important;
+    height: 2.2rem !important;
+    line-height: 2.2rem !important;
+}
+
+.leaflet-touch .leaflet-control-zoom-in, .leaflet-touch .leaflet-control-zoom-out {
+    font-size: 18pt;
+}
+
+.leaflet-container .leaflet-control-attribution {
+    font-size: 11pt !important;
+}
+
+/* Inline #0 | https://climatemap/location/52.82932091031373/-131.92382812500003 */
+
+#error-container.map-window {
+  /* left: 25vw; */
+  /* max-width: 55vw; */
+  /* width: auto; */
+  left: 0;
+  max-width: 65vw;
+  width: 30rem;
+  right: 0;
+  margin-left: auto;
+  margin-right: auto;
 }

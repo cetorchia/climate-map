@@ -89,7 +89,9 @@ export async function fetchClimatesOfPlaces(data_source, date_range, measurement
         'max_lon=' + encodeURIComponent(max_lon);
 
     try {
-        return await fetchFromAPI(url);
+        let places = await fetchFromAPI(url);
+        hideError();
+        return places;
     } catch(err) {
         showError(PLACES_ERROR);
         throw err;

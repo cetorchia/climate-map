@@ -67,8 +67,9 @@ body {
 }
 
 #ssp-button.map-button {
-    top: 15.5rem;
+    top: 18.1rem;
     padding-left: 0.3rem;
+    width: 1.9rem;
 }
 
 #units-button.map-button {
@@ -77,7 +78,7 @@ body {
     font-size: 1rem;
     height: 1.7rem;
     padding-left: 0.5rem;
-    width: 1.8rem;
+    width: 1.7rem;
 }
 
 #about-button.map-button {

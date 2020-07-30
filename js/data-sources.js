@@ -159,9 +159,9 @@ function showSSPButton()
     const about_button = document.getElementById('about-button');
     const legend_div = document.getElementById('legend');
 
-    units_button.style.top = '16.8rem';
-    about_button.style.top = '18.9rem';
-    legend_div.style.top = '21rem';
+    units_button.style.top = '20.6rem';
+    about_button.style.top = '23.3rem';
+    legend_div.style.top = '26rem';
 }
 
 /**
@@ -177,9 +177,9 @@ function hideSSPButton()
     const about_button = document.getElementById('about-button');
     const legend_div = document.getElementById('legend');
 
-    units_button.style.top = '14.6rem';
-    about_button.style.top = '16.7rem';
-    legend_div.style.top = '18.9rem';
+    units_button.style.top = '18.1rem';
+    about_button.style.top = '20.6rem';
+    legend_div.style.top = '23.3rem';
 }
 
 /**

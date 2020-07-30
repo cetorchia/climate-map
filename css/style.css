@@ -362,16 +362,12 @@ body {
     font-size: 11pt !important;
 }
 
-/* Inline #0 | https://climatemap/location/52.82932091031373/-131.92382812500003 */
+.place-name > .place-name-text {
+    font-size: 1rem;
+    text-align: center;
+    display: inline-block;
+}
 
-#error-container.map-window {
-  /* left: 25vw; */
-  /* max-width: 55vw; */
-  /* width: auto; */
-  left: 0;
-  max-width: 65vw;
-  width: 30rem;
-  right: 0;
-  margin-left: auto;
-  margin-right: auto;
+.place-tooltip {
+  font-size: 1rem;
 }

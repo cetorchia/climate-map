@@ -20,33 +20,6 @@
         <Font face-name="DejaVu Sans Oblique" />
     </FontSet>
 
-    <Style name="populated-places">
-        <Rule>
-            <MaxScaleDenominator>50000000</MaxScaleDenominator>
-            <Filter>[pop_max] &gt;= 5000000 or ([adm0cap] = 1 and [pop_max] &gt;= 100000)</Filter>
-            <TextSymbolizer size="16" fill="black" fontset-name="book-fonts">[name]</TextSymbolizer>
-        </Rule>
-        <Rule>
-            <MaxScaleDenominator>30000000</MaxScaleDenominator>
-            <Filter>[pop_max] &gt;= 1000000 or [adm0cap] = 1</Filter>
-            <TextSymbolizer size="16" fill="black" fontset-name="book-fonts">[name]</TextSymbolizer>
-        </Rule>
-        <Rule>
-            <MaxScaleDenominator>10000000</MaxScaleDenominator>
-            <Filter>[pop_max] &gt;= 100000 or [adm0cap] = 1</Filter>
-            <TextSymbolizer size="14" fill="black" fontset-name="book-fonts">[name]</TextSymbolizer>
-        </Rule>
-        <Rule>
-            <MaxScaleDenominator>5000000</MaxScaleDenominator>
-            <Filter>[pop_max] &gt;= 10000 or [adm0cap] = 1</Filter>
-            <TextSymbolizer size="14" fill="black" fontset-name="book-fonts">[name]</TextSymbolizer>
-        </Rule>
-        <Rule>
-            <MaxScaleDenominator>1000000</MaxScaleDenominator>
-            <TextSymbolizer size="14" fill="black" fontset-name="book-fonts">[name]</TextSymbolizer>
-        </Rule>
-    </Style>
-
     <Style name="land">
         <Rule>
             <PolygonSymbolizer fill="#fcfcfc" />
@@ -98,7 +71,7 @@
         <Rule>
             <MaxScaleDenominator>10000000</MaxScaleDenominator>
             <MinScaleDenominator>5000000</MinScaleDenominator>
-            <TextSymbolizer size="12" fill="#777" fontset-name="oblique-fonts">[name]</TextSymbolizer>
+            <TextSymbolizer size="14" fill="#777" fontset-name="oblique-fonts">[name]</TextSymbolizer>
         </Rule>
     </Style>
 
@@ -275,14 +248,6 @@
         <Datasource>
             <Parameter name="type">shape</Parameter>
             <Parameter name="file">datasets/natural-earth/10m/cultural/ne_10m_airports.shp</Parameter>
-        </Datasource>
-    </Layer>
-
-    <Layer name="populated-places" srs="&srs4326;">
-        <StyleName>populated-places</StyleName>
-        <Datasource>
-            <Parameter name="type">shape</Parameter>
-            <Parameter name="file">datasets/natural-earth/10m/cultural/ne_10m_populated_places_simple.shp</Parameter>
         </Datasource>
     </Layer>
 

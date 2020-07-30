@@ -12,6 +12,6 @@ export const APP_URL = '/';
 export default {
     charts: {},
     climates_of_places: {
-        markers: [],
+        markers: null,
     },
 };

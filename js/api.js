@@ -12,7 +12,7 @@ const NOT_FOUND_ERROR_MESSAGE = 'Could not find the specified resource.';
 const API_ERROR_MESSAGE = 'An error occurred while fetching from the API.';
 const SEARCH_NOT_FOUND = 'Could not find the specified location.';
 const LOCATION_NOT_FOUND = 'Data at the specified location is unavailable.';
-const PLACES_ERROR = 'Could not retrieve places and all their climates.';
+const PLACES_ERROR = 'Could not retrieve places and all their climates.\nTry a different zoom level.';
 
 /**
  * Makes a request to the API.

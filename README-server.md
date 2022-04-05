@@ -179,7 +179,7 @@ APT::Periodic::Unattended-Upgrade "1";
 ```
 
 To be sure of the above, see the full documentation at
-[Automatic Updates](https://help.ubuntu.com/lts/serverguide/automatic-updates.html).
+[Automatic Updates](https://ubuntu.com/server/docs/package-management#heading--automatic-updates).
 
 ### Automatic restarts
 

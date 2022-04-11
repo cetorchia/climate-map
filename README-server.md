@@ -90,7 +90,7 @@ To make the server more secure, it is recommended to block irrelevant
 ports.
 
 Make sure that the firewall allows packets to port 80, 443, and your SSH
-port (usually 22). Port 5000 is necessary on loopback for the API server.
+port (usually 22 BUT CHECK). Port 5000 is necessary on loopback for the API server.
 
 ```
 sudo iptables -nL

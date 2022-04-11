@@ -99,7 +99,7 @@ sudo ufw status
 
 The following is an example iptables configuration. Be very careful when adding any
 `iptables` rules (including these) as you may unwittingly lock yourself out of
-the server.
+the server. REPLACE 22 with the port for SSH so you DON'T lock yourself out!
 
 ```
 sudo iptables -P INPUT ACCEPT

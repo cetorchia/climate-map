@@ -82,7 +82,8 @@ mysql -u root
 mysql -u climate_map
 \. sql/create-tables.sql
 \. sql/insert-meta-data.sql
-SET PASSWORD FOR climate_map = PASSWORD('a_mKWpF60'); -- Change this!
+SET PASSWORD FOR climate_map = PASSWORD('a_mKWpF60'); -- MySQL 5.7.5 or earlier
+ALTER USER 'climate_map' IDENTIFIED BY 'a_mKWpF60'; -- Change this! 5.7.6 or later
 ```
 
 Specify the database connection details in the `config/config.yaml`
